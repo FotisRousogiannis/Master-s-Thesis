@@ -1,0 +1,19 @@
+{
+  "name": "Robotic Arm (ROS 2 Jazzy)",
+  "dockerComposeFile": ["../software/docker/compose.yaml"],
+  "service": "dev",
+  "workspaceFolder": "/home/ubuntu/master-s-thesis",
+  "remoteUser": "ubuntu",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-vscode.cpptools",
+        "redhat.vscode-xml",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}

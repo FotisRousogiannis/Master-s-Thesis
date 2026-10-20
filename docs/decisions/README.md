@@ -23,6 +23,7 @@
 | [0007](0007-micro-ros-on-esp32.md) | micro-ROS στα ESP32 | Αποδεκτή | 2026-10-20 |
 | [0008](0008-camera-eye-to-hand.md) | Κάμερα RealSense D435if σταθερή (eye-to-hand) | Αποδεκτή | 2026-10-20 |
 | [0009](0009-provisional-kinematic-model.md) | Προσωρινό κινηματικό μοντέλο μέχρι το export από Fusion 360 | Αποδεκτή | 2026-10-20 |
+| [0010](0010-host-setup-docker-from-ubuntu.md) | Ρύθμιση host: Docker από τα αποθετήρια Ubuntu, Intel GPU, XWayland | Αποδεκτή | 2026-10-20 |
 
 ## Πρότυπο
 

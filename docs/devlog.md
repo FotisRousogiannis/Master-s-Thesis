@@ -16,8 +16,13 @@
   launch για RViz και tests δομής (ADR-0009). Τα tests περνούν εκτός ROS· δεν
   έχει δοκιμαστεί ακόμα μέσα στο Docker.
 
+- Εγκατάσταση στον υπολογιστή ανάπτυξης (Ubuntu 26.04, Lenovo Legion Y530) κατά
+  τον οδηγό `docs/setup/ubuntu.md`: αντικατάσταση snap Docker με `docker.io`
+  (ADR-0010), χτίσιμο image (6.66 GB), `colcon build` + 5/5 tests, το μοντέλο
+  εμφανίζεται στο RViz και κινείται. **Ορόσημο: περιβάλλον ανάπτυξης λειτουργικό.**
+
 **Επόμενα**
-- Οδηγός εγκατάστασης (Docker σε Ubuntu και Windows) και CI στο GitHub.
-- Πρώτη εκτέλεση στον υπολογιστή: build του image, `colcon build`, RViz.
+- CI στο GitHub (αυτόματο build + tests σε κάθε push).
+- `arm_bringup`: ros2_control με mock hardware, μετά Gazebo.
 - Export του CAD από το Fusion 360 (URDF + STL ανά σύνδεσμο).
 - Κατανομή αρθρώσεων ανά PCB όταν ολοκληρωθούν τα PCB.

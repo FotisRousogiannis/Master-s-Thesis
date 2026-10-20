@@ -165,7 +165,17 @@ docker compose exec dev bash
 - Τερματισμός: `docker compose down` (από τον φάκελο `software/docker`).
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
-_(εκκρεμεί)_
+```
+$ docker compose -f compose.yaml -f compose.gpu.yaml up -d
+ ✔ Container robotic-arm-dev  Started
+ubuntu@fotisrous-Lenovo-Legion-Y530-15ICH:~/master-s-thesis/software/ros2_ws$ echo $ROS_DISTRO
+jazzy
+$ ls ~/master-s-thesis
+LICENSE  NOTES.md  README.md  docs  software  test.txt  thesis
+```
+✅ Το container ξεκινά, το ROS 2 Jazzy φορτώνεται και το repo είναι προσαρτημένο.
+(Το `glxinfo` δεν υπήρχε στο image — προστέθηκε το `mesa-utils` στο Dockerfile.)
+
 
 ---
 
@@ -187,7 +197,13 @@ source install/setup.bash
   (γίνεται και αυτόματα σε κάθε νέο shell μέσω `~/.bashrc`).
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
-_(εκκρεμεί)_
+```
+Summary: 1 package finished [2.14s]
+...
+Summary: 5 tests, 0 errors, 0 failures, 0 skipped
+```
+✅ 4 tests δομής URDF + 1 ctest που περιβάλλει το pytest.
+
 
 ---
 
@@ -204,4 +220,6 @@ ros2 launch arm_description display.launch.py
 κινεί την αντίστοιχη άρθρωση.
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
-_(εκκρεμεί)_
+✅ Άνοιξαν RViz και Joint State Publisher· οι αρθρώσεις κινούνται με τις μπάρες.
+Το περιβάλλον λειτουργεί από άκρη σε άκρη: Docker → ROS 2 → γραφικά (XWayland, Intel GPU) → δικός μας κώδικας.
+

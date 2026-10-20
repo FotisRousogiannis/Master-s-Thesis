@@ -97,4 +97,6 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 ## Αποφάσεις / σημειώσεις
 - 2026-10-20: Αυτό το chat ορίζεται ως το επίσημο chat για τη διπλωματική.
 - 2026-10-20: Κλείδωσε η αρχιτεκτονική συστήματος (ADR-0001 έως 0009).
+- 2026-10-20: Περιβάλλον ανάπτυξης λειτουργικό στον υπολογιστή (Ubuntu 26.04, repo στο
+  `~/Desktop/Master-s-Thesis`) — οδηγός: `docs/setup/ubuntu.md`, ADR-0010.
 - Το LaTeX template εγκαταλείφθηκε — η εργασία γράφεται σε Word (υπόδειγμα ΠΠΣ).

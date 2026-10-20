@@ -12,10 +12,30 @@
 - **Τμήμα:** Ηλεκτρολόγων Μηχανικών και Μηχανικών Υπολογιστών, Πανεπιστήμιο Θεσσαλίας
 - **Ημερομηνία (εξώφυλλο):** 10/2026
 
-## Αρχεία
-- `Syggrafi_Diplomatikis_Ergasias_Word_PPS_Ypodeigma_July_2021.docx` — **το κείμενο
-  της διπλωματικής** (υπόδειγμα ΠΠΣ). Είναι το μοναδικό επίσημο αρχείο κειμένου.
+## Δομή repository (ADR-0003)
+- `thesis/Syggrafi_Diplomatikis_Ergasias_Word_PPS_Ypodeigma_July_2021.docx` — **το
+  κείμενο της διπλωματικής** (υπόδειγμα ΠΠΣ).
+- `software/` — `docker/` (περιβάλλον), `ros2_ws/` (ROS 2 packages), `firmware/` (ESP32),
+  `cad_export/` (export από Fusion 360).
+- `docs/architecture.md` — η τρέχουσα αρχιτεκτονική με μια ματιά.
+- `docs/decisions/` — ADR: κάθε απόφαση με εναλλακτικές και αιτιολόγηση.
+- `docs/devlog.md` — ημερολόγιο ανάπτυξης.
+- `docs/testing/` — πρωτόκολλα και αποτελέσματα δοκιμών στον βραχίονα.
 - `test.txt` — παλιό αρχείο δοκιμής, άσχετο με την εργασία.
+
+## Branches
+`draft` (ανάπτυξη) → `testing` (επαληθευμένο σε sim, προς δοκιμή στο υλικό)
+→ `main` (μόνο εγκεκριμένα). Προώθηση με Pull Request. Commits στο όνομα του
+Φώτη, χωρίς αναφορές σε εργαλεία AI.
+
+## Αρχιτεκτονική λογισμικού (σύνοψη — λεπτομέρειες στο docs/architecture.md)
+- Λογισμικό από την αρχή (fresh start)· ο παλιός κώδικας του Robotic-Arm/software δεν χρησιμοποιείται.
+- Υπολογιστής = μοναδικός ROS 2 host (ROS 2 Jazzy σε Docker): ros2_control,
+  micro-ROS Agent, MoveIt 2, όραση, RViz/Gazebo. **Χωρίς Raspberry Pi.**
+- 2 PCB με ESP32 (link 1, wrist): τοπικός βρόχος θέσης στα AS5600, μίξη
+  διαφορικών, watchdog. Ένα node ανά ESP32, ίδιο firmware, micro-ROS.
+- I²C μόνο μέσα στην πλακέτα· WiFi (micro-ROS/UDP) προς υπολογιστή· USB για debugging.
+- RealSense D435if σταθερή (eye-to-hand), USB 3 στον υπολογιστή.
 
 ## Πηγή τεχνικής τεκμηρίωσης
 Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw`
@@ -76,4 +96,7 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 
 ## Αποφάσεις / σημειώσεις
 - 2026-10-20: Αυτό το chat ορίζεται ως το επίσημο chat για τη διπλωματική.
+- 2026-10-20: Κλείδωσε η αρχιτεκτονική συστήματος (ADR-0001 έως 0009).
+- 2026-10-20: Περιβάλλον ανάπτυξης λειτουργικό στον υπολογιστή (Ubuntu 26.04, repo στο
+  `~/Desktop/Master-s-Thesis`) — οδηγός: `docs/setup/ubuntu.md`, ADR-0010.
 - Το LaTeX template εγκαταλείφθηκε — η εργασία γράφεται σε Word (υπόδειγμα ΠΠΣ).

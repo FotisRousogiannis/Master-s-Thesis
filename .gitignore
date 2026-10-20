@@ -1,0 +1,20 @@
+# ROS 2 / colcon
+software/ros2_ws/build/
+software/ros2_ws/install/
+software/ros2_ws/log/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# PlatformIO
+software/firmware/**/.pio/
+
+# Word lock / temp files
+~$*.docx
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db

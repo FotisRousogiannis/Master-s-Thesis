@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!--
+  6-DOF robotic arm - kinematic model.
+
+  PLACEHOLDER GEOMETRY: dimensions, masses and joint layout below are provisional
+  (see docs/decisions/0009-provisional-kinematic-model.md). They will be replaced
+  by the Fusion 360 export. Joints are the LOGICAL joints of the arm; differential
+  mechanisms are resolved in the hardware interface, not in the URDF.
+
+  Zero pose: arm pointing straight up. Every link extends along its local +z.
+-->
+<robot name="robotic_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="inertial_macros.xacro"/>
+
+  <!-- Provisional dimensions [m] and masses [kg] -->
+  <xacro:property name="base_radius"   value="0.10"/>
+  <xacro:property name="base_height"   value="0.10"/>
+  <xacro:property name="base_mass"     value="1.5"/>
+
+  <xacro:property name="link1_radius"  value="0.08"/>
+  <xacro:property name="link1_length"  value="0.10"/>
+  <xacro:property name="link1_mass"    value="0.8"/>
+
+  <xacro:property name="link2_radius"  value="0.04"/>
+  <xacro:property name="link2_length"  value="0.40"/>
+  <xacro:property name="link2_mass"    value="1.0"/>
+
+  <xacro:property name="link3_radius"  value="0.035"/>
+  <xacro:property name="link3_length"  value="0.35"/>
+  <xacro:property name="link3_mass"    value="0.8"/>
+
+  <xacro:property name="link4_radius"  value="0.035"/>
+  <xacro:property name="link4_length"  value="0.05"/>
+  <xacro:property name="link4_mass"    value="0.2"/>
+
+  <xacro:property name="link5_radius"  value="0.03"/>
+  <xacro:property name="link5_length"  value="0.08"/>
+  <xacro:property name="link5_mass"    value="0.2"/>
+
+  <xacro:property name="link6_radius"  value="0.03"/>
+  <xacro:property name="link6_length"  value="0.03"/>
+  <xacro:property name="link6_mass"    value="0.1"/>
+
+  <!-- Joint limits. Velocity: servo 300 deg/s through a 1:36 reduction ~ 8.3 deg/s (docs/BOM). -->
+  <xacro:property name="joint_velocity" value="0.145"/>
+  <xacro:property name="joint_effort"   value="60.0"/>
+
+  <material name="arm_grey"><color rgba="0.6 0.6 0.6 1.0"/></material>
+  <material name="arm_orange"><color rgba="0.9 0.45 0.1 1.0"/></material>
+
+  <!-- A link drawn as a cylinder that starts at the link origin and extends along +z. -->
+  <xacro:macro name="cylinder_link" params="name radius length mass material">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 ${length / 2.0}" rpy="0 0 0"/>
+        <geometry><cylinder radius="${radius}" length="${length}"/></geometry>
+        <material name="${material}"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${length / 2.0}" rpy="0 0 0"/>
+        <geometry><cylinder radius="${radius}" length="${length}"/></geometry>
+      </collision>
+      <xacro:cylinder_inertial mass="${mass}" radius="${radius}" length="${length}">
+        <origin xyz="0 0 ${length / 2.0}" rpy="0 0 0"/>
+      </xacro:cylinder_inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- Revolute joint placed at the tip (+z) of the parent link. -->
+  <xacro:macro name="arm_joint" params="name parent child offset axis lower upper">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${child}"/>
+      <origin xyz="0 0 ${offset}" rpy="0 0 0"/>
+      <axis xyz="${axis}"/>
+      <limit lower="${lower}" upper="${upper}" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- World anchor so the model can be fixed in simulation. -->
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:cylinder_link name="base_link" radius="${base_radius}"  length="${base_height}"  mass="${base_mass}"  material="arm_grey"/>
+  <xacro:cylinder_link name="link_1"    radius="${link1_radius}" length="${link1_length}" mass="${link1_mass}" material="arm_orange"/>
+  <xacro:cylinder_link name="link_2"    radius="${link2_radius}" length="${link2_length}" mass="${link2_mass}" material="arm_grey"/>
+  <xacro:cylinder_link name="link_3"    radius="${link3_radius}" length="${link3_length}" mass="${link3_mass}" material="arm_orange"/>
+  <xacro:cylinder_link name="link_4"    radius="${link4_radius}" length="${link4_length}" mass="${link4_mass}" material="arm_grey"/>
+  <xacro:cylinder_link name="link_5"    radius="${link5_radius}" length="${link5_length}" mass="${link5_mass}" material="arm_orange"/>
+  <xacro:cylinder_link name="link_6"    radius="${link6_radius}" length="${link6_length}" mass="${link6_mass}" material="arm_grey"/>
+
+  <!-- joint_1: base yaw, joint_2: shoulder pitch, joint_3: elbow pitch,
+       joint_4: wrist roll, joint_5: wrist pitch, joint_6: flange roll -->
+  <xacro:arm_joint name="joint_1" parent="base_link" child="link_1" offset="${base_height}"  axis="0 0 1" lower="${-pi}"     upper="${pi}"/>
+  <xacro:arm_joint name="joint_2" parent="link_1"    child="link_2" offset="${link1_length}" axis="0 1 0" lower="${-pi / 2}" upper="${pi / 2}"/>
+  <xacro:arm_joint name="joint_3" parent="link_2"    child="link_3" offset="${link2_length}" axis="0 1 0" lower="${-2.4}"    upper="${2.4}"/>
+  <xacro:arm_joint name="joint_4" parent="link_3"    child="link_4" offset="${link3_length}" axis="0 0 1" lower="${-pi}"     upper="${pi}"/>
+  <xacro:arm_joint name="joint_5" parent="link_4"    child="link_5" offset="${link4_length}" axis="0 1 0" lower="${-pi / 2}" upper="${pi / 2}"/>
+  <xacro:arm_joint name="joint_6" parent="link_5"    child="link_6" offset="${link5_length}" axis="0 0 1" lower="${-pi}"     upper="${pi}"/>
+
+  <!-- Tool frame at the flange face (ROS-Industrial convention). -->
+  <link name="tool0"/>
+  <joint name="link_6_to_tool0" type="fixed">
+    <parent link="link_6"/>
+    <child link="tool0"/>
+    <origin xyz="0 0 ${link6_length}" rpy="0 0 0"/>
+  </joint>
+
+</robot>

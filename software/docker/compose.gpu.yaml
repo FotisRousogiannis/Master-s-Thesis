@@ -1,0 +1,6 @@
+# Optional override for Linux hosts with an Intel/AMD GPU (faster Gazebo/RViz):
+#   docker compose -f compose.yaml -f compose.gpu.yaml up -d
+services:
+  dev:
+    devices:
+      - /dev/dri:/dev/dri

@@ -3,7 +3,7 @@
   6-DOF robotic arm - kinematic model.
 
   PLACEHOLDER GEOMETRY: dimensions, masses and joint layout below are provisional
-  (see docs/decisions/0005-provisional-kinematic-model.md). They will be replaced
+  (see docs/decisions/0009-provisional-kinematic-model.md). They will be replaced
   by the Fusion 360 export. Joints are the LOGICAL joints of the arm; differential
   mechanisms are resolved in the hardware interface, not in the URDF.
 

@@ -99,21 +99,25 @@ container `hello-world` κατέβηκε από το Docker Hub και έτρε�
 
 ### Εντολές
 ```bash
-# 3α. Λήψη του repo στο home και μετάβαση στο branch ανάπτυξης
-cd ~
-git clone https://github.com/FotisRousogiannis/master-s-thesis.git
-cd ~/master-s-thesis
+# 3α. Λήψη του repo και μετάβαση στο branch ανάπτυξης
+#     (αν υπάρχει ήδη clone, π.χ. ~/Desktop/Master-s-Thesis, παραλείπεται το clone
+#      και γίνεται: cd ~/Desktop/Master-s-Thesis && git fetch origin && git pull --ff-only)
+cd ~/Desktop
+git clone https://github.com/FotisRousogiannis/Master-s-Thesis.git
+cd ~/Desktop/Master-s-Thesis
 git checkout draft
 id -u
 
 # 3β. Χτίσιμο του image (μία φορά· ~10–30 λεπτά, κατεβάζει μερικά GB)
-cd ~/master-s-thesis/software/docker
+cd ~/Desktop/Master-s-Thesis/software/docker
 docker compose build
 docker images robotic-arm-dev
 ```
 
 ### Γιατί
-- **Clone στο home (`~`):** το container προσαρτά (mount) τον φάκελο του repo·
+- **Θέση του repo:** οπουδήποτε στον δίσκο (εδώ `~/Desktop/Master-s-Thesis`). Στο
+  Linux τα ονόματα είναι case-sensitive (`Master-s-Thesis` ≠ `master-s-thesis`).
+  Το repo **δεν** μπαίνει μέσα στο container: το container προσαρτά (mount) τον φάκελο·
   έτσι ό,τι αλλάζει μέσα στο container αλλάζει και στον δίσκο, και αντίστροφα.
 - **`git checkout draft`:** η ανάπτυξη γίνεται στο `draft` (ADR-0003).
 - **`id -u`:** ο χρήστης μέσα στο container (`ubuntu`) έχει uid 1000· αν και ο
@@ -121,6 +125,83 @@ docker images robotic-arm-dev
 - **`docker compose build`:** χτίζει το image από το `software/docker/Dockerfile`
   (ROS 2 Jazzy, Gazebo Harmonic, ros2_control, MoveIt 2). Γίνεται μία φορά· οι
   επόμενες εκκινήσεις του container είναι άμεσες.
+
+### Αποτέλεσμα στο μηχάνημα αναφοράς
+Υπήρχε ήδη clone στο `~/Desktop/Master-s-Thesis` (καθαρό working tree):
+```
+$ git pull --ff-only
+Updating 6ea32ab..4c94b14
+Fast-forward
+$ git checkout draft
+branch 'draft' set up to track 'origin/draft'.
+Switched to a new branch 'draft'
+$ id -u
+1000
+$ docker images robotic-arm-dev
+IMAGE                   ID             DISK USAGE   CONTENT SIZE
+robotic-arm-dev:jazzy   8c4d7d850ad9       6.66GB         1.48GB
+```
+✅ uid 1000 = uid του χρήστη `ubuntu` στο container· image χτισμένο (6.66 GB στον δίσκο).
+
+---
+
+## Βήμα 4 — Εκκίνηση του container με γραφικά
+
+### Εντολές
+```bash
+xhost +local:docker
+cd ~/Desktop/Master-s-Thesis/software/docker
+docker compose -f compose.yaml -f compose.gpu.yaml up -d
+docker compose exec dev bash
+```
+
+### Γιατί
+- **`xhost +local:docker`:** επιτρέπει σε τοπικά containers να ανοίγουν παράθυρα
+  στον X server (εδώ XWayland). Ισχύει μέχρι την αποσύνδεση· επαναλαμβάνεται σε κάθε σύνδεση.
+- **`compose.gpu.yaml`:** περνά το `/dev/dri` (Intel UHD 630) στο container για
+  επιτάχυνση OpenGL σε RViz/Gazebo.
+- **`up -d`:** το container τρέχει στο παρασκήνιο· **`exec dev bash`:** shell μέσα σε
+  αυτό (prompt `ubuntu@...`). Το repo είναι στο `~/master-s-thesis` του container.
+- Τερματισμός: `docker compose down` (από τον φάκελο `software/docker`).
+
+### Αποτέλεσμα στο μηχάνημα αναφοράς
+_(εκκρεμεί)_
+
+---
+
+## Βήμα 5 — Χτίσιμο του workspace και tests (μέσα στο container)
+
+### Εντολές
+```bash
+cd ~/master-s-thesis/software/ros2_ws
+colcon build --symlink-install
+colcon test && colcon test-result --verbose
+source install/setup.bash
+```
+
+### Γιατί
+- **`colcon build --symlink-install`:** χτίζει όλα τα packages του `src/`· με
+  symlinks, αλλαγές σε Python/launch/URDF ισχύουν χωρίς νέο build.
+- **`colcon test`:** τρέχει τα tests (π.χ. δομή του URDF).
+- **`source install/setup.bash`:** κάνει τα packages μας ορατά στο `ros2`
+  (γίνεται και αυτόματα σε κάθε νέο shell μέσω `~/.bashrc`).
+
+### Αποτέλεσμα στο μηχάνημα αναφοράς
+_(εκκρεμεί)_
+
+---
+
+## Βήμα 6 — Οπτικοποίηση του μοντέλου στο RViz
+
+### Εντολές
+```bash
+ros2 launch arm_description display.launch.py
+```
+
+### Αναμενόμενο
+Ανοίγουν το **RViz** (ο βραχίονας από κυλίνδρους, όρθιος) και το
+**Joint State Publisher** (6 μπάρες, μία ανά άρθρωση). Η κίνηση μιας μπάρας
+κινεί την αντίστοιχη άρθρωση.
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
 _(εκκρεμεί)_

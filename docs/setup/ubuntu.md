@@ -82,4 +82,45 @@ docker run --rm hello-world
 - **Ομάδα `docker`:** επιτρέπει `docker ...` χωρίς `sudo`. Απαραίτητο για το VS Code Dev Containers.
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
+```
+Docker version 29.1.3, build 29.1.3-0ubuntu4.1
+Docker Compose version 2.40.3+ds1-0ubuntu1
+...
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+```
+✅ Docker Engine 29.1 και Compose 2.40 από τα αποθετήρια του Ubuntu· το
+container `hello-world` κατέβηκε από το Docker Hub και έτρεξε χωρίς `sudo`,
+άρα λειτουργούν daemon, δίκτυο και δικαιώματα ομάδας `docker`.
+
+---
+
+## Βήμα 3 — Λήψη του repository και χτίσιμο του image
+
+### Εντολές
+```bash
+# 3α. Λήψη του repo στο home και μετάβαση στο branch ανάπτυξης
+cd ~
+git clone https://github.com/FotisRousogiannis/master-s-thesis.git
+cd ~/master-s-thesis
+git checkout draft
+id -u
+
+# 3β. Χτίσιμο του image (μία φορά· ~10–30 λεπτά, κατεβάζει μερικά GB)
+cd ~/master-s-thesis/software/docker
+docker compose build
+docker images robotic-arm-dev
+```
+
+### Γιατί
+- **Clone στο home (`~`):** το container προσαρτά (mount) τον φάκελο του repo·
+  έτσι ό,τι αλλάζει μέσα στο container αλλάζει και στον δίσκο, και αντίστροφα.
+- **`git checkout draft`:** η ανάπτυξη γίνεται στο `draft` (ADR-0003).
+- **`id -u`:** ο χρήστης μέσα στο container (`ubuntu`) έχει uid 1000· αν και ο
+  χρήστης του host έχει 1000, τα αρχεία που δημιουργούνται στο container ανήκουν σε εμάς και όχι στον root.
+- **`docker compose build`:** χτίζει το image από το `software/docker/Dockerfile`
+  (ROS 2 Jazzy, Gazebo Harmonic, ros2_control, MoveIt 2). Γίνεται μία φορά· οι
+  επόμενες εκκινήσεις του container είναι άμεσες.
+
+### Αποτέλεσμα στο μηχάνημα αναφοράς
 _(εκκρεμεί)_

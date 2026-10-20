@@ -21,6 +21,8 @@
   (ADR-0010), χτίσιμο image (6.66 GB), `colcon build` + 5/5 tests, το μοντέλο
   εμφανίζεται στο RViz και κινείται. **Ορόσημο: περιβάλλον ανάπτυξης λειτουργικό.**
 
+- Προώθηση `draft` → `testing`, tag **`v0.1-dev-env`** (πρώτο ορόσημο).
+
 **Επόμενα**
 - CI στο GitHub (αυτόματο build + tests σε κάθε push).
 - `arm_bringup`: ros2_control με mock hardware, μετά Gazebo.

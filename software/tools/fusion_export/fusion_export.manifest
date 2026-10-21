@@ -1,0 +1,10 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "script",
+  "author": "Fotis Rousogiannis",
+  "description": {
+    "": "Export links, joints, mass properties and STL meshes of the robotic arm for URDF generation"
+  },
+  "supportedOS": "windows|mac",
+  "editEnabled": true
+}

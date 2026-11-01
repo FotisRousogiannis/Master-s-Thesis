@@ -17,7 +17,7 @@ Raspberry Pi ── I²C ──┬── PCA9685 (0x40) ── servo ×4
 | `diff PITCH_US ROLL_US [--duration S]` | ✅ | διαφορικό: A = p + r, B = sign·(p − r) |
 | `deadband SERVO ENCODER` | ✅ | σάρωση παλμών, μέτρηση ταχύτητας → νεκρή ζώνη |
 | `probe [--channels 0-15]` | ✅ | σύντομος παλμός σε κάθε κανάλι → ποιος encoder κινείται |
-| `jog SERVO` ή `jog --channel N` | ✅ | χειροκίνητος έλεγχος με πληκτρολόγιο: **κράτα W/S** για κίνηση +/−, **A/D** πιο αργά/γρήγορα, SPACE στάση, Q έξοδος· ζωντανή ένδειξη encoders |
+| `jog SERVO` ή `jog --channel N` [`--no-encoders`] | ✅ | χειροκίνητος έλεγχος με πληκτρολόγιο: **κράτα W/S** για κίνηση +/−, **A/D** πιο αργά/γρήγορα, SPACE στάση, Q έξοδος· ζωντανή ένδειξη encoders |
 | `stop` | — | όλες οι έξοδοι off |
 
 ## Ασφάλεια (από `wrist_bench.json` → `safety`)

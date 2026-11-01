@@ -1,6 +1,7 @@
 """Tests against a simulated I2C bus (no hardware needed)."""
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -199,3 +200,28 @@ def test_jog_quit():
     c = wb.JogController(max_offset_us=150)
     c.on_key("Q", 0.0)
     assert c.quit
+
+
+class NoEncoderBus(FakeBus):
+    def read_i2c_block_data(self, addr, reg, n):
+        raise AssertionError("encoders must not be read")
+
+    def read_byte_data(self, addr, reg):
+        raise AssertionError("encoders must not be read")
+
+
+def test_jog_without_encoders_never_reads_them(config, monkeypatch):
+    import io
+    import types
+
+    keys = io.StringIO("q")
+    monkeypatch.setattr(wb.sys, "stdin", types.SimpleNamespace(
+        fileno=lambda: 0, read=keys.read))
+    monkeypatch.setattr(wb.select, "select", lambda r, w, x, t: (r if keys.tell() < 1 else [], [], []))
+    fake_termios = types.SimpleNamespace(tcgetattr=lambda fd: None, tcsetattr=lambda *a: None, TCSADRAIN=1)
+    monkeypatch.setitem(sys.modules, "termios", fake_termios)
+    monkeypatch.setitem(sys.modules, "tty", types.SimpleNamespace(setcbreak=lambda fd: None))
+    bus = NoEncoderBus()
+    wb.jog(wb.Bench(config, bus), channel=9, neutral_us=1600, label="ch9", use_encoders=False)
+    blocks = [w for w in bus.writes if w[0] == "block"]
+    assert blocks[-1] == ("block", 0x40, wb.PCA_ALL_OFF, [0, 0, 0, 0x10])

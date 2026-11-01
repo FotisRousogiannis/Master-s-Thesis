@@ -277,17 +277,18 @@ class JogController:
         return self.direction * self.offset_us
 
 
-def jog(bench, channel, neutral_us, label, rate=50):
+def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
     import termios
     import tty
 
     ctrl = JogController(bench.safety["max_offset_us"])
     limit = bench.safety.get("jog_max_travel_deg", 90)
-    names = list(bench.encoders)
-    start = {n: r[0] for n, r in bench.read_encoders().items()}
+    names = list(bench.encoders) if use_encoders else []
+    start = {n: r[0] for n, r in bench.read_encoders().items()} if use_encoders else {}
     print(f"jog {label} (PCA channel {channel}, neutral {neutral_us} us)\n"
           "  hold W / S : turn + / -     A / D : slower / faster     SPACE : stop     Q : quit\n"
-          f"  stops if any encoder travels more than {limit} deg from the start\n")
+          + (f"  stops if any encoder travels more than {limit} deg from the start\n" if use_encoders
+             else "  NO ENCODERS: no travel limit - motion stops only when you release W / S\n"))
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     applied = None
@@ -304,7 +305,7 @@ def jog(bench, channel, neutral_us, label, rate=50):
                 else:
                     bench.pca.channel_off(channel)
                 applied = offset
-            readings = bench.read_encoders()
+            readings = bench.read_encoders() if use_encoders else {}
             travel = {n: wrap_delta(readings[n][0], start[n]) for n in names}
             state = "STOP" if not offset else ("+ W " if offset > 0 else "- S ")
             line = (f"\r[{state}] speed {ctrl.offset_us:3d} us  "
@@ -381,6 +382,7 @@ def main(argv=None):
     p = sub.add_parser("jog")
     p.add_argument("servo", nargs="?", help="servo name from the config")
     p.add_argument("--channel", type=int, help="raw PCA9685 channel (uses default_neutral_us)")
+    p.add_argument("--no-encoders", action="store_true", help="do not read encoders (no travel limit)")
     args = ap.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text())
@@ -416,7 +418,7 @@ def dispatch(bench, args):
             channel, neutral, label = servo["channel"], servo["neutral_us"], args.servo
         else:
             raise SystemExit("give a servo name or --channel N")
-        jog(bench, channel, neutral, label)
+        jog(bench, channel, neutral, label, use_encoders=not args.no_encoders)
         return 0
     if args.cmd == "probe":
         channels = parse_channels(args.channels)

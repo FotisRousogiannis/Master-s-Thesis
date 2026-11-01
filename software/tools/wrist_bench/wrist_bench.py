@@ -9,6 +9,7 @@ in pulse offset, duration and encoder travel, and always ends with the outputs o
     python3 wrist_bench.py pwm SERVO OFFSET_US [--duration 1.0] [--csv out.csv]
     python3 wrist_bench.py diff PITCH_US ROLL_US [--duration 1.0] [--csv out.csv]
     python3 wrist_bench.py deadband SERVO ENCODER [--span 60] [--step 5] [--dwell 1.0]
+    python3 wrist_bench.py probe [--channels 0-15] [--offset 30] [--duration 0.5]
     python3 wrist_bench.py stop
 
 OFFSET_US is relative to the servo's neutral pulse (continuous-rotation servos:
@@ -178,13 +179,20 @@ class Bench:
 
     def run_motion(self, pulses, duration, rate, writer=None, label=""):
         """Apply {servo: offset_us} for `duration` s, sampling encoders; abort on travel limit."""
-        duration = self.clamp_duration(duration)
-        start = {n: r[0] for n, r in self.read_encoders().items()}
         servos = self.cfg["servos"]
+        channel_pulses = {servos[n]["channel"]: servos[n]["neutral_us"] + self.clamp_offset(o)
+                          for n, o in pulses.items()}
+        return self.run_channels(channel_pulses, duration, rate, writer, label, pulses)
+
+    def run_channels(self, channel_pulses, duration, rate, writer=None, label="", logged=None):
+        """Apply {pca_channel: pulse_us} for `duration` s, sampling encoders; abort on travel limit."""
+        duration = self.clamp_duration(duration)
+        pulses = logged if logged is not None else channel_pulses
+        start = {n: r[0] for n, r in self.read_encoders().items()}
         t0 = time.monotonic()
         try:
-            for name, offset in pulses.items():
-                self.pca.set_pulse(servos[name]["channel"], servos[name]["neutral_us"] + offset)
+            for channel, pulse_us in channel_pulses.items():
+                self.pca.set_pulse(channel, pulse_us)
             while (t := time.monotonic() - t0) < duration:
                 readings = self.read_encoders()
                 travel = {n: wrap_delta(r[0], start[n]) for n, r in readings.items()}
@@ -201,6 +209,16 @@ class Bench:
             self.stop()
         return {n: wrap_delta(r[0], start[n]) for n, r in self.read_encoders().items()}
 
+    def probe(self, channels, offset_us, duration, pause=0.5):
+        """Pulse each PCA channel briefly and report the travel of every encoder."""
+        neutral = self.cfg["pca"].get("default_neutral_us", 1600)
+        offset_us = self.clamp_offset(offset_us)
+        results = {}
+        for ch in channels:
+            results[ch] = self.run_channels({ch: neutral + offset_us}, duration, 50, label=f"probe ch{ch}")
+            time.sleep(pause)
+        return results
+
     def differential(self, pitch_us, roll_us):
         d = self.cfg["differential"]
         a = self.clamp_offset(pitch_us + roll_us)
@@ -216,6 +234,19 @@ def open_csv(path, encoder_names):
     w.writerow(["t_s", "label", "command_us"] + [f"{n}_deg" for n in encoder_names]
                + [f"{n}_travel_deg" for n in encoder_names])
     return f, w
+
+
+def parse_channels(text):
+    channels = []
+    for part in text.split(","):
+        if "-" in part:
+            lo, hi = part.split("-")
+            channels.extend(range(int(lo), int(hi) + 1))
+        else:
+            channels.append(int(part))
+    if any(not 0 <= c <= 15 for c in channels):
+        raise ValueError("PCA9685 channels are 0-15")
+    return channels
 
 
 def main(argv=None):
@@ -247,6 +278,10 @@ def main(argv=None):
     p.add_argument("--step", type=int, default=5)
     p.add_argument("--dwell", type=float, default=1.0)
     p.add_argument("--csv")
+    p = sub.add_parser("probe")
+    p.add_argument("--channels", default="0-15", help="e.g. 0-15 or 8,9,10,11")
+    p.add_argument("--offset", type=int, default=30)
+    p.add_argument("--duration", type=float, default=0.5)
     args = ap.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text())
@@ -260,7 +295,7 @@ def main(argv=None):
         except KeyboardInterrupt:
             print("\ninterrupted", file=sys.stderr)
         finally:
-            if args.cmd in ("pwm", "diff", "deadband", "stop"):
+            if args.cmd in ("pwm", "diff", "deadband", "probe", "stop"):
                 bench.stop()
     return 0
 
@@ -273,6 +308,16 @@ def dispatch(bench, args):
         return 0
     if args.cmd == "stop":
         print("all outputs off")
+        return 0
+    if args.cmd == "probe":
+        channels = parse_channels(args.channels)
+        print(f"probing channels {channels}: +{args.offset} us for {args.duration} s each - watch the arm")
+        results = bench.probe(channels, args.offset, args.duration)
+        print(f"{'ch':>3}  " + "  ".join(f"{n:>10}" for n in names))
+        for ch, travel in results.items():
+            moved = [n for n, d in travel.items() if abs(d) > 0.5]
+            print(f"{ch:3d}  " + "  ".join(f"{travel[n]:+9.2f}°" for n in names)
+                  + ("   <- " + ", ".join(moved) if moved else ""))
         return 0
     f, writer = open_csv(args.csv, names)
     try:

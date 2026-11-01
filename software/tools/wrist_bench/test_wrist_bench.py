@@ -128,3 +128,34 @@ def test_motion_aborts_on_travel_limit(config):
 def test_wrap_delta():
     assert wb.wrap_delta(10, 350) == pytest.approx(20)
     assert wb.wrap_delta(350, 10) == pytest.approx(-20)
+
+
+def test_parse_channels():
+    assert wb.parse_channels("0-3,8") == [0, 1, 2, 3, 8]
+    with pytest.raises(ValueError):
+        wb.parse_channels("14-16")
+
+
+def test_probe_pulses_each_channel_then_turns_off(config, monkeypatch):
+    monkeypatch.setattr(wb.time, "sleep", lambda s: None)
+    bus = FakeBus()
+    bench = wb.Bench(config, bus)
+    results = bench.probe([3, 5], offset_us=30, duration=0.01)
+    assert set(results) == {3, 5}
+    blocks = [w for w in bus.writes if w[0] == "block"]
+    pulse = bench.pca.us_to_ticks(1630)
+    assert blocks == [
+        ("block", 0x40, wb.PCA_LED0 + 12, [0, 0, pulse & 0xFF, pulse >> 8]),
+        ("block", 0x40, wb.PCA_ALL_OFF, [0, 0, 0, 0x10]),
+        ("block", 0x40, wb.PCA_LED0 + 20, [0, 0, pulse & 0xFF, pulse >> 8]),
+        ("block", 0x40, wb.PCA_ALL_OFF, [0, 0, 0, 0x10]),
+    ]
+
+
+def test_probe_offset_is_clamped(config, monkeypatch):
+    monkeypatch.setattr(wb.time, "sleep", lambda s: None)
+    bus = FakeBus()
+    bench = wb.Bench(config, bus)
+    bench.probe([0], offset_us=999, duration=0.01)
+    pulse = bench.pca.us_to_ticks(1600 + config["safety"]["max_offset_us"])
+    assert ("block", 0x40, wb.PCA_LED0, [0, 0, pulse & 0xFF, pulse >> 8]) in bus.writes

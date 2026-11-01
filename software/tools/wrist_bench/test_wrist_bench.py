@@ -159,3 +159,43 @@ def test_probe_offset_is_clamped(config, monkeypatch):
     bench.probe([0], offset_us=999, duration=0.01)
     pulse = bench.pca.us_to_ticks(1600 + config["safety"]["max_offset_us"])
     assert ("block", 0x40, wb.PCA_LED0, [0, 0, pulse & 0xFF, pulse >> 8]) in bus.writes
+
+
+def test_jog_runs_only_while_key_keeps_arriving():
+    c = wb.JogController(max_offset_us=150, start_offset_us=30)
+    assert c.command(0.0) == 0
+    c.on_key("w", 0.0)
+    assert c.command(0.3) == 30          # within the auto-repeat delay
+    assert c.command(0.7) == 0           # released: no repeat arrived
+
+
+def test_jog_repeat_stream_uses_short_hold():
+    c = wb.JogController(max_offset_us=150)
+    for t in (0.0, 0.5, 0.53, 0.56):     # first press, then auto-repeat
+        c.on_key("w", t)
+    assert c.command(0.65) == 30
+    assert c.command(0.75) == 0          # 0.19 s without a repeat -> stop
+
+
+def test_jog_direction_and_space_stop():
+    c = wb.JogController(max_offset_us=150)
+    c.on_key("s", 0.0)
+    assert c.command(0.1) == -30
+    c.on_key(" ", 0.2)
+    assert c.command(0.2) == 0
+
+
+def test_jog_speed_limits():
+    c = wb.JogController(max_offset_us=40, start_offset_us=30, step_us=5)
+    for _ in range(10):
+        c.on_key("d", 0.0)
+    assert c.offset_us == 40
+    for _ in range(20):
+        c.on_key("a", 0.0)
+    assert c.offset_us == 5
+
+
+def test_jog_quit():
+    c = wb.JogController(max_offset_us=150)
+    c.on_key("Q", 0.0)
+    assert c.quit

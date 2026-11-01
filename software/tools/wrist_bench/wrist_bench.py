@@ -10,6 +10,7 @@ in pulse offset, duration and encoder travel, and always ends with the outputs o
     python3 wrist_bench.py diff PITCH_US ROLL_US [--duration 1.0] [--csv out.csv]
     python3 wrist_bench.py deadband SERVO ENCODER [--span 60] [--step 5] [--dwell 1.0]
     python3 wrist_bench.py probe [--channels 0-15] [--offset 30] [--duration 0.5]
+    python3 wrist_bench.py jog (SERVO | --channel N)    keyboard: hold W/S to turn, A/D speed
     python3 wrist_bench.py stop
 
 OFFSET_US is relative to the servo's neutral pulse (continuous-rotation servos:
@@ -19,6 +20,7 @@ the offset sets speed and direction, not position).
 import argparse
 import csv
 import json
+import select
 import signal
 import sys
 import time
@@ -226,6 +228,100 @@ class Bench:
         return {d["motor_a"]: a, d["motor_b"]: b}
 
 
+class JogController:
+    """Hold-to-run keyboard logic, independent of the terminal (testable).
+
+    Terminals report key presses, not releases; a held key arrives as an
+    auto-repeat stream after an initial delay (~0.5 s). Motion continues only
+    while W/S keep arriving: the first press is honoured for `first_hold_s`
+    (covers the auto-repeat delay), later ones for `repeat_hold_s`.
+    """
+
+    def __init__(self, max_offset_us, start_offset_us=30, step_us=5, first_hold_s=0.6, repeat_hold_s=0.15):
+        self.max_offset_us = max_offset_us
+        self.offset_us = min(start_offset_us, max_offset_us)
+        self.step_us = step_us
+        self.first_hold_s, self.repeat_hold_s = first_hold_s, repeat_hold_s
+        self.direction = 0
+        self.last_press = None
+        self.repeats = 0
+        self.quit = False
+
+    def on_key(self, key, now):
+        key = key.lower()
+        if key in ("w", "s"):
+            direction = 1 if key == "w" else -1
+            if direction == self.direction and self.last_press is not None \
+                    and now - self.last_press < self.first_hold_s:
+                self.repeats += 1
+            else:
+                self.repeats = 0
+            self.direction, self.last_press = direction, now
+        elif key == "d":
+            self.offset_us = min(self.offset_us + self.step_us, self.max_offset_us)
+        elif key == "a":
+            self.offset_us = max(self.offset_us - self.step_us, self.step_us)
+        elif key == " ":
+            self.direction, self.last_press = 0, None
+        elif key == "q":
+            self.quit = True
+
+    def command(self, now):
+        """Signed offset to apply now, or 0 to stop."""
+        if self.direction == 0 or self.last_press is None:
+            return 0
+        hold = self.first_hold_s if self.repeats == 0 else self.repeat_hold_s
+        if now - self.last_press > hold:
+            self.direction, self.last_press = 0, None
+            return 0
+        return self.direction * self.offset_us
+
+
+def jog(bench, channel, neutral_us, label, rate=50):
+    import termios
+    import tty
+
+    ctrl = JogController(bench.safety["max_offset_us"])
+    limit = bench.safety.get("jog_max_travel_deg", 90)
+    names = list(bench.encoders)
+    start = {n: r[0] for n, r in bench.read_encoders().items()}
+    print(f"jog {label} (PCA channel {channel}, neutral {neutral_us} us)\n"
+          "  hold W / S : turn + / -     A / D : slower / faster     SPACE : stop     Q : quit\n"
+          f"  stops if any encoder travels more than {limit} deg from the start\n")
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    applied = None
+    try:
+        tty.setcbreak(fd)
+        while not ctrl.quit:
+            now = time.monotonic()
+            while select.select([sys.stdin], [], [], 0)[0]:
+                ctrl.on_key(sys.stdin.read(1), now)
+            offset = ctrl.command(now)
+            if offset != applied:
+                if offset:
+                    bench.pca.set_pulse(channel, neutral_us + offset)
+                else:
+                    bench.pca.channel_off(channel)
+                applied = offset
+            readings = bench.read_encoders()
+            travel = {n: wrap_delta(readings[n][0], start[n]) for n in names}
+            state = "STOP" if not offset else ("+ W " if offset > 0 else "- S ")
+            line = (f"\r[{state}] speed {ctrl.offset_us:3d} us  "
+                    + "  ".join(f"{n} {readings[n][0]:6.1f}° ({travel[n]:+6.1f}) {readings[n][2]}" for n in names))
+            sys.stdout.write(line + "   ")
+            sys.stdout.flush()
+            over = [n for n in names if abs(travel[n]) > limit]
+            if over:
+                print(f"\nABORT: travel limit {limit} deg exceeded on {over}")
+                break
+            time.sleep(1.0 / rate)
+    finally:
+        bench.stop()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        print("\noutputs off")
+
+
 def open_csv(path, encoder_names):
     if not path:
         return None, None
@@ -282,6 +378,9 @@ def main(argv=None):
     p.add_argument("--channels", default="0-15", help="e.g. 0-15 or 8,9,10,11")
     p.add_argument("--offset", type=int, default=30)
     p.add_argument("--duration", type=float, default=0.5)
+    p = sub.add_parser("jog")
+    p.add_argument("servo", nargs="?", help="servo name from the config")
+    p.add_argument("--channel", type=int, help="raw PCA9685 channel (uses default_neutral_us)")
     args = ap.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text())
@@ -295,7 +394,7 @@ def main(argv=None):
         except KeyboardInterrupt:
             print("\ninterrupted", file=sys.stderr)
         finally:
-            if args.cmd in ("pwm", "diff", "deadband", "probe", "stop"):
+            if args.cmd in ("pwm", "diff", "deadband", "probe", "jog", "stop"):
                 bench.stop()
     return 0
 
@@ -308,6 +407,16 @@ def dispatch(bench, args):
         return 0
     if args.cmd == "stop":
         print("all outputs off")
+        return 0
+    if args.cmd == "jog":
+        if args.channel is not None:
+            channel, neutral, label = args.channel, bench.cfg["pca"].get("default_neutral_us", 1600), f"ch{args.channel}"
+        elif args.servo:
+            servo = bench.cfg["servos"][args.servo]
+            channel, neutral, label = servo["channel"], servo["neutral_us"], args.servo
+        else:
+            raise SystemExit("give a servo name or --channel N")
+        jog(bench, channel, neutral, label)
         return 0
     if args.cmd == "probe":
         channels = parse_channels(args.channels)

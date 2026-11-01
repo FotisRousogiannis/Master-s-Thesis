@@ -15,5 +15,5 @@
     "enc_ch7": {"mux_channel": 7}
   },
   "differential": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": 1},
-  "safety": {"max_offset_us": 150, "max_duration_s": 3.0, "max_travel_deg": 30}
+  "safety": {"max_offset_us": 150, "max_duration_s": 3.0, "max_travel_deg": 30, "jog_max_travel_deg": 90}
 }

@@ -20,6 +20,7 @@ the offset sets speed and direction, not position).
 import argparse
 import csv
 import json
+import os
 import select
 import signal
 import sys
@@ -250,8 +251,11 @@ class JogController:
         self.repeats = 0
         self.quit = False
 
+    # Greek keyboard layout: the same physical keys send these characters.
+    GREEK_KEYS = {"ς": "w", "Σ": "s", "σ": "s", "α": "a", "Α": "a", "δ": "d", "Δ": "d", ";": "q", "·": "q"}
+
     def on_key(self, key, now):
-        key = key.lower()
+        key = self.GREEK_KEYS.get(key, key).lower()
         if key in ("w", "s"):
             direction = 1 if key == "w" else -1
             if direction == self.direction and self.last_press is not None \
@@ -300,8 +304,13 @@ def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
         tty.setcbreak(fd)
         while not ctrl.quit:
             now = time.monotonic()
-            while select.select([sys.stdin], [], [], 0)[0]:
-                ctrl.on_key(sys.stdin.read(1), now)
+            # read raw bytes from the terminal: no Python buffering, multi-byte (Greek) keys decoded whole
+            while select.select([fd], [], [], 0)[0]:
+                data = os.read(fd, 64)
+                if not data:
+                    break
+                for key in data.decode("utf-8", errors="ignore"):
+                    ctrl.on_key(key, now)
             offset = ctrl.command(now)
             if offset != applied:
                 if offset:

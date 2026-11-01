@@ -216,9 +216,9 @@ def test_jog_without_encoders_never_reads_them(config, monkeypatch):
     import io
     import types
 
-    keys = io.StringIO("q")
-    monkeypatch.setattr(wb.sys, "stdin", types.SimpleNamespace(
-        fileno=lambda: 0, read=keys.read))
+    keys = io.BytesIO("q".encode())
+    monkeypatch.setattr(wb.sys, "stdin", types.SimpleNamespace(fileno=lambda: 0))
+    monkeypatch.setattr(wb.os, "read", lambda fd, n: keys.read(n))
     monkeypatch.setattr(wb.select, "select", lambda r, w, x, t: (r if keys.tell() < 1 else [], [], []))
     fake_termios = types.SimpleNamespace(tcgetattr=lambda fd: None, tcsetattr=lambda *a: None, TCSADRAIN=1)
     monkeypatch.setitem(sys.modules, "termios", fake_termios)
@@ -238,3 +238,15 @@ def test_pulse_never_leaves_servo_spec(config):
     pca.set_pulse(0, 100)
     lo = pca.us_to_ticks(500)
     assert bus.writes[-1] == ("block", 0x40, wb.PCA_LED0, [0, 0, lo & 0xFF, lo >> 8])
+
+
+def test_jog_greek_layout_keys():
+    c = wb.JogController(max_offset_us=900, start_offset_us=300, step_us=90)
+    c.on_key("ς", 0.0)                   # physical W on a Greek layout
+    assert c.command(0.1) == 300
+    c.on_key("δ", 0.2)                   # physical D
+    assert c.offset_us == 390
+    c.on_key("σ", 0.3)                   # physical S
+    assert c.command(0.4) == -390
+    c.on_key(";", 0.5)                   # physical Q
+    assert c.quit

@@ -86,8 +86,9 @@ def test_prescale_for_50hz(config):
 
 def test_offset_is_clamped(config):
     bench = wb.Bench(config, FakeBus())
-    assert bench.clamp_offset(500) == 150
-    assert bench.clamp_offset(-500) == -150
+    limit = config["safety"]["max_offset_us"]
+    assert bench.clamp_offset(5000) == limit
+    assert bench.clamp_offset(-5000) == -limit
     assert bench.clamp_offset(40) == 40
 
 
@@ -225,3 +226,14 @@ def test_jog_without_encoders_never_reads_them(config, monkeypatch):
     wb.jog(wb.Bench(config, bus), channel=9, neutral_us=1600, label="ch9", use_encoders=False)
     blocks = [w for w in bus.writes if w[0] == "block"]
     assert blocks[-1] == ("block", 0x40, wb.PCA_ALL_OFF, [0, 0, 0, 0x10])
+
+
+def test_pulse_never_leaves_servo_spec(config):
+    bus = FakeBus()
+    pca = wb.Bench(config, bus).pca
+    pca.set_pulse(0, 4000)
+    hi = pca.us_to_ticks(2500)
+    assert bus.writes[-1] == ("block", 0x40, wb.PCA_LED0, [0, 0, hi & 0xFF, hi >> 8])
+    pca.set_pulse(0, 100)
+    lo = pca.us_to_ticks(500)
+    assert bus.writes[-1] == ("block", 0x40, wb.PCA_LED0, [0, 0, lo & 0xFF, lo >> 8])

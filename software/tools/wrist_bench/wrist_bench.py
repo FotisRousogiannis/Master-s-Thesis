@@ -55,9 +55,10 @@ class Mux:
 
 
 class PCA9685:
-    def __init__(self, bus, mux, address, mux_channel, freq_hz, osc_hz):
+    def __init__(self, bus, mux, address, mux_channel, freq_hz, osc_hz, pulse_min_us=500, pulse_max_us=2500):
         self.bus, self.mux, self.address, self.mux_channel = bus, mux, address, mux_channel
         self.freq_hz = freq_hz
+        self.pulse_min_us, self.pulse_max_us = pulse_min_us, pulse_max_us
         self.mux.select(mux_channel)
         prescale = round(osc_hz / (4096 * freq_hz)) - 1
         self.bus.write_byte_data(address, PCA_MODE1, PCA_SLEEP)
@@ -71,6 +72,7 @@ class PCA9685:
         return round(pulse_us * self.freq_hz * 4096 / 1e6)
 
     def set_pulse(self, channel, pulse_us):
+        pulse_us = max(self.pulse_min_us, min(self.pulse_max_us, pulse_us))  # servo spec, never exceeded
         off = self.us_to_ticks(pulse_us)
         self.mux.select(self.mux_channel)
         self.bus.write_i2c_block_data(self.address, PCA_LED0 + 4 * channel, [0, 0, off & 0xFF, off >> 8])
@@ -131,7 +133,8 @@ class Bench:
     def pca(self):
         if self._pca is None:
             p = self.cfg["pca"]
-            self._pca = PCA9685(self.bus, self.mux, p["address"], p.get("mux_channel"), p["freq_hz"], p["osc_hz"])
+            self._pca = PCA9685(self.bus, self.mux, p["address"], p.get("mux_channel"), p["freq_hz"], p["osc_hz"],
+                                p.get("pulse_min_us", 500), p.get("pulse_max_us", 2500))
         return self._pca
 
     # -- safety ------------------------------------------------------------
@@ -281,7 +284,8 @@ def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
     import termios
     import tty
 
-    ctrl = JogController(bench.safety["max_offset_us"])
+    ctrl = JogController(bench.safety["max_offset_us"], bench.safety.get("jog_start_offset_us", 30),
+                         bench.safety.get("jog_step_us", 5))
     limit = bench.safety.get("jog_max_travel_deg", 90)
     names = list(bench.encoders) if use_encoders else []
     start = {n: r[0] for n, r in bench.read_encoders().items()} if use_encoders else {}
@@ -308,7 +312,7 @@ def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
             readings = bench.read_encoders() if use_encoders else {}
             travel = {n: wrap_delta(readings[n][0], start[n]) for n in names}
             state = "STOP" if not offset else ("+ W " if offset > 0 else "- S ")
-            line = (f"\r[{state}] speed {ctrl.offset_us:3d} us  "
+            line = (f"\r[{state}] speed {ctrl.offset_us:3d} us (pulse {neutral_us + (offset or ctrl.offset_us)} us)  "
                     + "  ".join(f"{n} {readings[n][0]:6.1f}° ({travel[n]:+6.1f}) {readings[n][2]}" for n in names))
             sys.stdout.write(line + "   ")
             sys.stdout.flush()

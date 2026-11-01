@@ -97,6 +97,7 @@ def test_duration_is_clamped(config):
 
 
 def test_differential_mixing(config):
+    config["differential"]["b_sign"] = 1
     bench = wb.Bench(config, FakeBus())
     assert bench.differential(30, 0) == {"diff_a": 30, "diff_b": 30}
     assert bench.differential(0, 30) == {"diff_a": 30, "diff_b": -30}

@@ -1,5 +1,5 @@
 {
-  "_comment": "Channel numbers and neutral pulses are TO BE VERIFIED in tests T1-T4 (docs/testing/wrist_bench.md).",
+  "_comment": "Servo spec (neutral 1600, 500-2500 us) and wrist differential (ch 9/10, motor B mirrored) from Robotic-Arm software/tools/arm_calibration.json (commit 140b76d). Upper-part channels 8/11 still TO BE VERIFIED.",
   "i2c_bus": 1,
   "tca_address": 112,
   "pca": {"address": 64, "mux_channel": 0, "freq_hz": 50, "osc_hz": 25000000, "default_neutral_us": 1600,
@@ -15,7 +15,7 @@
     "enc_ch6": {"mux_channel": 6},
     "enc_ch7": {"mux_channel": 7}
   },
-  "differential": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": 1},
-  "safety": {"max_offset_us": 400, "max_duration_s": 3.0, "max_travel_deg": 30, "jog_max_travel_deg": 90,
-             "jog_start_offset_us": 100, "jog_step_us": 20}
+  "differential": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": -1},
+  "safety": {"max_offset_us": 900, "max_duration_s": 3.0, "max_travel_deg": 30, "jog_max_travel_deg": 90,
+             "jog_start_offset_us": 300, "jog_step_us": 90}
 }

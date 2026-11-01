@@ -9,7 +9,7 @@ in pulse offset, duration and encoder travel, and always ends with the outputs o
     python3 wrist_bench.py pwm SERVO OFFSET_US [--duration 1.0] [--csv out.csv]
     python3 wrist_bench.py diff PITCH_US ROLL_US [--duration 1.0] [--csv out.csv]
     python3 wrist_bench.py deadband SERVO ENCODER [--span 60] [--step 5] [--dwell 1.0]
-    python3 wrist_bench.py probe [--channels 0-15] [--offset 30] [--duration 0.5]
+    python3 wrist_bench.py probe [--channels 0-15] [--offset US] [--duration 1.0]
     python3 wrist_bench.py jog (SERVO | --channel N)    keyboard: hold W/S to turn, A/D speed
     python3 wrist_bench.py stop
 
@@ -221,6 +221,7 @@ class Bench:
         offset_us = self.clamp_offset(offset_us)
         results = {}
         for ch in channels:
+            print(f"  channel {ch:2d} ...", flush=True)
             results[ch] = self.run_channels({ch: neutral + offset_us}, duration, 50, label=f"probe ch{ch}")
             time.sleep(pause)
         return results
@@ -390,8 +391,8 @@ def main(argv=None):
     p.add_argument("--csv")
     p = sub.add_parser("probe")
     p.add_argument("--channels", default="0-15", help="e.g. 0-15 or 8,9,10,11")
-    p.add_argument("--offset", type=int, default=30)
-    p.add_argument("--duration", type=float, default=0.5)
+    p.add_argument("--offset", type=int, help="default: safety.jog_start_offset_us")
+    p.add_argument("--duration", type=float, default=1.0)
     p = sub.add_parser("jog")
     p.add_argument("servo", nargs="?", help="servo name from the config")
     p.add_argument("--channel", type=int, help="raw PCA9685 channel (uses default_neutral_us)")
@@ -435,8 +436,9 @@ def dispatch(bench, args):
         return 0
     if args.cmd == "probe":
         channels = parse_channels(args.channels)
-        print(f"probing channels {channels}: +{args.offset} us for {args.duration} s each - watch the arm")
-        results = bench.probe(channels, args.offset, args.duration)
+        offset = args.offset if args.offset is not None else bench.safety.get("jog_start_offset_us", 300)
+        print(f"probing channels {channels}: +{offset} us for {args.duration} s each - watch the arm")
+        results = bench.probe(channels, offset, args.duration)
         print(f"{'ch':>3}  " + "  ".join(f"{n:>10}" for n in names))
         for ch, travel in results.items():
             moved = [n for n, d in travel.items() if abs(d) > 0.5]

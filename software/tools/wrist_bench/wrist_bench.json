@@ -2,7 +2,7 @@
   "_comment": "Channel numbers and neutral pulses are TO BE VERIFIED in tests T1-T4 (docs/testing/wrist_bench.md).",
   "i2c_bus": 1,
   "tca_address": 112,
-  "pca": {"address": 64, "mux_channel": null, "freq_hz": 50, "osc_hz": 25000000},
+  "pca": {"address": 64, "mux_channel": 0, "freq_hz": 50, "osc_hz": 25000000},
   "servos": {
     "diff_a":  {"channel": 9,  "neutral_us": 1600},
     "diff_b":  {"channel": 10, "neutral_us": 1600},

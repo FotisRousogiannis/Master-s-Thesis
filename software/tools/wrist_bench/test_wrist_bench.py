@@ -13,8 +13,8 @@ class FakeBus:
 
     def __init__(self, devices_root=(0x40,), devices_per_channel=None, raw_angles=None):
         self.devices_root = set(devices_root)
-        self.devices_per_channel = devices_per_channel or {0: {0x36}, 1: {0x36}, 2: {0x36}}
-        self.raw_angles = raw_angles or {0: 0, 1: 1024, 2: 2048}
+        self.devices_per_channel = devices_per_channel or {1: {0x36}, 6: {0x36}, 7: {0x36}}
+        self.raw_angles = raw_angles or {1: 0, 6: 1024, 7: 2048}
         self.channel = None
         self.writes = []
 
@@ -51,15 +51,15 @@ def config():
 def test_scan_finds_devices_per_mux_channel(config):
     found = wb.Bench(config, FakeBus()).scan()
     assert found["root"] == [0x40]
-    assert found["mux0"] == found["mux1"] == found["mux2"] == [0x36]
-    assert "mux3" not in found
+    assert found["mux1"] == found["mux6"] == found["mux7"] == [0x36]
+    assert "mux2" not in found
 
 
 def test_encoder_angle_and_status(config):
     readings = wb.Bench(config, FakeBus()).read_encoders()
-    assert readings["diff_1"][0] == pytest.approx(0.0)
-    assert readings["diff_2"][0] == pytest.approx(90.0)
-    assert readings["upper"][0] == pytest.approx(180.0)
+    assert readings["enc_ch1"][0] == pytest.approx(0.0)
+    assert readings["enc_ch6"][0] == pytest.approx(90.0)
+    assert readings["enc_ch7"][0] == pytest.approx(180.0)
     assert all(r[2] == "OK" for r in readings.values())
 
 
@@ -113,10 +113,10 @@ def test_motion_always_ends_with_outputs_off(config):
 def test_motion_aborts_on_travel_limit(config):
     bus = FakeBus()
     bench = wb.Bench(config, bus)
-    angles = iter([0, 0, 0] + [400, 0, 0] * 1000)  # diff_1 jumps ~35 deg after start
+    angles = iter([0, 0, 0] + [400] * 1000)  # enc_ch1 jumps ~35 deg after start
 
     def read_block(addr, reg, n):
-        raw = next(angles) if bus.channel == 0 else bus.raw_angles[bus.channel]
+        raw = next(angles) if bus.channel == 1 else bus.raw_angles[bus.channel]
         return [raw >> 8, raw & 0xFF]
 
     bus.read_i2c_block_data = read_block

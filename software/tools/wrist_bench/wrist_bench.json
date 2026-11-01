@@ -10,9 +10,9 @@
     "upper_2": {"channel": 11, "neutral_us": 1600}
   },
   "encoders": {
-    "diff_1": {"mux_channel": 0},
-    "diff_2": {"mux_channel": 1},
-    "upper":  {"mux_channel": 2}
+    "enc_ch1": {"mux_channel": 1},
+    "enc_ch6": {"mux_channel": 6},
+    "enc_ch7": {"mux_channel": 7}
   },
   "differential": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": 1},
   "safety": {"max_offset_us": 150, "max_duration_s": 3.0, "max_travel_deg": 30}

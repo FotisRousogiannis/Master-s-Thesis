@@ -26,7 +26,7 @@
 | [0010](0010-host-setup-docker-from-ubuntu.md) | Ρύθμιση host: Docker από τα αποθετήρια Ubuntu, Intel GPU, XWayland | Αποδεκτή | 2026-10-20 |
 | [0011](0011-cad-export-own-fusion-script.md) | Εξαγωγή CAD με δικό μας script για το Fusion 360 | Αποδεκτή | 2026-10-21 |
 | [0012](0012-bench-rig-raspberry-pi.md) | Πάγκος δοκιμών καρπού με Raspberry Pi (προσωρινός) | Αποδεκτή | 2026-11-01 |
-| [0013](0013-segment-board-esp32-with-pi-hat.md) | Κοινή πλακέτα τμήματος με ESP32 και υποδοχή HAT για Pi | Προτεινόμενη | 2026-11-07 |
+| [0013](0013-segment-board-esp32-with-pi-hat.md) | Κοινή πλακέτα τμήματος με ESP32 και υποδοχή HAT για Pi | Αποδεκτή | 2026-11-07 |
 
 ## Πρότυπο
 

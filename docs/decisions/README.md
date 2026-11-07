@@ -17,9 +17,9 @@
 | [0001](0001-ros2-jazzy-gazebo-harmonic.md) | ROS 2 Jazzy + Gazebo Harmonic | Αποδεκτή | 2026-10-20 |
 | [0002](0002-docker-dev-environment.md) | Περιβάλλον ανάπτυξης σε Docker | Αποδεκτή | 2026-10-20 |
 | [0003](0003-repo-structure-and-branching.md) | Δομή repository και ροή branches | Αποδεκτή | 2026-10-20 |
-| [0004](0004-compute-distribution-no-pi.md) | Κατανομή υπολογισμού: υπολογιστής + ESP32, χωρίς Raspberry Pi | Αποδεκτή | 2026-10-20 |
+| [0004](0004-compute-distribution-no-pi.md) | Κατανομή υπολογισμού: υπολογιστής + ESP32, χωρίς Raspberry Pi | Τροποποιήθηκε από 0013 | 2026-10-20 |
 | [0005](0005-control-split-two-esp32-nodes.md) | Διαχωρισμός ελέγχου: 2 PCB / 2 ESP32 nodes, τοπικός βρόχος | Αποδεκτή | 2026-10-20 |
-| [0006](0006-communication-buses.md) | Δίαυλοι επικοινωνίας: I²C τοπικά, WiFi προς υπολογιστή | Αποδεκτή | 2026-10-20 |
+| [0006](0006-communication-buses.md) | Δίαυλοι επικοινωνίας: I²C τοπικά, WiFi προς υπολογιστή | Τροποποιήθηκε από 0014 | 2026-10-20 |
 | [0007](0007-micro-ros-on-esp32.md) | micro-ROS στα ESP32 | Αποδεκτή | 2026-10-20 |
 | [0008](0008-camera-eye-to-hand.md) | Κάμερα RealSense D435if σταθερή (eye-to-hand) | Αποδεκτή | 2026-10-20 |
 | [0009](0009-provisional-kinematic-model.md) | Προσωρινό κινηματικό μοντέλο μέχρι το export από Fusion 360 | Αποδεκτή | 2026-10-20 |
@@ -27,6 +27,7 @@
 | [0011](0011-cad-export-own-fusion-script.md) | Εξαγωγή CAD με δικό μας script για το Fusion 360 | Αποδεκτή | 2026-10-21 |
 | [0012](0012-bench-rig-raspberry-pi.md) | Πάγκος δοκιμών καρπού με Raspberry Pi (προσωρινός) | Αποδεκτή | 2026-11-01 |
 | [0013](0013-segment-board-esp32-with-pi-hat.md) | Κοινή πλακέτα τμήματος με ESP32 και υποδοχή HAT για Pi | Αποδεκτή | 2026-11-07 |
+| [0014](0014-controller-links-uart-rs485.md) | Σύνδεση ελεγκτών: UART στην πλακέτα, RS-485 ανάμεσα στις πλακέτες | Αποδεκτή | 2026-11-07 |
 
 ## Πρότυπο
 

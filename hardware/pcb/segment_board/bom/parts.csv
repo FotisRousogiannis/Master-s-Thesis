@@ -10,7 +10,9 @@ USB ESD protection,USBLC6-2SC6,SOT-23-6,C7519,extended,JLC,
 USB-C receptacle (ESP32),TYPE-C-31-M-12,SMD,C165948,extended,JLC,
 RS-485 full-duplex transceiver,THVD1452DR,SOIC-14,C1850237,extended,JLC,MAX3491EESD+T (C407909) as alternative
 Reverse-polarity P-MOSFET (7.4 V),AO4407A,SOIC-8,C16072,extended,JLC,
-eFuse for Pi 5 V (overcurrent + reverse-current blocking),TPS259472ARPWR,VQFN-10,C3662789,extended,JLC,replaces fuse + ideal diode on the Pi line
+eFuse 5.1 V input (logic + Pi),TPS259472ARPWR,VQFN-10,C3662789,extended,JLC,limit ~4 A; reverse-current blocking; replaces fuse + ideal diode
+eFuse 7.4 V input (servos),TPS259827ONRGER,VQFN-24 4x4,C2155761,extended,JLC,limit ~10 A; soft-start; EN from ESP32/Pi + E-stop
+Backup fuse 7.4 V,15 A fuse (blade or 2410 SMD),-,tbd,tbd,tbd,last line of defence behind the eFuse
 Ideal diode (ESP32 USB 5 V OR-ing),LM66100DCKR,SC-70-6,C2869734,extended,JLC,
 TVS 7.4 V input,SMBJ9.0A,SMB,C152088,extended,JLC,
 TVS 5.1 V input,SMBJ5.0A,SMB,C78423,extended,JLC,

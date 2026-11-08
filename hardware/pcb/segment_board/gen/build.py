@@ -28,6 +28,8 @@ FP = {
     "R0603": "Resistor_SMD:R_0603_1608Metric",
     "C0603": "Capacitor_SMD:C_0603_1608Metric",
     "C0805": "Capacitor_SMD:C_0805_2012Metric",
+    "R0402": "Resistor_SMD:R_0402_1005Metric",
+    "C0402": "Capacitor_SMD:C_0402_1005Metric",
     "C1206": "Capacitor_SMD:C_1206_3216Metric",
     "R2512": "Resistor_SMD:R_2512_6332Metric",
     "LED": "LED_SMD:LED_0603_1608Metric",
@@ -60,11 +62,11 @@ def ref(prefix):
 
 
 # ---- generic parts -------------------------------------------------------------------------
-def R(s, value, a, b, fp="R0603", **kw):
+def R(s, value, a, b, fp="R0402", **kw):
     return s.add(Part(ref("R"), "Device:R", value, {"1": a, "2": b}, FP[fp], **kw))
 
 
-def C(s, value, a, b, fp="C0603", **kw):
+def C(s, value, a, b, fp="C0402", **kw):
     return s.add(Part(ref("C"), "Device:C", value, {"1": a, "2": b}, FP[fp], **kw))
 
 
@@ -112,7 +114,7 @@ def PWR_FLAG(s, net):
 
 def decouple(s, net, *values):
     for v in values:
-        C(s, v, net, "GND", fp="C0805" if v in ("10u", "22u") else "C0603")
+        C(s, v, net, "GND", fp="C0805" if v in ("10u", "22u") else "C0402")
 
 
 # =============================================================================================
@@ -352,10 +354,10 @@ def connectors_sheet():
                 LED(s, "green", f"LED_{name}_A", f"LED_{name}_K")
             else:
                 nets = {out_pin: None, minus: "VREF_ENC", plus: "GND"}   # unused: output held off
-            s.add(Part(cref, "Comparator:LM339", "LM339DR", nets, "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm",
-                       lcsc="C7948", unit=u + 1))
-        s.add(Part(cref, "Comparator:LM339", "LM339DR", {"3": "+3V3", "12": "GND"},
-                   "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm", lcsc="C7948", unit=5))
+            s.add(Part(cref, "Comparator:LM339", "LM339PWR", nets, "Package_SO:TSSOP-14_4.4x5mm_P0.65mm",
+                       lcsc="C42184", unit=u + 1))
+        s.add(Part(cref, "Comparator:LM339", "LM339PWR", {"3": "+3V3", "12": "GND"},
+                   "Package_SO:TSSOP-14_4.4x5mm_P0.65mm", lcsc="C42184", unit=5))
         decouple(s, "+3V3", "100n")
     return s
 

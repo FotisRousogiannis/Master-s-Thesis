@@ -32,10 +32,10 @@ kicad-cli sch export netlist -o /tmp/board.net ../segment_board.kicad_sch && pyt
 | `RPi_Socket_2x20_FaceDown` | header Pi με **κατοπτρικές στήλες** (Pi ανάποδα) + περίγραμμα Pi 4/5 και οπές M2.5 στο User.Drawings | ίδιο με το `Raspberry_Pi_Zero_Socketed_THT_FaceDown` του KiCad |
 
 ## PCB (`segment_board.kicad_pcb`)
-Δημιουργήθηκε **μία φορά** με `python3 gen/pcb.py` (δεν ξανατρέχει χωρίς `--force`, για να μη χαθεί δουλειά). Από εκεί
+Δημιουργήθηκε με `python3 gen/pcb.py --force` (με **αυτόματη αρχική τοποθέτηση**: κάθε chip μαζί με τα μικρά εξαρτήματα που μοιράζονται σήμα μαζί του, ανά περιοχή) (δεν ξανατρέχει χωρίς `--force`, για να μη χαθεί δουλειά). Από εκεί
 και πέρα το layout γίνεται στο KiCad. Αλλαγές του σχηματικού περνούν με **Tools → Update PCB from Schematic (F8)**.
 
-- 100 × 100 mm, 4 στρώσεις: F.Cu σήματα · In1 **GND** (zone) · In2 τροφοδοσίες · B.Cu σήματα
+- 100 × 120 mm, 4 στρώσεις: F.Cu σήματα · In1 **GND** (zone) · In2 τροφοδοσίες · B.Cu σήματα
 - Κανόνες JLCPCB και net classes: `python3 gen/rules.py` (ασφαλές να ξανατρέξει)
 
   | Net class | Δίκτυα | Πλάτος | Γιατί |

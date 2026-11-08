@@ -16,7 +16,7 @@ Ideal diode (ESP32 USB 5 V OR-ing),LM66100DCKR,SC-70-6,C2869734,extended,JLC,
 TVS 7.4 V input,SMBJ9.0A,SMB,C152088,extended,JLC,
 TVS 5.1 V input,SMBJ6.0A,SMB,C19077560,extended,JLC,standoff 6.0 V above the 5.1 V rail
 Schottky servo ground clamp (5 A; stall up to ~4 A),SS54,SMA,C22452,basic,JLC,9 per board
-Comparator quad (hardware connection LEDs),LM339DR,SOIC-14,C7948,extended,JLC,5 per board
+Comparator quad (hardware connection LEDs),LM339PWR,TSSOP-14,C42184,extended,JLC,5 per board
 Servo connector 3-pin,Phoenix MCV 1.5/3-G-3.5 (1843606),THT P3.5,C3019639,extended,hand,9 per board
 Encoder connector 4-pin,Phoenix MCV 1.5/4-G-3.5 (1843619),THT P3.5,C3019620,extended,hand,6 per board - low JLC stock; buy from distributor
 7.4 V servo input,XT30PW-M,THT,-,not stocked,hand,buy separately

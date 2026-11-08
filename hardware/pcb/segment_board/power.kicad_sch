@@ -6755,27 +6755,7 @@
 			)
 		)
 	)
-	(wire
-		(pts (xy 60.96 208.28) (xy 63.5 208.28))
-		(stroke (width 0) (type default))
-		(uuid 6538528a-43db-5286-8c55-b33471a3708a)
-	)
-	(global_label "GND"
-		(shape passive)
-		(at 63.5 208.28 0)
-		(fields_autoplaced)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid 84304b53-f02a-5d84-b0a2-69d8c1168f90)
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 63.5 208.28 0)
-			(effects
-				(font (size 1.27 1.27)) hide
-			)
-		)
-	)
+	(no_connect (at 60.96 208.28) (uuid ed245e03-a3ca-56b7-ba69-ed204b7b3a17))
 	(symbol
 		(lib_id "segment_board:LM66100")
 		(at 50.8 208.28 0)
@@ -6819,7 +6799,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "CE tied to VOUT: ideal-diode OR"
+		(property "Note" "CE tied to VOUT: ideal-diode OR. ST (open-drain status) unused"
 			(at 50.8 208.28 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -6922,27 +6902,7 @@
 			)
 		)
 	)
-	(wire
-		(pts (xy 114.3 208.28) (xy 116.84 208.28))
-		(stroke (width 0) (type default))
-		(uuid a9b61345-58c2-5973-98d4-c34e9816bd8f)
-	)
-	(global_label "GND"
-		(shape passive)
-		(at 116.84 208.28 0)
-		(fields_autoplaced)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid 086379a6-d5bc-5677-86cd-785483c81c83)
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 116.84 208.28 0)
-			(effects
-				(font (size 1.27 1.27)) hide
-			)
-		)
-	)
+	(no_connect (at 114.3 208.28) (uuid ce1c727c-1043-5721-89f3-5e8e44feb37f))
 	(symbol
 		(lib_id "segment_board:LM66100")
 		(at 104.14 208.28 0)
@@ -6986,7 +6946,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "CE tied to VOUT: ideal-diode OR"
+		(property "Note" "CE tied to VOUT: ideal-diode OR. ST (open-drain status) unused"
 			(at 104.14 208.28 0)
 			(effects
 				(font (size 1.27 1.27))

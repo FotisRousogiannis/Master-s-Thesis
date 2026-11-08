@@ -18,8 +18,12 @@ jobs:
         working-directory: hardware/pcb/segment_board
     steps:
       - uses: actions/checkout@v4
-      - name: KiCad version
-        run: kicad-cli version
+      - name: KiCad version and default libraries
+        run: |
+          kicad-cli version
+          mkdir -p ~/.config/kicad/9.0
+          cp /usr/share/kicad/template/sym-lib-table ~/.config/kicad/9.0/
+          cp /usr/share/kicad/template/fp-lib-table ~/.config/kicad/9.0/
       - name: ERC
         run: |
           kicad-cli sch erc --format report --severity-all -o erc.rpt segment_board.kicad_sch

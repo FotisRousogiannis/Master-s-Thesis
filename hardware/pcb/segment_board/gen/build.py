@@ -184,9 +184,9 @@ def power_sheet():
     # 3.3 V buck, fed from V5_LOGIC or USB VBUS through ideal diodes
     for vin in ("V5_LOGIC", "VBUS_USB"):
         s.add(Part(ref("U"), "segment_board:LM66100", "LM66100DCKR",
-                   {"1": vin, "3": "V_BUCK", "2": "GND", "6": "V_BUCK", "5": "GND"},
+                   {"1": vin, "3": "V_BUCK", "2": "GND", "6": "V_BUCK", "5": None},
                    "Package_TO_SOT_SMD:SOT-363_SC-70-6", lcsc="C2869734",
-                   note="CE tied to VOUT: ideal-diode OR"))
+                   note="CE tied to VOUT: ideal-diode OR. ST (open-drain status) unused"))
     decouple(s, "V_BUCK", "10u", "100n")
     s.add(Part(ref("U"), "Regulator_Switching:AP63203WU", "AP63203WU-7",
                {"1": "+3V3", "2": "V_BUCK", "3": "V_BUCK", "4": "GND", "5": "BUCK_SW", "6": "BUCK_BST"},

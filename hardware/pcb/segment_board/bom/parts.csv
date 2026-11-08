@@ -1,0 +1,23 @@
+function,part,package,lcsc,jlc_type,assembly,notes
+Controller,ESP32-S3-WROOM-1-N8R8,module 25.5x18 mm,C2913201,extended,JLC,integrated antenna at board edge
+Servo PWM driver,PCA9685PW,TSSOP-28,C2678753,extended,JLC,
+I2C mux (encoders),TCA9548APWR,TSSOP-24,C130026,extended,JLC,
+ADC (touch sensors),ADS1115IDGSR,VSSOP-10,C37593,extended,JLC,
+Servo current monitor,INA219AIDCNR,SOT-23-8,C87469,extended,JLC,
+LED / IO expander (x2),TCA9535PWR,TSSOP-24,C130204,extended,JLC,only if connection LEDs are software-driven
+3.3 V buck (from 5.1 V),AP63203WU-7,TSOT-23-6,C780769,extended,JLC,
+USB ESD protection,USBLC6-2SC6,SOT-23-6,C7519,extended,JLC,
+USB-C receptacle (ESP32),TYPE-C-31-M-12,SMD,C165948,extended,JLC,
+RS-485 full-duplex transceiver,THVD1452DR,SOIC-14,C1850237,extended,JLC,MAX3491EESD+T (C407909) as alternative
+Reverse-polarity P-MOSFET (7.4 V),AO4407A,SOIC-8,C16072,extended,JLC,
+eFuse for Pi 5 V (overcurrent + reverse-current blocking),TPS259472ARPWR,VQFN-10,C3662789,extended,JLC,replaces fuse + ideal diode on the Pi line
+Ideal diode (ESP32 USB 5 V OR-ing),LM66100DCKR,SC-70-6,C2869734,extended,JLC,
+TVS 7.4 V input,SMBJ9.0A,SMB,C152088,extended,JLC,
+TVS 5.1 V input,SMBJ5.0A,SMB,C78423,extended,JLC,
+Schottky (general),SS34,SMA,C8678,basic,JLC,
+Comparator quad (hardware connection LEDs),LM339DR,SOIC-14,C7948,extended,JLC,only if connection LEDs are hardware-driven
+Servo connector 3-pin,Phoenix MCV 1.5/3-G-3.5 (1843606),THT P3.5,C3019639,extended,hand,9 per board
+Encoder connector 4-pin,Phoenix MCV 1.5/4-G-3.5 (1843619),THT P3.5,C3019620,extended,hand,6 per board - low JLC stock; buy from distributor
+7.4 V servo input,XT30PW-M,THT,-,not stocked,hand,buy separately
+5.1 V logic input,Phoenix MSTB 2.5/2-G-5.08,THT P5.08,-,not stocked,hand,buy separately
+Pi header 2x20 (tall female),2x20 female stacking header,THT P2.54,-,tbd,hand,height chosen for ~20 mm Pi clearance

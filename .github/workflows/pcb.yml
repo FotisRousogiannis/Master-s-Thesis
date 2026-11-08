@@ -1,0 +1,43 @@
+name: PCB checks (KiCad 9)
+
+on:
+  push:
+    paths: ["hardware/pcb/**", ".github/workflows/pcb.yml"]
+  pull_request:
+    paths: ["hardware/pcb/**"]
+  workflow_dispatch:
+
+jobs:
+  segment-board:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:9.0
+      options: --user root
+    defaults:
+      run:
+        working-directory: hardware/pcb/segment_board
+    steps:
+      - uses: actions/checkout@v4
+      - name: KiCad version
+        run: kicad-cli version
+      - name: ERC
+        run: |
+          kicad-cli sch erc --format report --severity-all -o erc.rpt segment_board.kicad_sch
+          cat erc.rpt
+          kicad-cli sch erc --exit-code-violations --severity-error -o erc_errors.rpt segment_board.kicad_sch
+      - name: Netlist check
+        if: always()
+        run: |
+          kicad-cli sch export netlist -o board.net segment_board.kicad_sch
+          python3 gen/check_netlist.py board.net
+      - name: Schematic PDF
+        if: always()
+        run: kicad-cli sch export pdf -o segment_board_schematic.pdf segment_board.kicad_sch
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: segment-board-checks
+          path: |
+            hardware/pcb/segment_board/erc.rpt
+            hardware/pcb/segment_board/erc_errors.rpt
+            hardware/pcb/segment_board/segment_board_schematic.pdf

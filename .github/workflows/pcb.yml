@@ -1,4 +1,4 @@
-name: PCB checks (KiCad 9)
+name: PCB checks (KiCad 10)
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
   segment-board:
     runs-on: ubuntu-latest
     container:
-      image: kicad/kicad:9.0
+      image: kicad/kicad:10.0
       options: --user root
     defaults:
       run:
@@ -21,9 +21,9 @@ jobs:
       - name: KiCad version and default libraries
         run: |
           kicad-cli version
-          mkdir -p ~/.config/kicad/9.0
-          cp /usr/share/kicad/template/sym-lib-table ~/.config/kicad/9.0/
-          cp /usr/share/kicad/template/fp-lib-table ~/.config/kicad/9.0/
+          mkdir -p ~/.config/kicad/10.0
+          cp /usr/share/kicad/template/sym-lib-table ~/.config/kicad/10.0/
+          cp /usr/share/kicad/template/fp-lib-table ~/.config/kicad/10.0/
       - name: ERC
         run: |
           kicad-cli sch erc --format report --severity-all -o erc.rpt segment_board.kicad_sch
@@ -41,6 +41,7 @@ jobs:
         if: always()
         run: |
           kicad-cli pcb drc --schematic-parity --severity-all --format report -o drc.rpt segment_board.kicad_pcb || true
+          test -f drc.rpt || { echo "::error::DRC could not load the board"; exit 1; }
           grep -E "^\*\* " drc.rpt || true
           grep -E "^\[[a-z_]+\]" drc.rpt | sed 's/:.*//' | sort | uniq -c | sort -rn || true
           echo "--- errors other than unconnected items / library version differences:"

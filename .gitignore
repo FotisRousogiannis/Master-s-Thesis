@@ -23,4 +23,6 @@ Thumbs.db
 *-backups/
 *.kicad_prl
 fp-info-cache
+~*.lck
+.history/
 \#auto_saved_files\#

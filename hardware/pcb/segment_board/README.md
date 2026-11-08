@@ -1,9 +1,9 @@
-# Segment board v1 (KiCad 9)
+# Segment board v1 (KiCad 10)
 
 Κοινή πλακέτα τμήματος του βραχίονα — προδιαγραφή: [`SPEC.md`](SPEC.md), BOM/διαθεσιμότητα: [`bom/`](bom/).
 
 ## Άνοιγμα
-Άνοιξε το `segment_board.kicad_pro` στο **KiCad 9** (τα αρχεία είναι σε μορφή KiCad 7 και αναβαθμίζονται στην αποθήκευση).
+Άνοιξε το `segment_board.kicad_pro` στο **KiCad 10** (το PCB είναι αποθηκευμένο σε μορφή KiCad 10· το σχηματικό παράγεται σε μορφή KiCad 7). **Κλείσε το KiCad πριν από `git pull`**, αλλιώς το KiCad ξαναγράφει τις παλιές ρυθμίσεις του project πάνω στις νέες.
 Τα project libraries `segment_board` δηλώνονται στο `sym-lib-table` (σύμβολα, `lib/segment_board.kicad_sym`) και στο
 `fp-lib-table` (footprints, `lib/segment_board.pretty`).
 
@@ -49,7 +49,7 @@ kicad-cli sch export netlist -o /tmp/board.net ../segment_board.kicad_sch && pyt
   με το keep-out του footprint), XT30 και MSTB στην πάνω άκρη, USB-C στη δεξιά άκρη. Τα υπόλοιπα εξαρτήματα είναι
   δίπλα στην πλακέτα, ομαδοποιημένα ανά φύλλο του σχηματικού.
 - Κάτω από το Pi (≥ 18 mm ελεύθερο ύψος): μόνο SMD.
-- Το CI (KiCad 9) τρέχει **DRC** με έλεγχο ισοτιμίας με το σχηματικό και βγάζει εικόνες της πλακέτας.
+- Το CI (KiCad 10) τρέχει **DRC** με έλεγχο ισοτιμίας με το σχηματικό και βγάζει εικόνες της πλακέτας.
 
 ## Υλικά (`bom/`)
 - `parts.csv`: κύρια εξαρτήματα · `passives.csv`: αντιστάσεις, πυκνωτές, LED κ.λπ. — επιλογή με `resolve_passives.py`

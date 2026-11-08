@@ -26,17 +26,17 @@ TRACKS = [0.0, 0.2, 0.3, 0.6, 1.0, 1.5, 2.5]
 VIAS = [{"diameter": 0.0, "drill": 0.0}, {"diameter": 0.6, "drill": 0.3}, {"diameter": 0.8, "drill": 0.4}]
 
 
-def cls(name, clearance, track, via, drill):
-    return {"name": name, "clearance": clearance, "track_width": track, "via_diameter": via, "via_drill": drill,
+def cls(name, clearance, track, via, drill, priority=0):
+    return {"name": name, "priority": priority, "tuning_profile": "", "clearance": clearance, "track_width": track, "via_diameter": via, "via_drill": drill,
             "microvia_diameter": 0.3, "microvia_drill": 0.1, "diff_pair_width": 0.2, "diff_pair_gap": 0.25,
             "diff_pair_via_gap": 0.25, "wire_width": 6, "bus_width": 12, "line_style": 0,
             "pcb_color": "rgba(0, 0, 0, 0.000)", "schematic_color": "rgba(0, 0, 0, 0.000)"}
 
 
-CLASSES = [cls("Default", 0.15, 0.2, 0.6, 0.3),
-           cls("Power_Servo", 0.2, 2.5, 0.8, 0.4),
-           cls("Servo_Ch", 0.2, 1.0, 0.8, 0.4),
-           cls("Power_Logic", 0.15, 0.6, 0.6, 0.3)]
+CLASSES = [cls("Default", 0.15, 0.2, 0.6, 0.3, 2147483647),
+           cls("Power_Servo", 0.2, 2.5, 0.8, 0.4, 0),
+           cls("Servo_Ch", 0.2, 1.0, 0.8, 0.4, 1),
+           cls("Power_Logic", 0.15, 0.6, 0.6, 0.3, 2)]
 PATTERNS = [("Power_Servo", "VS_*"), ("Power_Servo", "VSERVO"),
             ("Servo_Ch", "SERVO*_GND"),
             ("Power_Logic", "V5_*"), ("Power_Logic", "V_BUCK"), ("Power_Logic", "+3V3"),
@@ -52,7 +52,7 @@ def main():
     ns = d.setdefault("net_settings", {})
     ns["classes"] = CLASSES
     ns["netclass_patterns"] = [{"netclass": c, "pattern": p} for c, p in PATTERNS]
-    ns.setdefault("meta", {"version": 3})
+    ns.setdefault("meta", {"version": 4})
     PRO.write_text(json.dumps(d, indent=2) + "\n")
     print(f"updated {PRO.name}: {len(CLASSES)} net classes, {len(PATTERNS)} patterns")
 

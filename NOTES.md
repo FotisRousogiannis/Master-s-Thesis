@@ -73,16 +73,18 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 - [ ] Βιβλιογραφία, Συντομογραφίες, Παραρτήματα
 - [ ] Ενημέρωση πινάκων περιεχομένων / εικόνων / πινάκων (στο Word: F9)
 
-## Κατάσταση λογισμικού / υλικού (2026-11-07)
+## Κατάσταση λογισμικού / υλικού (2026-11-08)
 - **Περιβάλλον ανάπτυξης** λειτουργικό (Docker, ROS 2 Jazzy) — `docs/setup/ubuntu.md`, tag `v0.1-dev-env` στο `testing`.
 - **URDF:** προσωρινό (ADR-0009). Export από Fusion: δικό μας script `software/tools/fusion_export/` (ADR-0011) — δεν έχει τρέξει ακόμα στον βραχίονα.
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),
   διαφορικό στα κανάλια 9/10 με ανεστραμμένο Β. Τα servo κινούνται με `jog`· εκκρεμεί πλήρης αντιστοίχιση καναλιών (T3/T4) και T5.
 - **Αισθητήρες αφής:** 2 × ZD10 + ADS1115 (0x48, mux κανάλι 2), διαιρέτης με **6.8 kΩ** — επαληθευμένο (2.5 V σε μέγιστη πίεση). `docs/hardware/wiring.md`.
-- **Επόμενο:** PCB καρπού στο **KiCad 9** (`hardware/pcb/wrist/`). Ανοιχτές αποφάσεις: v1 με modules ή SMD,
-  μοντέλο ESP32 (πρόταση ESP32-S3), διαθέσιμος χώρος, αριθμός servo/encoders, τάση εισόδου (7.4 V ή 22 V).
-  Προτεινόμενα στο PCB: PCA9685, TCA9548A, ADS1115, INA219 (ρεύμα servo), buck 3.3 V, προστασίες.
+- **PCB segment board** (`hardware/pcb/segment_board/`, ADR-0013/14/15): σχηματικό από κώδικα (`gen/build.py`),
+  ERC KiCad 9 χωρίς σφάλματα, προσομοίωση SPICE των αναλογικών (`sim/`), footprints project (eFuse, Pi ανάποδα, πηνίο),
+  LCSC για όλα τα SMD, **αρχικό PCB** (`gen/pcb.py`, μία φορά) με κανόνες JLC/net classes (`gen/rules.py`).
+- **Επόμενο:** layout στο KiCad από τον Φώτη με καθοδήγηση (τοποθέτηση → τροφοδοσίες → σήματα → DRC στο CI).
+  Εκκρεμεί: μέτρηση ρεύματος ηρεμίας servo (επιβεβαίωση 10 Ω), ρύθμιση buck servo στα 7.2–7.4 V.
 
 ## Συνέχεια σε νέα συνεδρία
 Πρώτα: ανάγνωση αυτού του αρχείου, του `docs/decisions/README.md`, του `docs/architecture.md` και του `docs/devlog.md`.

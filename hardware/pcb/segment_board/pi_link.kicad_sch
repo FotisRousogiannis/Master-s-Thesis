@@ -2287,7 +2287,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_PinSocket_2.54mm:PinSocket_2x20_P2.54mm_Vertical"
+		(property "Footprint" "segment_board:RPi_Socket_2x20_FaceDown"
 			(at 48.26 71.12 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2425,6 +2425,13 @@
 				(justify left) hide
 			)
 		)
+		(property "LCSC" "C21190"
+			(at 83.82 60.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
 		(pin "1" (uuid d1235d3b-6156-5d30-980b-f53916ac6688))
 		(pin "2" (uuid 002c2b40-29db-5f25-a28a-94a78b359c98))
 		(instances
@@ -2505,6 +2512,13 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 116.84 48.26 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
+		(property "LCSC" "C2986063"
 			(at 116.84 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2683,6 +2697,13 @@
 				(justify left) hide
 			)
 		)
+		(property "LCSC" "C23179"
+			(at 172.72 60.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
 		(pin "1" (uuid 28ba9312-19a3-5131-8043-6a4fef5b3f3e))
 		(pin "2" (uuid 3a30fb61-10d1-5089-a115-7f8d3b12eabf))
 		(instances
@@ -2849,6 +2870,13 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 215.9 60.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
+		(property "LCSC" "C23179"
 			(at 215.9 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3027,6 +3055,13 @@
 				(justify left) hide
 			)
 		)
+		(property "LCSC" "C21190"
+			(at 261.62 60.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
 		(pin "1" (uuid c8523b8e-24ff-5d18-937d-3c7feae805f7))
 		(pin "2" (uuid 87fb1bd7-f0d8-5537-834e-01bb3d3f6fef))
 		(instances
@@ -3193,6 +3228,13 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 309.88 63.5 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
+		(property "LCSC" "C21190"
 			(at 309.88 63.5 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3733,6 +3775,13 @@
 				(justify left) hide
 			)
 		)
+		(property "LCSC" "C14663"
+			(at 83.82 124.46 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
 		(pin "1" (uuid ccb9b46c-d56e-568b-8532-82116048b47b))
 		(pin "2" (uuid 50a5eb47-53c4-5d9d-a612-a6e8405189a0))
 		(instances
@@ -3899,6 +3948,13 @@
 			)
 		)
 		(property "Datasheet" ""
+			(at 127 129.54 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left) hide
+			)
+		)
+		(property "LCSC" "C22787"
 			(at 127 129.54 0)
 			(effects
 				(font (size 1.27 1.27))

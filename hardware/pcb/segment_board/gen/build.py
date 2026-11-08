@@ -10,6 +10,7 @@ Specification: ../SPEC.md · Decisions: docs/decisions/ADR-0013..0015.
 Values marked "TBD" depend on measurements still pending (see SPEC.md).
 """
 
+import csv
 import datetime
 import itertools
 from collections import defaultdict
@@ -33,7 +34,7 @@ FP = {
     "SMA": "Diode_SMD:D_SMA",
     "SMB": "Diode_SMD:D_SMB",
     "CP10": "Capacitor_THT:CP_Radial_D10.0mm_P5.00mm",
-    "L4020": "Inductor_SMD:L_Cenker_CKCS4020",
+    "L4020": "segment_board:L_4x4mm_SMNR4020",
     "BTN": "Button_Switch_SMD:SW_SPST_TL3342",
     "H1x2": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
     "H1x3": "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
@@ -45,7 +46,7 @@ FP = {
     "XT30": "Connector_AMASS:AMASS_XT30PW-M_1x02_P2.50mm_Horizontal",
     "MSTB2": "Connector_Phoenix_MSTB:PhoenixContact_MSTBVA_2,5_2-G-5,08_1x02_P5.08mm_Vertical",
     "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
-    "PI": "Connector_PinSocket_2.54mm:PinSocket_2x20_P2.54mm_Vertical",
+    "PI": "segment_board:RPi_Socket_2x20_FaceDown",
     "M3": "MountingHole:MountingHole_3.2mm_M3_Pad_Via",
     "M25": "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via",
 }
@@ -228,7 +229,7 @@ def mcu_sheet():
     R(s, "10k", "+3V3", "ESP_IO0")
     s.add(Part(ref("SW"), "Switch:SW_Push", "BOOT", {"1": "ESP_IO0", "2": "GND"}, FP["BTN"]))
     R(s, "1k", "STATUS_LED", "STATUS_LED_A")
-    LED(s, "blue", "STATUS_LED_A", "GND")
+    LED(s, "red", "STATUS_LED_A", "GND")   # low Vf: a blue LED (~3 V) stays dark on a 3.3 V GPIO
     # USB-C (device, USB 2.0)
     s.add(Part(ref("J"), "Connector:USB_C_Receptacle_USB2.0_16P", "USB-C",
                {"A1": "GND", "A12": "GND", "B1": "GND", "B12": "GND", "A4": "VBUS_USB", "A9": "VBUS_USB",
@@ -396,11 +397,26 @@ def pi_link_sheet():
     return s
 
 
+def apply_passive_lcsc(sheets):
+    """LCSC codes for generic parts (R, C, LED, ...) from bom/passives.csv (bom/resolve_passives.py)."""
+    table = {}
+    path = OUT / "bom" / "passives.csv"
+    if path.exists():
+        for row in csv.DictReader(open(path, encoding="utf-8")):
+            if row["lcsc"]:
+                table[(row["value"], row["footprint"])] = row["lcsc"]
+    for s in sheets:
+        for p in s.parts:
+            if not p.lcsc and p.footprint:
+                p.lcsc = table.get((p.value, p.footprint.split(":")[1]), "")
+
+
 def main():
     LIBFILE.parent.mkdir(exist_ok=True)
     write_project_library(LIBFILE)
     lib = Library(LIBFILE)
     sheets = [power_sheet(), mcu_sheet(), i2c_sheet(), connectors_sheet(), pi_link_sheet()]
+    apply_passive_lcsc(sheets)
     writer = Writer(lib, "Robotic arm segment board v1", "v1", datetime.date.today().isoformat())
     writer.write(sheets, OUT)
     n = sum(len({(p.ref) for p in s.parts}) for s in sheets)

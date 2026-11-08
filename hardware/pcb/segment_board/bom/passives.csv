@@ -1,0 +1,34 @@
+value,footprint,lcsc,mpn,type,stock,description
+1.2k,R_0603_1608Metric,C22765,0603WAF1201T5E,basic,2170121,-55℃~+155℃ 1.2kΩ 100mW 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+1.5k,R_0603_1608Metric,C22843,0603WAF1501T5E,basic,3236287,-55℃~+155℃ 1.5kΩ 100mW 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+10,R_0603_1608Metric,C22859,0603WAF100JT5E,basic,5713611,-55℃~+155℃ 100mW 10Ω 75V Thick Film Resistor ±1% ±400ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+100k,R_0603_1608Metric,C25803,0603WAF1003T5E,basic,16145868,-55℃~+155℃ 100kΩ 100mW 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+10k,R_0603_1608Metric,C25804,0603WAF1002T5E,basic,47537004,-55℃~+155℃ 100mW 10kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+120,R_0603_1608Metric,C22787,0603WAF1200T5E,basic,2792543,-55℃~+155℃ 100mW 120Ω 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+150,R_0603_1608Metric,C22808,0603WAF1500T5E,basic,1328210,-55℃~+155℃ 100mW 150Ω 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+1k,R_0603_1608Metric,C21190,0603WAF1001T5E,basic,27004661,-55℃~+155℃ 100mW 1kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+2.2k,R_0603_1608Metric,C4190,0603WAF2201T5E,basic,5078985,-55℃~+155℃ 100mW 2.2kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+2.7k,R_0603_1608Metric,C13167,0603WAF2701T5E,basic,654994,-55℃~+155℃ 100mW 2.7kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+220,R_0603_1608Metric,C22962,0603WAF2200T5E,basic,2793722,-55℃~+155℃ 100mW 220Ω 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+330k,R_0603_1608Metric,C23137,0603WAF3303T5E,basic,698310,-55℃~+155℃ 100mW 330kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+39k,R_0603_1608Metric,C23153,0603WAF3902T5E,basic,724933,-55℃~+155℃ 100mW 39kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+4.7k,R_0603_1608Metric,C23162,0603WAF4701T5E,basic,15973818,-55℃~+155℃ 100mW 4.7kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+470,R_0603_1608Metric,C23179,0603WAF4700T5E,basic,4119446,-55℃~+155℃ 100mW 470Ω 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+47k,R_0603_1608Metric,C25819,0603WAF4702T5E,basic,2951509,-55℃~+155℃ 100mW 47kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+5.1k,R_0603_1608Metric,C23186,0603WAF5101T5E,basic,20324520,-55℃~+155℃ 100mW 5.1kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+6.8k,R_0603_1608Metric,C23212,0603WAF6801T5E,basic,1092848,-55℃~+155℃ 100mW 6.8kΩ 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+750,R_0603_1608Metric,C23241,0603WAF7500T5E,preferred,267703,-55℃~+155℃ 100mW 750Ω 75V Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS
+100n,C_0603_1608Metric,C14663,CC0603KRX7R9BB104,basic,34009448,100nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+1u,C_0603_1608Metric,C15849,CL10A105KB8NNNC,basic,12930235,1uF 50V X5R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+3.3n,C_0603_1608Metric,C1613,CL10B332KB8NNNC,basic,396556,3.3nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+10u,C_0805_2012Metric,C15850,CL21A106KAYNNNE,basic,8653416,10uF 25V X5R ±10% 0805 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+22u,C_0805_2012Metric,C45783,CL21A226MAQNNNE,basic,3545303,22uF 25V X5R ±20% 0805 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+1000u 16V,CP_Radial_D10.0mm_P5.00mm,C88777,16PX1000MEFC10X12.5,extended,45155,"-25℃~+105℃ 1000uF 10mm 12.5mm 16V 2000hrs@105℃ 5mm 640mA@120Hz ±20% 插件,D10xL12.5mm Aluminum Electrolytic Capacitors - Le"
+5m 2W,R_2512_6332Metric,C371096,FMF25FPJR005-LH,extended,69309,2W 5mΩ Current Sense Resistor SMD ±1% ±70ppm/℃ 2512 Current Sense Resistors / Shunt Resistors ROHS
+2.2u Isat>=3A,L_4x4mm_SMNR4020,C135262,SMNR4020-2.2UH,extended,117715,"2.2uH 3.4A 3.4A 46mΩ ±20% SMD,4x4mm Power Inductors ROHS"
+SMBJ6.0A,D_SMB,C19077560,SMBJ6.0A,preferred,176833,-55℃~+150℃ 10.3V 58.25A@10/1000us 600W@10/1000us 6V 7.37V 800uA IEC 61000-4-2 TVS Unidirectional DO-214AA(SMB) ESD and S
+green,LED_0603_1608Metric,C2986030,19-217/G7C-AN1P2/6T,extended,592071,-40℃~+85℃ 120° 25mA 2V 569.5nm~577.5nm 575nm 60mW Discrete Diode Water Clear Yellow Green 0603 LED Indication - Discrete
+yellow,LED_0603_1608Metric,C2986063,19-217/Y5C-AP1Q2/6T,extended,147908,-40℃~+85℃ 120° 25mA 2V 585.5nm~594.5nm 591nm 60mW Discrete Diode Water Clear Yellow 0603 LED Indication - Discrete ROHS
+red,LED_0603_1608Metric,C2986060,19-217/R6C-AL1M2VY/6T,extended,3513059,-40℃~+85℃ 120° 2.2V 28.5mcd 5mA 60mW 617.5nm~633.5nm 632nm Discrete Diode Red Water Clear 0603 LED Indication - Discrete
+BOOT,SW_SPST_TL3342,C2886897,TL3342F450QG,extended,839,"-20℃~+70℃ 1.54mm 100,000 cycles 12V 4.5N 5.2mm 50mA Gull Wing Round Button SPST-NO Surface Mount,Vertical SMD-4P,5.2x5.2"
+RESET,SW_SPST_TL3342,C2886897,TL3342F450QG,extended,839,"-20℃~+70℃ 1.54mm 100,000 cycles 12V 4.5N 5.2mm 50mA Gull Wing Round Button SPST-NO Surface Mount,Vertical SMD-4P,5.2x5.2"

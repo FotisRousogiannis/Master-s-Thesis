@@ -37,6 +37,18 @@ jobs:
       - name: Schematic PDF
         if: always()
         run: kicad-cli sch export pdf -o segment_board_schematic.pdf segment_board.kicad_sch
+      - name: DRC (report only until the layout is finished)
+        if: always()
+        run: |
+          kicad-cli pcb drc --schematic-parity --severity-all --format report -o drc.rpt segment_board.kicad_pcb || true
+          grep -E "^\*\* " drc.rpt || true
+          grep -E "^\[[a-z_]+\]" drc.rpt | sed 's/:.*//' | sort | uniq -c | sort -rn || true
+      - name: Board images
+        if: always()
+        continue-on-error: true
+        run: |
+          kicad-cli pcb export svg --layers Edge.Cuts,F.Cu,F.SilkS,F.Fab,Dwgs.User --exclude-drawing-sheet -o board_top.svg segment_board.kicad_pcb
+          kicad-cli pcb render --side top --width 1600 --height 1600 -o board_3d_top.png segment_board.kicad_pcb
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -45,3 +57,6 @@ jobs:
             hardware/pcb/segment_board/erc.rpt
             hardware/pcb/segment_board/erc_errors.rpt
             hardware/pcb/segment_board/segment_board_schematic.pdf
+            hardware/pcb/segment_board/drc.rpt
+            hardware/pcb/segment_board/board_top.svg
+            hardware/pcb/segment_board/board_3d_top.png

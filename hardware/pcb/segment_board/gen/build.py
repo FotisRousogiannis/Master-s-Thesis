@@ -44,6 +44,7 @@ FP = {
     "MCV4": "Connector_Phoenix_MC:PhoenixContact_MCV_1,5_4-G-3.5_1x04_P3.50mm_Vertical",
     "MCV5": "Connector_Phoenix_MC:PhoenixContact_MCV_1,5_5-G-3.5_1x05_P3.50mm_Vertical",
     "XT30": "Connector_AMASS:AMASS_XT30PW-M_1x02_P2.50mm_Horizontal",
+    "XT30F": "Connector_AMASS:AMASS_XT30UPB-F_1x02_P5.0mm_Vertical",
     "MSTB2": "Connector_Phoenix_MSTB:PhoenixContact_MSTBVA_2,5_2-G-5,08_1x02_P5.08mm_Vertical",
     "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
     "PI": "segment_board:RPi_Socket_2x20_FaceDown",
@@ -117,8 +118,8 @@ def decouple(s, net, *values):
 # =============================================================================================
 def power_sheet():
     s = Sheet("power", "power.kicad_sch", "Power: inputs, protection, eFuses, 3.3 V")
-    s.text("7.4 V SERVO: XT30 -> 15 A fuse -> P-MOSFET reverse polarity -> TVS -> eFuse TPS259827 (ILIM ~10 A, soft-start, EN) -> bulk caps -> INA219 shunt -> VSERVO")
-    s.text("5.1 V LOGIC: MSTB -> TVS -> eFuse TPS259472A (ILM ~4.4 A, reverse blocking, OV clamp 5.7 V) -> V5_LOGIC (Pi 5V pins, 3.3 V buck)")
+    s.text("7.4 V SERVO: XT30 -> 15 A fuse -> P-MOSFET reverse polarity -> TVS -> eFuse TPS259827 (ILIM ~10 A, soft-start, EN) -> bulk caps -> INA219 shunt -> VSERVO. OUT to next board after the TVS (before the eFuse).")
+    s.text("5.1 V LOGIC: MSTB -> TVS -> eFuse TPS259472A (ILM ~4.4 A, reverse blocking, OV clamp 5.7 V) -> V5_LOGIC (Pi 5V pins, 3.3 V buck). OUT to next board after the TVS.")
     s.text("E-STOP (board level): NC contact in series with the eFuse EN line; central E-stop cuts the 7.4 V line at the base (ADR-0015)")
 
     # 7.4 V servo input
@@ -130,6 +131,8 @@ def power_sheet():
                note="Reverse-polarity protection: body diode conducts first, then channel enhances (Vgs = -VIN)"))
     R(s, "10k", "QREV_G", "GND")
     DZ(s, "SMBJ9.0A", "VS_PROT", "GND", lcsc="C152088")
+    # pass-through to the next board, BEFORE this board's eFuse: the next board limits/switches its own servos
+    CONN(s, "J", ["VS_PROT", "GND"], "XT30F", "XT30 7.4V SERVO OUT (next board)")
     s.add(Part(ref("U"), "segment_board:TPS259827", "TPS259827ONRGER",
                {"1": "VS_PROT", "2": "VS_PROT", "3": "VS_PROT", "16": "VS_PROT", "25": "VS_PROT",
                 "6": "SERVO_EN_FINAL", "15": "SERVO_DVDT", "7": None, "12": "GND",
@@ -166,6 +169,7 @@ def power_sheet():
     # 5.1 V logic input
     CONN(s, "J", ["V5_RAW", "GND"], "MSTB2", "MSTB 5.1V LOGIC IN")
     DZ(s, "SMBJ6.0A", "V5_RAW", "GND")
+    CONN(s, "J", ["V5_RAW", "GND"], "MSTB2", "MSTB 5.1V LOGIC OUT (next board)")   # before this board's eFuse
     decouple(s, "V5_RAW", "10u")
     s.add(Part(ref("U"), "segment_board:TPS259472A", "TPS259472ARPWR",
                {"5": "V5_RAW", "1": "V5_UVLO", "2": None, "7": "V5_DVDT", "10": None, "8": "GND",

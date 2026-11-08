@@ -49,7 +49,8 @@ COLUMNS = [
     (4.5, 17.0, [f"SERVO {n}" for n in (1, 2, 3, 4, 5)]),
     (15.0, 17.0, [f"SERVO {n}" for n in (6, 7, 8, 9)] + ["TOUCH 1", "TOUCH 2"]),
     (25.5, 17.0, [f"ENCODER {n}" for n in (1, 2, 3, 4)] + ["E-STOP (NC contact)"]),
-    (36.0, 17.0, [f"ENCODER {n}" for n in (5, 6)] + ["LINK RS-485 (Y Z A B GND)"]),
+    (36.0, 17.0, ["XT30 7.4V SERVO OUT (next board)", "MSTB 5.1V LOGIC OUT (next board)",
+                  "LINK RS-485 (Y Z A B GND)"] + [f"ENCODER {n}" for n in (5, 6)]),
 ]
 FIXED = {   # value -> (x, y, rotation) for pin 1 / footprint anchor, board coordinates
     "XT30 7.4V SERVO IN": (17.7, 12.5, 0),
@@ -171,9 +172,13 @@ def main(force):
         y = y0
         for v in values:
             c = by_value[v][0]
-            pads = load_fp(c["footprint"]).GetPadCount()
-            width = pads * 3.5 + 2.48           # MCV 1,5/n-G-3.5 courtyard (12.98 mm for 3 pins)
-            place(c, x, y + 3.01, 270)          # courtyard starts 3.01 mm before pin 1
+            fp = load_fp(c["footprint"])
+            if c["footprint"].startswith("Connector_Phoenix_MC:"):
+                before, width = 3.01, fp.GetPadCount() * 3.5 + 2.48   # MCV courtyard (12.98 mm for 3 pins)
+            else:
+                bb = fp.GetBoundingBox(False, False)                  # rotated 270: x extent -> y
+                before, width = -pcbnew.ToMM(bb.GetLeft()) + 0.5, pcbnew.ToMM(bb.GetWidth()) + 1.0
+            place(c, x, y + before, 270)
             y += width
 
     # everything else: next to the board, one block per sheet

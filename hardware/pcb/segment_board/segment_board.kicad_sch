@@ -1,0 +1,154 @@
+(kicad_sch
+	(version 20230121)
+	(generator eeschema)
+	(uuid 145c79c0-683d-5015-b3b5-7e15a4f1e962)
+	(paper "A4")
+	(title_block (title "Robotic arm segment board v1") (date "2026-11-08") (rev "v1") (company "Fotis Rousogiannis — Diploma Thesis, University of Thessaly") (comment 1 "Robotic arm segment board v1"))
+	(lib_symbols)
+	(sheet
+		(at 25.4 60.96)
+		(size 50.8 25.4)
+		(fields_autoplaced)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid b74c1400-77a4-5943-b088-a1da5b4d8b39)
+		(property "Sheetname" "Power: inputs, protection, eFuses, 3.3 V"
+			(at 25.4 60.26 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 25.4 86.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(instances
+			(project "segment_board"
+				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962" (page "2"))
+			)
+		)
+	)
+	(sheet
+		(at 86.36 60.96)
+		(size 50.8 25.4)
+		(fields_autoplaced)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid 1838188d-7018-5db9-8d3e-20fdb0217499)
+		(property "Sheetname" "ESP32-S3 controller + USB-C"
+			(at 86.36 60.26 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "mcu.kicad_sch"
+			(at 86.36 86.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(instances
+			(project "segment_board"
+				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962" (page "3"))
+			)
+		)
+	)
+	(sheet
+		(at 147.32 60.96)
+		(size 50.8 25.4)
+		(fields_autoplaced)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid 67e7b427-57c0-58ad-a6b5-a67e89001f8d)
+		(property "Sheetname" "I2C peripherals: master select, PCA9685, TCA9548A, ADS1115"
+			(at 147.32 60.26 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "i2c.kicad_sch"
+			(at 147.32 86.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(instances
+			(project "segment_board"
+				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962" (page "4"))
+			)
+		)
+	)
+	(sheet
+		(at 208.28 60.96)
+		(size 50.8 25.4)
+		(fields_autoplaced)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid 9e3f3cf1-8796-5126-9ec6-f98a208a68d2)
+		(property "Sheetname" "Arm connectors + hardware connection LEDs"
+			(at 208.28 60.26 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "connectors.kicad_sch"
+			(at 208.28 86.96 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(instances
+			(project "segment_board"
+				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962" (page "5"))
+			)
+		)
+	)
+	(sheet
+		(at 25.4 101.6)
+		(size 50.8 25.4)
+		(fields_autoplaced)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0))
+		(uuid bc203240-3ee5-5b95-83fb-6bbc97f05d47)
+		(property "Sheetname" "Raspberry Pi header + RS-485 LINK"
+			(at 25.4 100.9 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "pi_link.kicad_sch"
+			(at 25.4 127.6 0)
+			(effects
+				(font (size 1.27 1.27))
+				(justify left top)
+			)
+		)
+		(instances
+			(project "segment_board"
+				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962" (page "6"))
+			)
+		)
+	)
+	(text "Robotic arm segment board v1"
+		(at 25.4 30.48 0)
+		(effects
+			(font (size 4 4))
+			(justify left)
+		)
+		(uuid 866dc73a-f1d1-510c-8669-1170cd11c927)
+	)
+	(sheet_instances
+		(path "/" (page "1"))
+	)
+)

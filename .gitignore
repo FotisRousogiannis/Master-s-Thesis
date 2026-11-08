@@ -18,3 +18,9 @@ software/firmware/**/.pio/
 # OS
 .DS_Store
 Thumbs.db
+
+# KiCad
+*-backups/
+*.kicad_prl
+fp-info-cache
+\#auto_saved_files\#

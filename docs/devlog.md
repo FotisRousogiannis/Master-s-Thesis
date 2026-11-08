@@ -107,3 +107,7 @@
   20260206), όχι 9. Το CI πέρασε σε `kicad/kicad:10.0` και πλέον αποτυγχάνει αν δεν φορτώνει η πλακέτα.
   Το KiCad (ανοιχτό κατά το `git pull`) είχε ξαναγράψει το `.kicad_pro` χωρίς net classes/κανόνες → επαναφορά με
   `gen/rules.py`. `.gitignore`: `~*.lck`, `.history/`.
+- DRC σε KiCad 10: 0 σφάλματα απόστασης/βραχυκυκλώματος. Ευρήματα: (α) το footprint USB-C της βιβλιοθήκης KiCad 10
+  ονομάζει τα pads θωράκισης `SH` ενώ το σύμβολο έχει pin `S1` → θωράκιση ασύνδετη· λύση: αντίγραφο footprint στο
+  project (`USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1`). (β) 123 footprints χωρίς πεδίο LCSC μετά το «Update Footprints
+  from Library» → ξανά F8 με ενημέρωση πεδίων. (γ) 7 starved thermals στο GND zone — μετά την τοποθέτηση.

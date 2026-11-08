@@ -239,7 +239,7 @@ def mcu_sheet():
                {"A1": "GND", "A12": "GND", "B1": "GND", "B12": "GND", "A4": "VBUS_USB", "A9": "VBUS_USB",
                 "B4": "VBUS_USB", "B9": "VBUS_USB", "A5": "USB_CC1", "B5": "USB_CC2",
                 "A6": "USB_DP", "B6": "USB_DP", "A7": "USB_DN", "B7": "USB_DN", "A8": None, "B8": None, "S1": "GND"},
-               "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12", lcsc="C165948"))
+               "segment_board:USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1", lcsc="C165948"))
     R(s, "5.1k", "USB_CC1", "GND")
     R(s, "5.1k", "USB_CC2", "GND")
     s.add(Part(ref("U"), "Power_Protection:USBLC6-2SC6", "USBLC6-2SC6",

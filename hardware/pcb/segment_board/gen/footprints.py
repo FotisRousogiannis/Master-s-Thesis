@@ -176,7 +176,21 @@ def rpi_socket_facedown():
           "raspberry pi socket face down mirrored 2x20", attr="through_hole", ref_y=-3, val_y=51.5, fab_font=1)
 
 
+def usb_c_hro():
+    """Copy of KiCad's USB_C_Receptacle_HRO_TYPE-C-31-M-12 with the shield pads named "S1" (as the pin of the
+    Connector:USB_C_Receptacle_USB2.0_16P symbol). KiCad 10 renamed the footprint pads to "SH", which leaves the
+    shield unconnected (DRC net_conflict). A project copy keeps symbol and footprint consistent."""
+    src = Path("/usr/share/kicad/footprints/Connector_USB.pretty/USB_C_Receptacle_HRO_TYPE-C-31-M-12.kicad_mod")
+    dst = OUT / "USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1.kicad_mod"
+    if not src.exists():           # keep the committed copy when KiCad 7 libraries are not installed
+        return
+    text = src.read_text().replace('(pad "SH"', '(pad "S1"').replace(
+        '(footprint "USB_C_Receptacle_HRO_TYPE-C-31-M-12"', '(footprint "USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1"')
+    dst.write_text(text)
+
+
 def main():
+    usb_c_hro()
     rge0024()
     rpw0010a()
     smnr4020()

@@ -4395,7 +4395,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+		(property "Footprint" "segment_board:USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1"
 			(at 38.1 162.56 0)
 			(effects
 				(font (size 1.27 1.27))

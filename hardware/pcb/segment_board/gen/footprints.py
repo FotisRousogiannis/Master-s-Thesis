@@ -95,7 +95,7 @@ def rge0024():
     """TI RGE0024M land pattern (top view): pins 1-6 left (top->bottom), 7-12 bottom (left->right),
     13-18 right (bottom->top), 19-24 top (right->left). EP25 = IN (2.7 x 1.45, upper),
     EP26 = GND (2.7 x 0.85, lower), 0.39 mm apart. 0.2 mm thermal vias as in the TI example."""
-    pitch, row, pl, pw = 0.5, 1.625, 0.575, 0.24      # pad centre 3.825/2 - 0.575/2
+    pitch, row, pl, pw = 0.5, 1.9125, 0.575, 0.24     # pad rows 3.825 mm centre-to-centre (TI), 0.275 mm to the EPs
     body = ""
     for i in range(6):
         t = -1.25 + i * pitch
@@ -109,7 +109,7 @@ def rge0024():
     for x in (-1.1, 0, 1.1):
         body += via(25, x, -1.05) + via(25, x, -0.2)   # IN pad: two rows
         body += via(26, x, 0.925)                      # GND pad
-    body += qfn_outline(2.0, (-2.45, -1.95), 2.45)
+    body += qfn_outline(2.0, (-2.6, -1.95), 2.5)
     write("TI_RGE0024_2EP", body,
           "TI RGE0024M VQFN-24 4x4 mm, 0.5 mm pitch, 2 exposed pads (EP25 IN, EP26 GND), TPS25982 eFuse, "
           "https://www.ti.com/lit/ds/symlink/tps25982.pdf", "VQFN QFN 24 TPS25982 eFuse")

@@ -43,6 +43,8 @@ jobs:
           kicad-cli pcb drc --schematic-parity --severity-all --format report -o drc.rpt segment_board.kicad_pcb || true
           grep -E "^\*\* " drc.rpt || true
           grep -E "^\[[a-z_]+\]" drc.rpt | sed 's/:.*//' | sort | uniq -c | sort -rn || true
+          echo "--- errors other than unconnected items / library version differences:"
+          grep -A3 -E "^\[(clearance|shorting_items|solder_mask_bridge|footprint_symbol_mismatch|extra_footprint|missing_footprint|net_conflict|duplicate_footprints|hole_clearance|copper_edge_clearance)\]" drc.rpt | head -80 || true
       - name: Board images
         if: always()
         continue-on-error: true

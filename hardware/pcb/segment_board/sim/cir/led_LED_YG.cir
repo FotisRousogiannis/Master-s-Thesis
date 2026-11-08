@@ -1,0 +1,23 @@
+* led_LED_YG
+
+* SS34 Schottky (approx.: ~0.36 V at 0.8 A)
+.model SS34 D(Is=5u N=1.05 Rs=0.04 Cjo=200p)
+* 0603 LEDs: InGaN green (~2.6 V @ 1 mA) and AlInGaP yellow-green / yellow (~1.9 V @ 1 mA)
+.model LED_GREEN_INGAN D(Is=1e-22 N=2.2 Rs=10)
+.model LED_YG D(Is=1e-18 N=2.0 Rs=8)
+* open-collector output stage of one LM339 unit: switch on when V(-) > V(+) + offset
+.model OC SW(Vt=0 Vh=0.0001 Ron=40 Roff=1e9)
+
+V1 3v3 0 3.3
+R1 3v3 a 1k
+D1 a k LED_YG
+Vsat k 0 0.15
+
+.control
+set wr_singlescale
+set wr_vecnames
+op
+wrdata /home/user/master-s-thesis/hardware/pcb/segment_board/sim/results/led_LED_YG.dat i(Vsat)
+quit
+.endc
+.end

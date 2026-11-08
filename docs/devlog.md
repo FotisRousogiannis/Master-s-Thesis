@@ -77,3 +77,7 @@
 **Επόμενα**
 - ERC στο KiCad 9 (GitHub Actions), έλεγχος του σχηματικού από τον Φώτη.
 - Footprints eFuse / κατοπτρικό header Pi, μέτρηση ρεύματος ηρεμίας servo, layout.
+- ERC KiCad 9 (CI): **0 errors**, 25 warnings (footprint βιβλιοθήκης eFuse που λείπει ακόμα, παλιά αντίγραφα συμβόλων LED/ESP32).
+- **Προσομοίωση SPICE** (ngspice) των αναλογικών κυκλωμάτων (`hardware/pcb/segment_board/sim/`): διαιρέτης αφής,
+  ανίχνευση σύνδεσης encoder/servo/αφής με LM339, ανύψωση γείωσης servo, ρεύμα LED. Όλα εντός ορίων· ευρήματα:
+  το servo ανιχνεύεται μόνο αν το ρεύμα ηρεμίας > 3.2 mA (μέτρηση), τα LED σύνδεσης θέλουν χαμηλή Vf (AlInGaP).

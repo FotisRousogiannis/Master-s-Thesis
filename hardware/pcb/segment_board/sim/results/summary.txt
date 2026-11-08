@@ -1,0 +1,11 @@
+PASS  touch: idle level                  idle (17k) -> 0.94 V, ADS gain ±4.096 V -> code 7543
+PASS  touch: pressed level               pressed (2k) -> 2.55 V, code 20399; span 1.61 V
+PASS  touch: LED detects sensor          LED on for sensor R < 68 kΩ (idle 17k -> margin x4.0); open -> 0 V -> LED off
+PASS  touch: response time               10-90% rise 0.37 ms (ADS1115 at 128 SPS = 7.8 ms/sample)
+PASS  encoder: detects AS5600            LED turns on at 2.78-3.78 mA (AS5600 ~6.5 mA, margin 1.7x); LED current 1.43 mA
+PASS  encoder: ground lift               AS5600 ground sits 65 mV above board GND (I2C VIL 0.3·VDD = 0.99 V -> negligible)
+PASS  servo: detect threshold            LED turns on at 1.08-3.23 mA -> servo idle current must be > 3.2 mA (TBD: measure it)
+PASS  servo: ground lift at 0.4 / 0.8 A  315 mV / 352 mV (SS34 clamps; without it 4.7 Ω x 0.8 A = 3.76 V)
+PASS  servo: signal seen by servo        PWM high relative to servo ground = 2.95 V at 0.8 A (servo logic threshold typ. ~1.5-2 V)
+PASS  servo: sense resistor power        resistor 26 mW, SS34 281 mW at 0.8 A (0603 = 100 mW, SMA ~1 W)
+PASS  connection LED current             yellow-green AlInGaP: 1.34 mA, green InGaN: 0.68 mA -> choose a low-Vf (AlInGaP, ~2 V) LED or lower the resistor for InGaN

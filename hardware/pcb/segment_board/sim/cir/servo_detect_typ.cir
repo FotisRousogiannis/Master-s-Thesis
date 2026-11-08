@@ -11,7 +11,7 @@
 
 V1 3v3 0 3.3
 Iload 0 sense 0
-Rs sense 0 4.7
+Rs sense 0 10
 Dc sense 0 SS34
 Rr1 3v3 vref 330000.0
 Rr2 vref 0 1000.0

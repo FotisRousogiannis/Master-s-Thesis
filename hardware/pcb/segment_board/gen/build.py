@@ -310,10 +310,10 @@ def connectors_sheet():
     s = Sheet("connectors", "connectors.kicad_sch", "Arm connectors + hardware connection LEDs")
     s.text("Connection LED = current detection on each connector's ground return (no extra pins, no software).")
     s.text("Comparator LM339 (open collector): output low (LED on) when the sense voltage exceeds the reference.")
-    s.text("SERVO sense values (4.7 R, VREF ~10 mV) are TBD until the servo idle current is measured.")
+    s.text("SERVO sense 10 R + SS34, VREF ~10 mV -> detect at 0.5-1.5 mA (servo idle 4-20 mA typ.; confirm by measurement).")
     # references
     R(s, "330k", "+3V3", "VREF_SERVO")
-    R(s, "1k", "VREF_SERVO", "GND", note="~10 mV -> ~2 mA servo detect threshold (TBD)")
+    R(s, "1k", "VREF_SERVO", "GND", note="~10 mV -> ~1 mA servo detect threshold")
     R(s, "100k", "+3V3", "VREF_ENC")
     R(s, "1k", "VREF_ENC", "GND", note="~33 mV -> ~3.3 mA encoder detect threshold (AS5600 ~6.5 mA)")
     R(s, "100k", "+3V3", "VREF_TOUCH")
@@ -322,7 +322,7 @@ def connectors_sheet():
     detectors = []   # (sense net, reference net, led name)
     for n in range(1, 10):
         CONN(s, "J", [f"SERVO{n}_GND", "VSERVO", f"SERVO{n}_SIG"], "MCV3", f"SERVO {n}")
-        R(s, "4.7", f"SERVO{n}_GND", "GND", note="servo current sense (TBD)")
+        R(s, "10", f"SERVO{n}_GND", "GND", note="servo current sense: detect > ~1.5 mA, SS34 clamps at run current")
         DS(s, "SS34", "GND", f"SERVO{n}_GND")
         detectors.append((f"SERVO{n}_GND", "VREF_SERVO", f"SERVO{n}"))
     for n in range(1, 7):

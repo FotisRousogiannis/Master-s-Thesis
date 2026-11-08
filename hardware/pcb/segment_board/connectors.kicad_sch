@@ -1233,7 +1233,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "~10 mV -> ~2 mA servo detect threshold (TBD)"
+		(property "Note" "~10 mV -> ~1 mA servo detect threshold"
 			(at 48.26 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1771,7 +1771,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 161.29 58.42 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1792,7 +1792,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 160.02 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2065,7 +2065,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 252.73 58.42 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2086,7 +2086,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 251.46 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2359,7 +2359,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 341.63 58.42 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2380,7 +2380,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 340.36 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2653,7 +2653,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 433.07 58.42 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2674,7 +2674,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 431.8 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2947,7 +2947,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 521.97 58.42 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2968,7 +2968,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 520.7 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3241,7 +3241,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 105.41 104.14 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3262,7 +3262,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 104.14 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3535,7 +3535,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 196.85 104.14 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3556,7 +3556,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 195.58 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3829,7 +3829,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 285.75 104.14 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3850,7 +3850,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 284.48 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4123,7 +4123,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "4.7"
+		(property "Value" "10"
 			(at 377.19 104.14 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4144,7 +4144,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense (TBD)"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
 			(at 375.92 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -11837,7 +11837,7 @@
 		)
 		(uuid 5d3ef0a7-f0c1-5a31-8934-0dd7d1cd3606)
 	)
-	(text "SERVO sense values (4.7 R, VREF ~10 mV) are TBD until the servo idle current is measured."
+	(text "SERVO sense 10 R + SS34, VREF ~10 mV -> detect at 0.5-1.5 mA (servo idle 4-20 mA typ.; confirm by measurement)."
 		(at 25.4 30.48 0)
 		(effects
 			(font (size 2 2))

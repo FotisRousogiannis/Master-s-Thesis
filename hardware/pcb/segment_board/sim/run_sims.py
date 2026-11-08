@@ -214,7 +214,7 @@ def encoder():
 
 
 def servo():
-    vref, thr, i_led, d = detector("servo_detect", "Servo (4.7 Ω ‖ SS34, ref 10 mV)", 4.7, 330e3, 1e3, 1.0,
+    vref, thr, i_led, d = detector("servo_detect", "Servo (10 Ω ‖ SS34, ref 10 mV)", 10, 330e3, 1e3, 1.0,
                                    [(0.4, "0.4 A run"), (0.8, "0.8 A peak")], diode=True)
     lo, hi = min(thr.values()), max(thr.values())
     check("servo: detect threshold", True,
@@ -224,11 +224,11 @@ def servo():
     v08 = vs[min(range(len(isw)), key=lambda k: abs(isw[k] - 0.8))]
     v04 = vs[min(range(len(isw)), key=lambda k: abs(isw[k] - 0.4))]
     check("servo: ground lift at 0.4 / 0.8 A", v08 < 0.5,
-          f"{v04 * 1e3:.0f} mV / {v08 * 1e3:.0f} mV (SS34 clamps; without it 4.7 Ω x 0.8 A = 3.76 V)")
+          f"{v04 * 1e3:.0f} mV / {v08 * 1e3:.0f} mV (SS34 clamps; without it 10 Ω x 0.8 A = 8 V)")
     check("servo: signal seen by servo", V33 - v08 > 2.0,
           f"PWM high relative to servo ground = {V33 - v08:.2f} V at 0.8 A (servo logic threshold typ. ~1.5-2 V)")
-    check("servo: sense resistor power", 0.36 ** 2 / 4.7 < 0.1,
-          f"resistor {v08 ** 2 / 4.7 * 1e3:.0f} mW, SS34 {v08 * 0.8 * 1e3:.0f} mW at 0.8 A (0603 = 100 mW, SMA ~1 W)")
+    check("servo: sense resistor power", v08 ** 2 / 10 < 0.1,
+          f"resistor {v08 ** 2 / 10 * 1e3:.0f} mW, SS34 {v08 * 0.8 * 1e3:.0f} mW at 0.8 A (0603 = 100 mW, SMA ~1 W)")
 
 
 def led_brightness():

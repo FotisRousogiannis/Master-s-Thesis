@@ -1508,115 +1508,122 @@
 				)
 			)
 		)
-		(symbol "Interface_UART:MAX3490xSA"
+		(symbol "Mechanical:MountingHole_Pad"
+			(pin_numbers hide)
+			(pin_names (offset 1.016) hide)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "H"
+				(at 0 6.35 0)
+				(effects
+					(font (size 1.27 1.27))
+				)
+			)
+			(property "Value" "MountingHole_Pad"
+				(at 0 4.445 0)
+				(effects
+					(font (size 1.27 1.27))
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font (size 1.27 1.27)) hide
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font (size 1.27 1.27)) hide
+				)
+			)
+			(property "ki_keywords" "mounting hole"
+				(at 0 0 0)
+				(effects
+					(font (size 1.27 1.27)) hide
+				)
+			)
+			(property "ki_description" "Mounting Hole with connection"
+				(at 0 0 0)
+				(effects
+					(font (size 1.27 1.27)) hide
+				)
+			)
+			(property "ki_fp_filters" "MountingHole*Pad*"
+				(at 0 0 0)
+				(effects
+					(font (size 1.27 1.27)) hide
+				)
+			)
+			(symbol "MountingHole_Pad_0_1"
+				(circle
+					(center 0 1.27)
+					(radius 1.27)
+					(stroke (width 1.27) (type default))
+					(fill (type none))
+				)
+			)
+			(symbol "MountingHole_Pad_1_1"
+				(pin input line
+					(at 0 -2.54 90)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+					(number "1"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+				)
+			)
+		)
+		(symbol "segment_board:THVD1451"
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "U"
-				(at -7.62 13.97 0)
+				(at 0 10.16 0)
 				(effects
 					(font (size 1.27 1.27))
 				)
 			)
-			(property "Value" "MAX3490xSA"
-				(at 0.762 13.97 0)
+			(property "Value" "THVD1451"
+				(at 0 -10.16 0)
 				(effects
 					(font (size 1.27 1.27))
-					(justify left)
 				)
 			)
-			(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-				(at 0 -15.24 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "Datasheet" "https://www.analog.com/media/en/technical-documentation/data-sheets/MAX3483-MAX3491.pdf"
-				(at -6.096 11.43 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "ki_keywords" "transceiver"
+			(property "Footprint" ""
 				(at 0 0 0)
 				(effects
 					(font (size 1.27 1.27)) hide
 				)
 			)
-			(property "ki_description" "Full duplex RS-485/RS-422, 10Mbps, slew-rate limited, no low-power shutdown, no with receiver/driver enable, 32 receiver drive capability, SOIC-8"
+			(property "Datasheet" "https://www.ti.com/lit/ds/symlink/thvd1451.pdf"
 				(at 0 0 0)
 				(effects
 					(font (size 1.27 1.27)) hide
 				)
 			)
-			(property "ki_fp_filters" "SOIC*3.9x4.9mm*P1.27mm*"
+			(property "Description" "Full-duplex RS-485 transceiver, 3.3 V, VSON-8 with thermal pad (MAX3490 pinout)"
 				(at 0 0 0)
 				(effects
 					(font (size 1.27 1.27)) hide
 				)
 			)
-			(symbol "MAX3490xSA_0_1"
+			(symbol "THVD1451_0_1"
 				(rectangle
-					(start -7.62 12.7)
-					(end 7.62 -12.7)
+					(start -7.62 7.62)
+					(end 7.62 -7.62)
 					(stroke (width 0.254) (type default))
 					(fill (type background))
 				)
-				(polyline
-					(pts (xy -1.778 -5.08) (xy -4.064 -5.08))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy -1.778 5.08) (xy -4.064 5.08))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy 0 -7.62) (xy 5.334 -7.62))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy 1.524 -2.54) (xy 5.334 -2.54))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy 3.302 7.62) (xy 5.334 7.62))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy 4.318 2.54) (xy 5.334 2.54))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(polyline
-					(pts (xy -1.778 -5.08) (xy -1.778 -1.27) (xy 3.302 -4.826) (xy -1.778 -8.89) (xy -1.778 -5.08))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(circle
-					(center 1.016 -2.54)
-					(radius 0.508)
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
 			)
-			(symbol "MAX3490xSA_1_1"
-				(polyline
-					(pts (xy 3.302 4.826) (xy 3.302 8.636) (xy -1.778 5.08) (xy 3.302 1.016) (xy 3.302 4.826))
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
-				(circle
-					(center 3.81 2.54)
-					(radius 0.508)
-					(stroke (width 0.254) (type default))
-					(fill (type none))
-				)
+			(symbol "THVD1451_1_1"
 				(pin power_in line
-					(at 0 15.24 270)
+					(at -10.16 5.08 0)
 					(length 2.54)
 					(name "VCC"
 						(effects
@@ -1629,22 +1636,8 @@
 						)
 					)
 				)
-				(pin output line
-					(at -10.16 5.08 0)
-					(length 2.54)
-					(name "RO"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-					(number "2"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-				)
 				(pin input line
-					(at -10.16 -5.08 0)
+					(at -10.16 2.54 0)
 					(length 2.54)
 					(name "DI"
 						(effects
@@ -1657,8 +1650,22 @@
 						)
 					)
 				)
+				(pin output line
+					(at -10.16 0 0)
+					(length 2.54)
+					(name "RO"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+					(number "2"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+				)
 				(pin power_in line
-					(at 0 -15.24 90)
+					(at -10.16 -2.54 0)
 					(length 2.54)
 					(name "GND"
 						(effects
@@ -1671,8 +1678,50 @@
 						)
 					)
 				)
+				(pin passive line
+					(at -10.16 -5.08 0)
+					(length 2.54)
+					(name "EP"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+					(number "9"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+				)
+				(pin input line
+					(at 10.16 5.08 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+					(number "8"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+				)
+				(pin input line
+					(at 10.16 2.54 180)
+					(length 2.54)
+					(name "B"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+					(number "7"
+						(effects
+							(font (size 1.27 1.27))
+						)
+					)
+				)
 				(pin output line
-					(at 10.16 -7.62 180)
+					(at 10.16 0 180)
 					(length 2.54)
 					(name "Y"
 						(effects
@@ -1698,89 +1747,6 @@
 							(font (size 1.27 1.27))
 						)
 					)
-				)
-				(pin input line
-					(at 10.16 2.54 180)
-					(length 2.54)
-					(name "B"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-					(number "7"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-				)
-				(pin input line
-					(at 10.16 7.62 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-					(number "8"
-						(effects
-							(font (size 1.27 1.27))
-						)
-					)
-				)
-			)
-		)
-		(symbol "Mechanical:MountingHole"
-			(pin_names (offset 1.016))
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "H"
-				(at 0 5.08 0)
-				(effects
-					(font (size 1.27 1.27))
-				)
-			)
-			(property "Value" "MountingHole"
-				(at 0 3.175 0)
-				(effects
-					(font (size 1.27 1.27))
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "Datasheet" "~"
-				(at 0 0 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "ki_keywords" "mounting hole"
-				(at 0 0 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "ki_description" "Mounting Hole without connection"
-				(at 0 0 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(property "ki_fp_filters" "MountingHole*"
-				(at 0 0 0)
-				(effects
-					(font (size 1.27 1.27)) hide
-				)
-			)
-			(symbol "MountingHole_0_1"
-				(circle
-					(center 0 0)
-					(radius 1.27)
-					(stroke (width 1.27) (type default))
-					(fill (type none))
 				)
 			)
 		)
@@ -3466,55 +3432,34 @@
 		)
 	)
 	(wire
-		(pts (xy 48.26 121.92) (xy 48.26 119.38))
+		(pts (xy 38.1 116.84) (xy 35.56 116.84))
 		(stroke (width 0) (type default))
 		(uuid a16c0b87-c2fd-598a-a7e2-f9ceae84f21f)
 	)
 	(global_label "+3V3"
 		(shape passive)
-		(at 48.26 119.38 90)
-		(fields_autoplaced)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid dc6943c8-3317-59d6-a516-4e71a0cbad21)
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 48.26 119.38 0)
-			(effects
-				(font (size 1.27 1.27)) hide
-			)
-		)
-	)
-	(wire
-		(pts (xy 38.1 132.08) (xy 35.56 132.08))
-		(stroke (width 0) (type default))
-		(uuid cd0aefef-858b-54b4-81e0-8dca11d8b570)
-	)
-	(global_label "LINK_RO"
-		(shape passive)
-		(at 35.56 132.08 180)
+		(at 35.56 116.84 180)
 		(fields_autoplaced)
 		(effects
 			(font (size 1.27 1.27))
 			(justify right)
 		)
-		(uuid d8f887d9-9c64-5c80-ab6d-557f0ec98036)
+		(uuid dc6943c8-3317-59d6-a516-4e71a0cbad21)
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 35.56 132.08 0)
+			(at 35.56 116.84 0)
 			(effects
 				(font (size 1.27 1.27)) hide
 			)
 		)
 	)
 	(wire
-		(pts (xy 38.1 142.24) (xy 35.56 142.24))
+		(pts (xy 38.1 119.38) (xy 35.56 119.38))
 		(stroke (width 0) (type default))
 		(uuid decb1af5-02a8-5c2c-afa2-5e07b6b9d0c8)
 	)
 	(global_label "LINK_DI"
 		(shape passive)
-		(at 35.56 142.24 180)
+		(at 35.56 119.38 180)
 		(fields_autoplaced)
 		(effects
 			(font (size 1.27 1.27))
@@ -3522,20 +3467,41 @@
 		)
 		(uuid ac4dec63-f396-5d9b-9443-605d3125a17d)
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 35.56 142.24 0)
+			(at 35.56 119.38 0)
 			(effects
 				(font (size 1.27 1.27)) hide
 			)
 		)
 	)
 	(wire
-		(pts (xy 48.26 152.4) (xy 48.26 154.94))
+		(pts (xy 38.1 121.92) (xy 35.56 121.92))
+		(stroke (width 0) (type default))
+		(uuid cd0aefef-858b-54b4-81e0-8dca11d8b570)
+	)
+	(global_label "LINK_RO"
+		(shape passive)
+		(at 35.56 121.92 180)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid d8f887d9-9c64-5c80-ab6d-557f0ec98036)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 35.56 121.92 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
+	(wire
+		(pts (xy 38.1 124.46) (xy 35.56 124.46))
 		(stroke (width 0) (type default))
 		(uuid 5b471e6f-6eb7-55fc-ac9e-4e072a376649)
 	)
 	(global_label "GND"
 		(shape passive)
-		(at 48.26 154.94 270)
+		(at 35.56 124.46 180)
 		(fields_autoplaced)
 		(effects
 			(font (size 1.27 1.27))
@@ -3543,83 +3509,41 @@
 		)
 		(uuid 7b887a97-0bca-5bde-acdd-b5c4185c6b09)
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 48.26 154.94 0)
+			(at 35.56 124.46 0)
 			(effects
 				(font (size 1.27 1.27)) hide
 			)
 		)
 	)
 	(wire
-		(pts (xy 58.42 144.78) (xy 60.96 144.78))
+		(pts (xy 38.1 127) (xy 35.56 127))
 		(stroke (width 0) (type default))
-		(uuid 4fe9e16d-30c8-5ba3-a63e-0710b7ecfd70)
+		(uuid 08bc5fbd-d4ed-55c9-9ace-18f6fee30c3a)
 	)
-	(global_label "LINK_Y"
+	(global_label "GND"
 		(shape passive)
-		(at 60.96 144.78 0)
+		(at 35.56 127 180)
 		(fields_autoplaced)
 		(effects
 			(font (size 1.27 1.27))
-			(justify left)
+			(justify right)
 		)
-		(uuid cf96eb42-ed67-552a-8234-2157ec293b1e)
+		(uuid 25e1a940-b0e6-5009-9554-e779ad9b7a82)
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 60.96 144.78 0)
+			(at 35.56 127 0)
 			(effects
 				(font (size 1.27 1.27)) hide
 			)
 		)
 	)
 	(wire
-		(pts (xy 58.42 139.7) (xy 60.96 139.7))
-		(stroke (width 0) (type default))
-		(uuid 1b257cdd-deb3-5018-b02a-044f7b78a731)
-	)
-	(global_label "LINK_Z"
-		(shape passive)
-		(at 60.96 139.7 0)
-		(fields_autoplaced)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid 7013279b-74a9-5ffe-81d9-77b19f86bf32)
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 60.96 139.7 0)
-			(effects
-				(font (size 1.27 1.27)) hide
-			)
-		)
-	)
-	(wire
-		(pts (xy 58.42 134.62) (xy 60.96 134.62))
-		(stroke (width 0) (type default))
-		(uuid 2c013aea-594d-54f3-b80a-3ceaa9706313)
-	)
-	(global_label "LINK_B"
-		(shape passive)
-		(at 60.96 134.62 0)
-		(fields_autoplaced)
-		(effects
-			(font (size 1.27 1.27))
-			(justify left)
-		)
-		(uuid bae16eab-59c9-5976-acb5-d20c3ef9637b)
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 60.96 134.62 0)
-			(effects
-				(font (size 1.27 1.27)) hide
-			)
-		)
-	)
-	(wire
-		(pts (xy 58.42 129.54) (xy 60.96 129.54))
+		(pts (xy 58.42 116.84) (xy 60.96 116.84))
 		(stroke (width 0) (type default))
 		(uuid 85a602e5-7a57-535f-9605-3e70d0dba677)
 	)
 	(global_label "LINK_A"
 		(shape passive)
-		(at 60.96 129.54 0)
+		(at 60.96 116.84 0)
 		(fields_autoplaced)
 		(effects
 			(font (size 1.27 1.27))
@@ -3627,70 +3551,134 @@
 		)
 		(uuid 9cc1e430-49f5-5859-af7c-3cc154ca79b9)
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 60.96 129.54 0)
+			(at 60.96 116.84 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
+	(wire
+		(pts (xy 58.42 119.38) (xy 60.96 119.38))
+		(stroke (width 0) (type default))
+		(uuid 2c013aea-594d-54f3-b80a-3ceaa9706313)
+	)
+	(global_label "LINK_B"
+		(shape passive)
+		(at 60.96 119.38 0)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left)
+		)
+		(uuid bae16eab-59c9-5976-acb5-d20c3ef9637b)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 60.96 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
+	(wire
+		(pts (xy 58.42 121.92) (xy 60.96 121.92))
+		(stroke (width 0) (type default))
+		(uuid 4fe9e16d-30c8-5ba3-a63e-0710b7ecfd70)
+	)
+	(global_label "LINK_Y"
+		(shape passive)
+		(at 60.96 121.92 0)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left)
+		)
+		(uuid cf96eb42-ed67-552a-8234-2157ec293b1e)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 60.96 121.92 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
+	(wire
+		(pts (xy 58.42 124.46) (xy 60.96 124.46))
+		(stroke (width 0) (type default))
+		(uuid 1b257cdd-deb3-5018-b02a-044f7b78a731)
+	)
+	(global_label "LINK_Z"
+		(shape passive)
+		(at 60.96 124.46 0)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left)
+		)
+		(uuid 7013279b-74a9-5ffe-81d9-77b19f86bf32)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 60.96 124.46 0)
 			(effects
 				(font (size 1.27 1.27)) hide
 			)
 		)
 	)
 	(symbol
-		(lib_id "Interface_UART:MAX3490xSA")
-		(at 48.26 137.16 0)
+		(lib_id "segment_board:THVD1451")
+		(at 48.26 121.92 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid 98b9fd52-cc65-52da-966f-7dca348de8b9)
 		(property "Reference" "U17"
-			(at 59.69 120.65 0)
+			(at 59.69 115.57 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Value" "THVD1451DRBR"
-			(at 59.69 123.19 0)
+			(at 59.69 118.11 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left)
 			)
 		)
 		(property "Footprint" "Package_SON:HVSON-8-1EP_3x3mm_P0.65mm_EP1.6x2.4mm"
-			(at 48.26 137.16 0)
+			(at 48.26 121.92 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 48.26 137.16 0)
+			(at 48.26 121.92 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "LCSC" "C2671344"
-			(at 48.26 137.16 0)
+			(at 48.26 121.92 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Note" "THVD1451: full-duplex RS-485, same pinout as MAX3490 (SO-8). Thermal pad to GND."
-			(at 48.26 137.16 0)
+			(at 48.26 121.92 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(pin "1" (uuid b1981862-7e49-535f-90ef-ce51eb6c9ee5))
-		(pin "2" (uuid 2aeb03fd-580a-52e9-9bd1-d4f09b1bf8b9))
 		(pin "3" (uuid 1a80e020-fbd8-5bbd-a0a7-87b8f11acf5a))
+		(pin "2" (uuid 2aeb03fd-580a-52e9-9bd1-d4f09b1bf8b9))
 		(pin "4" (uuid b954d736-3bed-58e4-b765-1307951379aa))
+		(pin "9" (uuid 5e433144-ba56-5b10-8c6f-298ead433e4a))
+		(pin "8" (uuid 8bf5b536-d850-5ded-98ee-25605de72535))
+		(pin "7" (uuid ddba421d-1ed1-56ed-8683-c651dbfcb167))
 		(pin "5" (uuid 16f08a67-f169-52e2-8095-2c950604aa2a))
 		(pin "6" (uuid a3d2249b-abae-5ce3-ae07-f1b051a6991c))
-		(pin "7" (uuid ddba421d-1ed1-56ed-8683-c651dbfcb167))
-		(pin "8" (uuid 8bf5b536-d850-5ded-98ee-25605de72535))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "U17") (unit 1))
@@ -4121,9 +4109,30 @@
 			)
 		)
 	)
+	(wire
+		(pts (xy 167.64 116.84) (xy 167.64 119.38))
+		(stroke (width 0) (type default))
+		(uuid 5b288faa-4bb2-54b9-a923-718772706a02)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 167.64 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 532685b5-facb-5c82-bd83-27ed67479253)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 167.64 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 167.64 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 167.64 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4144,28 +4153,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
-			(at 167.64 116.84 0)
+			(at 167.64 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 167.64 116.84 0)
+			(at 167.64 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid 98cce4fd-137d-5043-8fda-3c863b849fbc))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H1") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 182.88 116.84) (xy 182.88 119.38))
+		(stroke (width 0) (type default))
+		(uuid 95dfd95e-71e1-5cec-aae0-f44fefecdbc1)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 182.88 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 52e6837b-1fa4-515e-ab0c-b70208c5f04b)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 182.88 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 182.88 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 182.88 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4186,28 +4217,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
-			(at 182.88 116.84 0)
+			(at 182.88 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 182.88 116.84 0)
+			(at 182.88 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid bbd8b1b4-acab-5e39-8b68-77954a0d8c2d))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H2") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 200.66 116.84) (xy 200.66 119.38))
+		(stroke (width 0) (type default))
+		(uuid ece7dd85-2ecb-5452-b036-db1399e70170)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 200.66 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 055f0699-82e2-5a2f-bedf-12abeb12881f)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 200.66 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 200.66 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 200.66 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4228,28 +4281,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
-			(at 200.66 116.84 0)
+			(at 200.66 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 200.66 116.84 0)
+			(at 200.66 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid e170eb35-f0d1-5bb6-9734-d4e34450d4f1))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H3") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 218.44 116.84) (xy 218.44 119.38))
+		(stroke (width 0) (type default))
+		(uuid 86ac8203-64c7-56a0-a896-c3fa20ff9589)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 218.44 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid b692e148-52b1-5fdd-a2b8-31dfb72868d6)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 218.44 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 218.44 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 218.44 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4270,28 +4345,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
-			(at 218.44 116.84 0)
+			(at 218.44 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 218.44 116.84 0)
+			(at 218.44 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid 29998753-83db-5f06-8bd8-9207a82a5342))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H4") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 233.68 116.84) (xy 233.68 119.38))
+		(stroke (width 0) (type default))
+		(uuid e166bf6a-5e82-5b38-8ad5-d5152642c86b)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 233.68 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid f25c276b-b3ce-51ba-bed4-564e5c8ae04e)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 233.68 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 233.68 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 233.68 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4312,28 +4409,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via"
-			(at 233.68 116.84 0)
+			(at 233.68 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 233.68 116.84 0)
+			(at 233.68 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid 7006e3ea-14d9-513d-b5e9-4e5396e1d7a5))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H5") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 251.46 116.84) (xy 251.46 119.38))
+		(stroke (width 0) (type default))
+		(uuid acf11aa1-f638-511f-b055-0735b3e0cd95)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 251.46 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 9fe304a3-e024-5fe0-9d7f-ae0bb9468ec7)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 251.46 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 251.46 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 251.46 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4354,28 +4473,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via"
-			(at 251.46 116.84 0)
+			(at 251.46 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 251.46 116.84 0)
+			(at 251.46 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid c50e0316-b57c-5321-b83c-0f8d16c8c1bf))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H6") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 269.24 116.84) (xy 269.24 119.38))
+		(stroke (width 0) (type default))
+		(uuid 7519f4e7-26c5-584e-a5cc-38393be3cdbd)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 269.24 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 4f5bb340-a8b3-5b1e-b8bb-5a8142dd5562)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 269.24 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 269.24 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 269.24 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4396,28 +4537,50 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via"
-			(at 269.24 116.84 0)
+			(at 269.24 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 269.24 116.84 0)
+			(at 269.24 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid 4db7671c-707b-59ef-8242-f2ad3e380315))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H7") (unit 1))
 			)
 		)
 	)
+	(wire
+		(pts (xy 287.02 116.84) (xy 287.02 119.38))
+		(stroke (width 0) (type default))
+		(uuid 84e4fa37-3223-5511-a04a-b8aa3bb94697)
+	)
+	(global_label "GND"
+		(shape passive)
+		(at 287.02 119.38 270)
+		(fields_autoplaced)
+		(effects
+			(font (size 1.27 1.27))
+			(justify right)
+		)
+		(uuid 8210813d-b62e-5578-a802-67ced4b10930)
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 287.02 119.38 0)
+			(effects
+				(font (size 1.27 1.27)) hide
+			)
+		)
+	)
 	(symbol
-		(lib_id "Mechanical:MountingHole")
-		(at 287.02 116.84 0)
+		(lib_id "Mechanical:MountingHole_Pad")
+		(at 287.02 114.3 0)
 		(unit 1)
 		(in_bom yes)
 		(on_board yes)
@@ -4438,19 +4601,20 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_2.7mm_M2.5_Pad_Via"
-			(at 287.02 116.84 0)
+			(at 287.02 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
 		(property "Datasheet" ""
-			(at 287.02 116.84 0)
+			(at 287.02 114.3 0)
 			(effects
 				(font (size 1.27 1.27))
 				(justify left) hide
 			)
 		)
+		(pin "1" (uuid d0a8296f-ac94-5c7c-8e00-53b028a7a679))
 		(instances
 			(project "segment_board"
 				(path "/145c79c0-683d-5015-b3b5-7e15a4f1e962/bc203240-3ee5-5b95-83fb-6bbc97f05d47" (reference "H8") (unit 1))

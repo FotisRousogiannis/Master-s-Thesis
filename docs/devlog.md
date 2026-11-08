@@ -111,3 +111,6 @@
   ονομάζει τα pads θωράκισης `SH` ενώ το σύμβολο έχει pin `S1` → θωράκιση ασύνδετη· λύση: αντίγραφο footprint στο
   project (`USB_C_Receptacle_HRO_TYPE-C-31-M-12_S1`). (β) 123 footprints χωρίς πεδίο LCSC μετά το «Update Footprints
   from Library» → ξανά F8 με ενημέρωση πεδίων. (γ) 7 starved thermals στο GND zone — μετά την τοποθέτηση.
+- F8 στο KiCad 10 χωρίς σφάλματα (πεδία LCSC επανήλθαν, νέο footprint USB-C). Από τα warnings: οι 8 οπές στερέωσης
+  (plated) δεν είχαν δίκτυο → σύμβολο `MountingHole_Pad` στη **GND**· το thermal pad (pad 9) του THVD1451 έμενε
+  ασύνδετο → δικό μας σύμβολο `THVD1451` με pin 9 στη GND.

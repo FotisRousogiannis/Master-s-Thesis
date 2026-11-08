@@ -384,9 +384,9 @@ def pi_link_sheet():
     # RS-485 full duplex
     JUMPER3(s, "ESP_LINK_TX", "LINK_DI", "PI_LINK_TX", "LINK TX source")
     JUMPER3(s, "ESP_LINK_RX", "LINK_RO", "PI_LINK_RX", "LINK RX destination")
-    s.add(Part(ref("U"), "Interface_UART:MAX3490xSA", "THVD1451DRBR",
+    s.add(Part(ref("U"), "segment_board:THVD1451", "THVD1451DRBR",
                {"1": "+3V3", "2": "LINK_RO", "3": "LINK_DI", "4": "GND", "5": "LINK_Y", "6": "LINK_Z",
-                "7": "LINK_B", "8": "LINK_A"},
+                "7": "LINK_B", "8": "LINK_A", "9": "GND"},
                "Package_SON:HVSON-8-1EP_3x3mm_P0.65mm_EP1.6x2.4mm", lcsc="C2671344",
                note="THVD1451: full-duplex RS-485, same pinout as MAX3490 (SO-8). Thermal pad to GND."))
     decouple(s, "+3V3", "100n")
@@ -395,9 +395,9 @@ def pi_link_sheet():
     CONN(s, "J", ["LINK_Y", "LINK_Z", "LINK_A", "LINK_B", "GND"], "MCV5", "LINK RS-485 (Y Z A B GND)")
     # mechanics
     for i in range(4):
-        s.add(Part(ref("H"), "Mechanical:MountingHole", "M3", {}, FP["M3"]))
+        s.add(Part(ref("H"), "Mechanical:MountingHole_Pad", "M3", {"1": "GND"}, FP["M3"]))   # plated, to GND
     for i in range(4):
-        s.add(Part(ref("H"), "Mechanical:MountingHole", "M2.5 Pi", {}, FP["M25"]))
+        s.add(Part(ref("H"), "Mechanical:MountingHole_Pad", "M2.5 Pi", {"1": "GND"}, FP["M25"]))
     return s
 
 

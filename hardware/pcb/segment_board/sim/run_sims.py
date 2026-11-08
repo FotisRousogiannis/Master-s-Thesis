@@ -26,8 +26,8 @@ V33 = 3.3
 LM339_VOS = 5e-3          # LM339 worst-case input offset (datasheet max 5 mV at 25 C)
 
 MODELS = """
-* SS34 Schottky (approx.: ~0.36 V at 0.8 A)
-.model SS34 D(Is=5u N=1.05 Rs=0.04 Cjo=200p)
+* SS54 Schottky, 5 A (approx.: ~0.37 V at 0.8 A, ~0.47 V at 4 A)
+.model SS54 D(Is=1e-5 N=1.05 Rs=0.025 Cjo=300p)
 * 0603 LEDs: InGaN green (~2.6 V @ 1 mA) and AlInGaP yellow-green / yellow (~1.9 V @ 1 mA)
 .model LED_GREEN_INGAN D(Is=1e-22 N=2.2 Rs=10)
 .model LED_YG D(Is=1e-18 N=2.0 Rs=8)
@@ -161,7 +161,7 @@ def detector(name, title, rsense, rtop, rbot, i_max, i_marks, diode=False, led="
 V1 3v3 0 {V33}
 Iload 0 sense 0
 Rs sense 0 {rsense}
-{'Dc sense 0 SS34' if diode else ''}
+{'Dc sense 0 SS54' if diode else ''}
 Rr1 3v3 vref {rtop}
 Rr2 vref 0 {rbot}
 {comparator('sense', 'vref', 'k', off)}
@@ -214,8 +214,8 @@ def encoder():
 
 
 def servo():
-    vref, thr, i_led, d = detector("servo_detect", "Servo (10 Ω ‖ SS34, ref 10 mV)", 10, 330e3, 1e3, 1.0,
-                                   [(0.4, "0.4 A run"), (0.8, "0.8 A peak")], diode=True)
+    vref, thr, i_led, d = detector("servo_detect", "Servo (10 Ω ‖ SS54, ref 10 mV)", 10, 330e3, 1e3, 4.5,
+                                   [(0.4, "0.4 A run"), (0.8, "0.8 A peak"), (4.0, "4 A stall")], diode=True)
     lo, hi = min(thr.values()), max(thr.values())
     check("servo: detect threshold", True,
           f"LED turns on at {lo:.2f}-{hi:.2f} mA -> servo idle current must be > {hi:.1f} mA (TBD: measure it)")
@@ -224,11 +224,15 @@ def servo():
     v08 = vs[min(range(len(isw)), key=lambda k: abs(isw[k] - 0.8))]
     v04 = vs[min(range(len(isw)), key=lambda k: abs(isw[k] - 0.4))]
     check("servo: ground lift at 0.4 / 0.8 A", v08 < 0.5,
-          f"{v04 * 1e3:.0f} mV / {v08 * 1e3:.0f} mV (SS34 clamps; without it 10 Ω x 0.8 A = 8 V)")
+          f"{v04 * 1e3:.0f} mV / {v08 * 1e3:.0f} mV (SS54 clamps; without it 10 Ω x 0.8 A = 8 V)")
     check("servo: signal seen by servo", V33 - v08 > 2.0,
           f"PWM high relative to servo ground = {V33 - v08:.2f} V at 0.8 A (servo logic threshold typ. ~1.5-2 V)")
     check("servo: sense resistor power", v08 ** 2 / 10 < 0.1,
-          f"resistor {v08 ** 2 / 10 * 1e3:.0f} mW, SS34 {v08 * 0.8 * 1e3:.0f} mW at 0.8 A (0603 = 100 mW, SMA ~1 W)")
+          f"resistor {v08 ** 2 / 10 * 1e3:.0f} mW, SS54 {v08 * 0.8 * 1e3:.0f} mW at 0.8 A (0603 = 100 mW, SMA ~1 W)")
+    v4 = vs[min(range(len(isw)), key=lambda k: abs(isw[k] - 4.0))]
+    check("servo: stall 4 A (estimate)", V33 - v4 > 2.0 and v4 ** 2 / 10 < 0.1,
+          f"ground lift {v4 * 1e3:.0f} mV, signal {V33 - v4:.2f} V, resistor {v4 ** 2 / 10 * 1e3:.0f} mW, SS54 {v4 * 4:.1f} W "
+          "-> OK for seconds; sustained stall must be cut by firmware (INA219 / encoder stall detect)")
 
 
 def led_brightness():

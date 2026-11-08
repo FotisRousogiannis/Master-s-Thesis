@@ -1792,7 +1792,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 160.02 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1864,7 +1864,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 198.12 49.53 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -1885,7 +1885,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 193.04 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2086,7 +2086,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 251.46 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2158,7 +2158,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 287.02 49.53 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2179,7 +2179,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 281.94 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2380,7 +2380,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 340.36 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2452,7 +2452,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 378.46 49.53 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2473,7 +2473,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 373.38 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2674,7 +2674,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 431.8 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2746,7 +2746,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 467.36 49.53 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2767,7 +2767,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 462.28 48.26 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -2968,7 +2968,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 520.7 60.96 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3040,7 +3040,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 50.8 95.25 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3061,7 +3061,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 45.72 93.98 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3262,7 +3262,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 104.14 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3334,7 +3334,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 142.24 95.25 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3355,7 +3355,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 137.16 93.98 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3556,7 +3556,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 195.58 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3628,7 +3628,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 231.14 95.25 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3649,7 +3649,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 226.06 93.98 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3850,7 +3850,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 284.48 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3922,7 +3922,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 322.58 95.25 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -3943,7 +3943,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 317.5 93.98 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4144,7 +4144,7 @@
 				(justify left) hide
 			)
 		)
-		(property "Note" "servo current sense: detect > ~1.5 mA, SS34 clamps at run current"
+		(property "Note" "servo current sense: detect > ~1.5 mA, SS54 (5 A) clamps run/stall current"
 			(at 375.92 106.68 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4216,7 +4216,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "SS34"
+		(property "Value" "SS54"
 			(at 411.48 95.25 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -4237,7 +4237,7 @@
 				(justify left) hide
 			)
 		)
-		(property "LCSC" "C8678"
+		(property "LCSC" "C22452"
 			(at 406.4 93.98 0)
 			(effects
 				(font (size 1.27 1.27))
@@ -11837,7 +11837,7 @@
 		)
 		(uuid 5d3ef0a7-f0c1-5a31-8934-0dd7d1cd3606)
 	)
-	(text "SERVO sense 10 R + SS34, VREF ~10 mV -> detect at 0.5-1.5 mA (servo idle 4-20 mA typ.; confirm by measurement)."
+	(text "SERVO sense 10 R + SS54, VREF ~10 mV -> detect at 0.5-1.5 mA (servo idle 4-20 mA typ.; confirm by measurement)."
 		(at 25.4 30.48 0)
 		(effects
 			(font (size 2 2))

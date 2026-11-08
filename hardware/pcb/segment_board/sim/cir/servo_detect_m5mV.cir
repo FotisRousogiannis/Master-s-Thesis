@@ -1,7 +1,7 @@
 * servo_detect_m5mV
 
-* SS34 Schottky (approx.: ~0.36 V at 0.8 A)
-.model SS34 D(Is=5u N=1.05 Rs=0.04 Cjo=200p)
+* SS54 Schottky, 5 A (approx.: ~0.37 V at 0.8 A, ~0.47 V at 4 A)
+.model SS54 D(Is=1e-5 N=1.05 Rs=0.025 Cjo=300p)
 * 0603 LEDs: InGaN green (~2.6 V @ 1 mA) and AlInGaP yellow-green / yellow (~1.9 V @ 1 mA)
 .model LED_GREEN_INGAN D(Is=1e-22 N=2.2 Rs=10)
 .model LED_YG D(Is=1e-18 N=2.0 Rs=8)
@@ -12,7 +12,7 @@
 V1 3v3 0 3.3
 Iload 0 sense 0
 Rs sense 0 10
-Dc sense 0 SS34
+Dc sense 0 SS54
 Rr1 3v3 vref 330000.0
 Rr2 vref 0 1000.0
 S_k2 k2 0 sense cmp_k2 OC
@@ -25,7 +25,7 @@ Vm k k2 0
 .control
 set wr_singlescale
 set wr_vecnames
-dc Iload 0 1.0 5e-05
+dc Iload 0 4.5 0.000225
 wrdata /home/user/master-s-thesis/hardware/pcb/segment_board/sim/results/servo_detect_m5mV.dat v(sense) i(Vm)
 quit
 .endc

@@ -366,14 +366,15 @@ def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_p
     panel._filter.setText("i2c")
     panel.select("i2c_scan")
     assert panel.selected().id == "i2c_scan"
-    panel._user.setText("")
-    panel._on_pi_edited()
+    conn = window.connection
+    conn._user.setText("")
+    conn._on_edited()
     panel.run_selected()  # no Pi user yet: nothing starts
-    assert "tool" not in procs.alive and "Raspberry Pi" in panel._output.toPlainText()
+    assert "tool" not in procs.alive and "Σύνδεση" in panel._output.toPlainText()
 
-    panel._host.setText("pi.local")
-    panel._user.setText("fotis")
-    panel._on_pi_edited()
+    conn._host.setText("pi.local")
+    conn._user.setText("fotis")
+    conn._on_edited()  # set once in the Connection panel, used by the Tools panel
     assert window._settings.value("pi/host") == "pi.local"  # remembered for next time
     panel.run_selected()
     assert procs.started[-1][0] == "ssh" and "tool" in procs.alive and not panel._run.isEnabled()
@@ -391,3 +392,40 @@ def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_p
     panel.confirm = lambda *_: True
     panel.run_selected()
     assert procs.started[-1][-1].endswith("wrist_bench.py probe")
+
+
+def test_connection_panel_reports_each_step(window, monkeypatch):
+    from arm_gui import link
+    panel = window.connection
+    panel._run_async = False
+    assert panel._host.text() == "10.42.0.2"  # the direct cable by default
+    monkeypatch.setattr(link, "has_local_address", lambda ip: True)
+    monkeypatch.setattr(link, "port_open", lambda ip, port=22, timeout=1.0: False)
+    monkeypatch.setattr(link, "find_pi", lambda name="armpi": ("192.168.1.20", "δίκτυο (armpi.local)"))
+    monkeypatch.setattr(link, "check_ssh", lambda host, user, d: (True, f"SSH χωρίς κωδικό προς {host}"))
+    panel._user.setText("fotis")
+    panel._on_edited()
+    panel.check_all()
+    assert panel._pills["cable"].property("state") == "ok"
+    assert panel._pills["pi"].text() == "192.168.1.20" and panel._host.text() == "192.168.1.20"
+    assert window.tools.pi.host == "192.168.1.20"  # the Tools panel follows
+    assert panel._pills["ssh"].property("state") == "ok"
+
+    monkeypatch.setattr(link, "find_pi", lambda name="armpi": (None, ""))
+    panel._host.setText("")
+    panel._on_edited()
+    panel.check_all()
+    assert panel._pills["pi"].property("state") == "warn"
+
+    calls = []
+    monkeypatch.setattr(link, "install_key", lambda h, u, p, d: calls.append((h, u, p)) or (True, "ok"))
+    panel._host.setText("10.42.0.2")
+    panel._on_edited()
+    panel.ask_password = lambda: None  # cancelled
+    panel.setup_key()
+    panel.ask_password = lambda: "secret"
+    panel.setup_key()
+    assert calls == [("10.42.0.2", "fotis", "secret")]
+
+    window._bridge.nodes_changed.emit(["/arm_pi_driver", "/arm_gui"])
+    assert panel._pills["ros"].property("state") == "ok"

@@ -8,6 +8,7 @@ from pathlib import Path
 from . import APP_NAME, theme
 from .layouts import APP, PRESETS, Rect, WindowPlacer, fit_to_screens, preset_layout
 from .model import parse_joints
+from .panels.connection_panel import ConnectionPanel
 from .panels.devices_panel import DevicesPanel
 from .panels.graph_panel import GraphPanel
 from .panels.joints_panel import JointsPanel
@@ -72,6 +73,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.graph = GraphPanel(bridge.node_info)
         self.log = LogPanel()
         self.tools = ToolsPanel()
+        self.connection = ConnectionPanel(data_dir() / "ssh")
         self._docks = {}
         self._build_docks()
         self._build_toolbar()
@@ -99,6 +101,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("devices", "Συσκευές", self.devices),
             ("parameters", "Παράμετροι", self.parameters),
             ("graph", "ROS 2", self.graph),
+            ("connection", "Σύνδεση", self.connection),
             ("tools", "Εργαλεία", self.tools),
             ("log", "Log", self.log),
         ]:
@@ -117,7 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, d["system"])
         self.splitDockWidget(d["system"], d["joints"], Qt.Horizontal)
         self.splitDockWidget(d["joints"], d["sensors"], Qt.Horizontal)
-        for key in ("devices", "parameters", "graph", "tools", "log"):
+        for key in ("devices", "parameters", "graph", "connection", "tools", "log"):
             self.tabifyDockWidget(d["sensors"], d[key])
         for dock in d.values():
             dock.show()
@@ -255,7 +258,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.system.window_requested.connect(self.set_window)
         self.tools.run_requested.connect(self.run_tool)
         self.tools.stop_requested.connect(lambda: self._processes.stop(TOOL_PROCESS))
-        self.tools.pi_changed.connect(self._save_pi)
+        self.connection.pi_changed.connect(self._save_pi)
+        self.connection.pi_changed.connect(self.tools.set_pi)
+        b.nodes_changed.connect(self.connection.set_nodes)
         self._processes.output.connect(lambda name, line: self.tools.append(line) if name == TOOL_PROCESS else None)
         self.system.stop_requested.connect(lambda: self._processes.stop(SYSTEM_PROCESS))
         self._processes.output.connect(self.log.append)
@@ -301,7 +306,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _load_pi(self):
         s = self._settings
-        self.tools.set_pi(PiTarget(s.value("pi/host", PiTarget.host), s.value("pi/user", ""), s.value("pi/repo", PiTarget.repo)))
+        pi = PiTarget(s.value("pi/host", PiTarget.host), s.value("pi/user", ""), s.value("pi/repo", PiTarget.repo))
+        self.connection.set_pi(pi)
+        self.tools.set_pi(pi)
 
     # ------------------------------------------------------------------ recording (ADR-0020)
     def set_recording(self, wanted: bool):

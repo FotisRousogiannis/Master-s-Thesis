@@ -99,7 +99,7 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 - **Λογισμικό υπολογιστή (ADR-0016/17/18/19/20):** `arm_bringup` (ros2_control, `hardware:=mock|gazebo`), `arm_calibration`
   (`calibration.yaml` → παράμετροι ROS 2) και εφαρμογή ελέγχου **Arm Studio** v0.2 (`arm_gui`, Python + Qt 5): πάνελ
   Σύστημα, Αρθρώσεις, Αισθητήρες, Συσκευές (`/diagnostics`), Παράμετροι, ROS 2, Log· σκούρο/φωτεινό θέμα· κουμπιά
-  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (67)· **εκκρεμεί η πρώτη δοκιμή
+  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (72)· **εκκρεμεί η πρώτη δοκιμή
   μέσα στο Docker** από τον Φώτη (βήμα 7 στο `docs/setup/ubuntu.md`). Δεν υπάρχει ακόμα: δημοσίευση `/diagnostics`
   από το υλικό, χρήση της βαθμονόμησης από τα servo. **Αρχικοποίηση αρθρώσεων (ADR-0019):** AS5600 1:1 στον άξονα εξόδου → χωρίς homing, μηδέν ανά άρθρωση στο
   `calibration.yaml` («Μηδέν = τρέχουσα θέση»)· μηδενικά ακόμα 0.0 (δεν έχουν μετρηθεί). Κατά τη λειτουργία συνεχής παρακολούθηση (unwrapping) στο ESP32· στην εκκίνηση η στροφή από την τελευταία θέση.
@@ -110,7 +110,8 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (Ubuntu Server) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: έκδοση
-  Ubuntu στο Pi, επιβεβαίωση πλήθους servo ανά ομάδα, node `arm_pi_driver`.
+  Ubuntu στο Pi, επιβεβαίωση πλήθους servo ανά ομάδα, node `arm_pi_driver`. Πάνελ **«Σύνδεση»**: εύρεση Pi,
+  έλεγχος καλώδιο → Pi → SSH → ROS 2, κλειδί SSH.
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),
   διαφορικό στα κανάλια 9/10 με ανεστραμμένο Β. Τα servo κινούνται με `jog`· εκκρεμεί πλήρης αντιστοίχιση καναλιών (T3/T4) και T5.

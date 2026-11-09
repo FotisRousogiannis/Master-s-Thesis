@@ -189,6 +189,9 @@
   ως εναλλακτική, εύρεση με mDNS (`armpi.local`). Scripts `software/pi/setup_network.sh` (με `netplan try`, αυτόματη
   επαναφορά) και `software/launcher/pi_link.sh` (`setup-direct`, `find`, `key`). Διαφορικά: joint_1+2 και joint_5+6
   (Φώτης)· πλήθος servo ανά ομάδα από το ADR-0013, προς επιβεβαίωση. Αδοκίμαστα σε πραγματικό Pi.
+- Πάνελ **«Σύνδεση»** στο Arm Studio: host/χρήστης/repo του Pi (μεταφέρθηκαν από τα «Εργαλεία»), έλεγχος καλώδιο → Pi
+  → SSH → ROS 2, εύρεση με mDNS χωρίς επιπλέον πακέτα (`arm_gui/link.py`), «Ρύθμιση κλειδιού SSH…» με τον κωδικό
+  μία φορά (δεν αποθηκεύεται). Tests: `arm_gui` 36.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).

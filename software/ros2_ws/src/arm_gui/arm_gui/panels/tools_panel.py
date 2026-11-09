@@ -14,7 +14,6 @@ def _searchable(text: str) -> str:
 class ToolsPanel(QtWidgets.QWidget):
     run_requested = Signal(object)  # Tool
     stop_requested = Signal()
-    pi_changed = Signal(object)  # PiTarget
 
     def __init__(self, tools: list[Tool] | None = None, parent=None):
         super().__init__(parent)
@@ -68,27 +67,12 @@ class ToolsPanel(QtWidgets.QWidget):
         split.setStretchFactor(1, 2)
         layout.addWidget(split, 1)
 
-        pi_box = QtWidgets.QGroupBox("Raspberry Pi (SSH)")
-        form = QtWidgets.QHBoxLayout(pi_box)
-        self._host = QtWidgets.QLineEdit()
-        self._host.setPlaceholderText("π.χ. raspberrypi.local ή 192.168.1.20")
-        self._user = QtWidgets.QLineEdit()
-        self._user.setPlaceholderText("χρήστης")
-        self._repo = QtWidgets.QLineEdit(self._pi.repo)
-        self._repo.setToolTip("Φάκελος του repo στο Pi (σχετικά με το home ή απόλυτος)")
-        for label, w in (("Host", self._host), ("Χρήστης", self._user), ("Repo", self._repo)):
-            form.addWidget(QtWidgets.QLabel(label))
-            form.addWidget(w, 1)
-            w.editingFinished.connect(self._on_pi_edited)
-        layout.addWidget(pi_box)
         self._refresh()
 
     # ------------------------------------------------------------------ inputs
     def set_pi(self, pi: PiTarget):
+        """Set from the Connection panel."""
         self._pi = pi
-        self._host.setText(pi.host)
-        self._user.setText(pi.user)
-        self._repo.setText(pi.repo)
         self._update_buttons()
 
     @property
@@ -120,7 +104,7 @@ class ToolsPanel(QtWidgets.QWidget):
         if tool is None or self._running:
             return
         if tool.where == "pi" and not self._pi.ready:
-            self.append("✖ Συμπλήρωσε host και χρήστη του Raspberry Pi (κάτω).")
+            self.append("✖ Συμπλήρωσε host και χρήστη του Raspberry Pi στο πάνελ «Σύνδεση».")
             return
         if tool.moves and not self.confirm(
             tool.name, f"Το εργαλείο «{tool.name}» κινεί servo.\n\nΕίναι ο βραχίονας ελεύθερος να κινηθεί;"
@@ -133,11 +117,6 @@ class ToolsPanel(QtWidgets.QWidget):
         return QtWidgets.QMessageBox.question(self, title, text) == QtWidgets.QMessageBox.Yes
 
     # ------------------------------------------------------------------ internals
-    def _on_pi_edited(self):
-        self._pi = PiTarget(self._host.text().strip(), self._user.text().strip(), self._repo.text().strip())
-        self.pi_changed.emit(self._pi)
-        self._update_buttons()
-
     def _refresh(self):
         current = self.selected()
         f = _searchable(self._filter.text().strip())
@@ -174,6 +153,6 @@ class ToolsPanel(QtWidgets.QWidget):
         self._run.setEnabled(tool is not None and not self._running)
         self._stop.setEnabled(self._running)
         if tool is not None and tool.where == "pi" and not self._pi.ready:
-            self._run.setToolTip("Συμπλήρωσε host και χρήστη του Raspberry Pi")
+            self._run.setToolTip("Συμπλήρωσε host και χρήστη του Raspberry Pi στο πάνελ «Σύνδεση»")
         else:
             self._run.setToolTip("")

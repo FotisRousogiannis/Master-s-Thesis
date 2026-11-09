@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from .link import PI_DIRECT, ssh_options
+
 CATALOG = Path(__file__).resolve().parent / "tools.yaml"
 WHERE = ("local", "pi")
 
@@ -23,7 +25,7 @@ class Tool:
 
 @dataclass(frozen=True)
 class PiTarget:
-    host: str = "10.42.0.2"  # the Pi on the direct cable (ADR-0021, software/launcher/pi_link.sh)
+    host: str = PI_DIRECT  # the Pi on the direct cable (ADR-0021)
     user: str = ""
     repo: str = "Master-s-Thesis"  # relative to the home directory on the Pi, or absolute
 
@@ -53,11 +55,7 @@ def command_for(tool: Tool, pi: PiTarget, ssh_dir: Path) -> tuple[str, list[str]
     repo = pi.repo.strip() or "."
     cd = shlex.quote(repo) if repo.startswith("/") else f"~/{shlex.quote(repo)}"
     return "ssh", [
-        "-o", "BatchMode=yes",  # never wait for a password: fail with a message instead
-        "-o", "ConnectTimeout=5",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", f"UserKnownHostsFile={ssh_dir / 'known_hosts'}",
-        "-i", str(ssh_dir / "id_ed25519"),
+        *ssh_options(ssh_dir),
         f"{pi.user.strip()}@{pi.host.strip()}",
         f"cd {cd} && {tool.command}",
     ]

@@ -180,13 +180,20 @@
   (παράλληλη σύνδεση SDA/SCL), επειδή είναι μαζί στην αρπάγη.
 - Πάνελ **«Εργαλεία»** στο Arm Studio: κατάλογος χρήσιμων εντολών σε `arm_gui/tools.yaml` (νέα εντολή = νέα εγγραφή),
   με αναζήτηση. Υλικό (σάρωση I²C, encoders, probe, έξοδοι off) τρέχει **στο Pi μέσω SSH** πάνω από WiFi/Ethernet
-  (`docs/setup/raspberry_pi_ssh.md`)· ROS 2 (controllers, interfaces, συχνότητα, doctor) και ημερολόγιο
+  (`docs/setup/raspberry_pi.md`)· ROS 2 (controllers, interfaces, συχνότητα, doctor) και ημερολόγιο
   (`ros2 run arm_logbook logbook …`, μόνο ανάγνωση) τοπικά. Εργαλεία που κινούν servo ζητούν επιβεβαίωση.
   `openssh-client` στο image. Tests: `arm_logbook` 5, `arm_gui` 31. Αδοκίμαστο με το πραγματικό Pi.
+- **ADR-0021:** το Raspberry Pi 4 (Ubuntu Server) γίνεται **προσωρινός ελεγκτής χαμηλού επιπέδου** με ROS 2 μέχρι το
+  PCB: βρόχος θέσης, όρια, watchdog, ZD10 στο Pi· τροχιές, MoveIt, UI στον υπολογιστή· ίδια topics με το μελλοντικό
+  ESP32. Σύνδεση με **καλώδιο Ethernet** (ο υπολογιστής μοιράζει το internet του, Pi σταθερά 10.42.0.2) και WiFi
+  ως εναλλακτική, εύρεση με mDNS (`armpi.local`). Scripts `software/pi/setup_network.sh` (με `netplan try`, αυτόματη
+  επαναφορά) και `software/launcher/pi_link.sh` (`setup-direct`, `find`, `key`). Διαφορικά: joint_1+2 και joint_5+6
+  (Φώτης)· πλήθος servo ανά ομάδα από το ADR-0013, προς επιβεβαίωση. Αδοκίμαστα σε πραγματικό Pi.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
 - Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
 - Gripper: στροφές του άξονα, mux του 7ου AS5600, αντιστοίχιση servo → άρθρωση (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
+- Έκδοση Ubuntu στο Pi· node `arm_pi_driver` και σύνδεσή του με το `ros2_control` (`hardware:=real`).
 - Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 

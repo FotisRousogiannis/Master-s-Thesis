@@ -366,7 +366,9 @@ def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_p
     panel._filter.setText("i2c")
     panel.select("i2c_scan")
     assert panel.selected().id == "i2c_scan"
-    panel.run_selected()  # no Pi yet: nothing starts
+    panel._user.setText("")
+    panel._on_pi_edited()
+    panel.run_selected()  # no Pi user yet: nothing starts
     assert "tool" not in procs.alive and "Raspberry Pi" in panel._output.toPlainText()
 
     panel._host.setText("pi.local")

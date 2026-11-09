@@ -39,7 +39,8 @@ ADR του φακέλου [`decisions/`](decisions/README.md).
  Εργασίες    arm_tasks (pick & place) · arm_perception                  (επόμενο)
  Κίνηση      MoveIt 2 · MoveIt Servo                                    (επόμενο)
  Έλεγχος     ros2_control: joint_state_broadcaster, arm_controller      ✅ arm_bringup
- Υλικό       hardware:=mock ✅ │ gazebo ✅ │ real (arm_hardware → micro-ROS: WiFi ή USB)
+ Υλικό       hardware:=mock ✅ │ gazebo ✅ │ real: τώρα Raspberry Pi (ROS 2, Ethernet, ADR-0021),
+                                            μετά ESP32 (micro-ROS: WiFi ή USB)
 ```
 
 | Package | Ρόλος | Γλώσσα | Κατάσταση |

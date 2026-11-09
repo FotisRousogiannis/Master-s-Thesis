@@ -23,7 +23,7 @@ class Tool:
 
 @dataclass(frozen=True)
 class PiTarget:
-    host: str = ""
+    host: str = "10.42.0.2"  # the Pi on the direct cable (ADR-0021, software/launcher/pi_link.sh)
     user: str = ""
     repo: str = "Master-s-Thesis"  # relative to the home directory on the Pi, or absolute
 

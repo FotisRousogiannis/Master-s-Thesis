@@ -301,7 +301,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _load_pi(self):
         s = self._settings
-        self.tools.set_pi(PiTarget(s.value("pi/host", ""), s.value("pi/user", ""), s.value("pi/repo", PiTarget.repo)))
+        self.tools.set_pi(PiTarget(s.value("pi/host", PiTarget.host), s.value("pi/user", ""), s.value("pi/repo", PiTarget.repo)))
 
     # ------------------------------------------------------------------ recording (ADR-0020)
     def set_recording(self, wanted: bool):

@@ -17,5 +17,5 @@ setup(
     description="Logbook of the arm in SQLite: last position, calibrations, recordings, faults.",
     license="MIT",
     tests_require=["pytest"],
-    entry_points={"console_scripts": ["logbook_node = arm_logbook.node:main"]},
+    entry_points={"console_scripts": ["logbook_node = arm_logbook.node:main", "logbook = arm_logbook.cli:main"]},
 )

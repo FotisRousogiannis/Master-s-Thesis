@@ -1,0 +1,87 @@
+# Κατάλογος εργαλείων του Arm Studio (πάνελ «Εργαλεία»).
+# Νέο εργαλείο = νέα εγγραφή εδώ, χωρίς αλλαγή κώδικα.
+#   where: local → τρέχει στον υπολογιστή (στο container, με το ROS 2 έτοιμο)
+#          pi    → τρέχει στο Raspberry Pi μέσω SSH, μέσα στον φάκελο του repo εκεί
+#   moves: true  → κινεί servo· ζητείται επιβεβαίωση πριν τρέξει
+# Τα εργαλεία του Pi πρέπει να τελειώνουν μόνα τους (π.χ. --duration): η διακοπή από το UI
+# κλείνει τη σύνδεση SSH, αλλά δεν εγγυάται ότι σταματά το πρόγραμμα στο Pi.
+tools:
+  - id: i2c_scan
+    group: Υλικό (Raspberry Pi)
+    name: Σάρωση I²C
+    where: pi
+    command: python3 -u software/tools/wrist_bench/wrist_bench.py scan
+    description: >-
+      Ποιες συσκευές απαντούν στο κύριο bus και σε κάθε κανάλι του TCA9548A.
+      Αναμένονται 0x40 (PCA9685), 0x36 (AS5600, ένας ανά κανάλι), 0x48 (ADS1115).
+  - id: encoders_5s
+    group: Υλικό (Raspberry Pi)
+    name: Encoders (5 s)
+    where: pi
+    command: python3 -u software/tools/wrist_bench/wrist_bench.py enc --duration 5
+    description: Γωνία και κατάσταση μαγνήτη κάθε AS5600 για 5 s, χωρίς κίνηση.
+  - id: probe_channels
+    group: Υλικό (Raspberry Pi)
+    name: Ποιο κανάλι κινεί ποιον encoder
+    where: pi
+    moves: true
+    command: python3 -u software/tools/wrist_bench/wrist_bench.py probe
+    description: >-
+      Σύντομος παλμός σε κάθε κανάλι του PCA9685 (0–15) και ποιος encoder κινήθηκε.
+      Για την αντιστοίχιση servo → άρθρωση. Τα όρια ασφαλείας του πάγκου ισχύουν.
+  - id: outputs_off
+    group: Υλικό (Raspberry Pi)
+    name: Όλες οι έξοδοι off
+    where: pi
+    command: python3 -u software/tools/wrist_bench/wrist_bench.py stop
+    description: Σβήνει όλες τις εξόδους του PCA9685 (τα servo σταματούν).
+
+  - id: controllers
+    group: ROS 2
+    name: Controllers
+    where: local
+    command: ros2 control list_controllers
+    description: Οι controllers του ros2_control και η κατάστασή τους.
+  - id: hardware_interfaces
+    group: ROS 2
+    name: Hardware interfaces
+    where: local
+    command: ros2 control list_hardware_interfaces
+    description: Command / state interfaces που δίνει το υλικό (mock, Gazebo ή πραγματικό).
+  - id: joint_states_rate
+    group: ROS 2
+    name: Συχνότητα /joint_states (5 s)
+    where: local
+    command: timeout -s INT 5 ros2 topic hz /joint_states
+    description: Πόσο συχνά έρχονται οι θέσεις των αρθρώσεων.
+  - id: ros2_doctor
+    group: ROS 2
+    name: Έλεγχος εγκατάστασης ROS 2
+    where: local
+    command: ros2 doctor --report
+    description: Αναφορά για την εγκατάσταση, το δίκτυο και το middleware του ROS 2.
+
+  - id: logbook_position
+    group: Ημερολόγιο
+    name: Τελευταία θέση
+    where: local
+    command: ros2 run arm_logbook logbook position
+    description: Η αποθηκευμένη θέση κάθε άρθρωσης (μόνο από τον πραγματικό βραχίονα).
+  - id: logbook_calibrations
+    group: Ημερολόγιο
+    name: Ιστορικό calibration
+    where: local
+    command: ros2 run arm_logbook logbook calibrations
+    description: Κάθε μηδέν που ορίστηκε, με ημερομηνία.
+  - id: logbook_recordings
+    group: Ημερολόγιο
+    name: Καταγραφές
+    where: local
+    command: ros2 run arm_logbook logbook recordings
+    description: Οι καταγραφές (REC) με σημείωση και φάκελο.
+  - id: logbook_faults
+    group: Ημερολόγιο
+    name: Σφάλματα
+    where: local
+    command: ros2 run arm_logbook logbook faults
+    description: Σφάλματα που ανέφερε το υλικό.

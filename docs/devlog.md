@@ -175,6 +175,14 @@
 - Gripper (Φώτης): servo συνεχούς περιστροφής, AS5600 στον άξονα, 2 × ZD10 στα δάχτυλα, τελευταίο κανάλι PCA9685.
   Στη βαθμονόμηση: `encoders.gripper` και `gripper.open_deg = 0.0` (δεν ανοίγει πριν από το calibration).
   Ανοιχτά: στροφές από κλειστό σε ανοιχτό, κανάλι mux του 7ου AS5600 (PCB), αντιστοίχιση servo → άρθρωση.
+- Πάγκος τώρα: **Raspberry Pi 4 + TCA9548A για όλο τον βραχίονα** (χωρίς PCB). TCA: PCA9685 σε ένα κανάλι,
+  ένας AS5600 σε καθένα από τα υπόλοιπα 7· το ADS1115 (0x48) μοιράζεται το κανάλι του AS5600 του gripper
+  (παράλληλη σύνδεση SDA/SCL), επειδή είναι μαζί στην αρπάγη.
+- Πάνελ **«Εργαλεία»** στο Arm Studio: κατάλογος χρήσιμων εντολών σε `arm_gui/tools.yaml` (νέα εντολή = νέα εγγραφή),
+  με αναζήτηση. Υλικό (σάρωση I²C, encoders, probe, έξοδοι off) τρέχει **στο Pi μέσω SSH** πάνω από WiFi/Ethernet
+  (`docs/setup/raspberry_pi_ssh.md`)· ROS 2 (controllers, interfaces, συχνότητα, doctor) και ημερολόγιο
+  (`ros2 run arm_logbook logbook …`, μόνο ανάγνωση) τοπικά. Εργαλεία που κινούν servo ζητούν επιβεβαίωση.
+  `openssh-client` στο image. Tests: `arm_logbook` 5, `arm_gui` 31. Αδοκίμαστο με το πραγματικό Pi.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).

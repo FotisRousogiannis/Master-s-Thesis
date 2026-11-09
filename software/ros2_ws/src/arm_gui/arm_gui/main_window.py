@@ -15,12 +15,15 @@ from .panels.log_panel import LogPanel
 from .panels.parameters_panel import CALIBRATION_NODE, ParametersPanel
 from .panels.sensors_panel import SensorsPanel
 from .panels.system_panel import SystemPanel
+from .panels.tools_panel import ToolsPanel
 from .processes import ProcessManager
 from .qt import QtCore, QtGui, QtWidgets, Qt
+from .tools import PiTarget, command_for
 
 SYSTEM_PROCESS = "system"
 WINDOW_PROCESSES = ("rviz", "gazebo")  # same keys as the window layouts
 RECORD_PROCESS = "record"
+TOOL_PROCESS = "tool"
 # What a recording keeps (ADR-0020): enough to replay the motion in RViz and plot it.
 RECORD_TOPICS = [
     "/joint_states", "/tf", "/tf_static", "/robot_description", "/diagnostics",
@@ -68,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.parameters = ParametersPanel()
         self.graph = GraphPanel(bridge.node_info)
         self.log = LogPanel()
+        self.tools = ToolsPanel()
         self._docks = {}
         self._build_docks()
         self._build_toolbar()
@@ -78,6 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._place_timer.timeout.connect(self._place_external_windows)
         self._place_timer.start(PLACE_POLL_MS)
         self._restore_session()
+        self._load_pi()
 
     # ------------------------------------------------------------------ construction
     def _build_docks(self):
@@ -94,6 +99,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("devices", "Συσκευές", self.devices),
             ("parameters", "Παράμετροι", self.parameters),
             ("graph", "ROS 2", self.graph),
+            ("tools", "Εργαλεία", self.tools),
             ("log", "Log", self.log),
         ]:
             dock = QtWidgets.QDockWidget(title, self)
@@ -111,7 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, d["system"])
         self.splitDockWidget(d["system"], d["joints"], Qt.Horizontal)
         self.splitDockWidget(d["joints"], d["sensors"], Qt.Horizontal)
-        for key in ("devices", "parameters", "graph", "log"):
+        for key in ("devices", "parameters", "graph", "tools", "log"):
             self.tabifyDockWidget(d["sensors"], d[key])
         for dock in d.values():
             dock.show()
@@ -247,6 +253,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.joints.goal_requested.connect(b.send_joint_goal)
         self.system.start_requested.connect(self.start_system)
         self.system.window_requested.connect(self.set_window)
+        self.tools.run_requested.connect(self.run_tool)
+        self.tools.stop_requested.connect(lambda: self._processes.stop(TOOL_PROCESS))
+        self.tools.pi_changed.connect(self._save_pi)
+        self._processes.output.connect(lambda name, line: self.tools.append(line) if name == TOOL_PROCESS else None)
         self.system.stop_requested.connect(lambda: self._processes.stop(SYSTEM_PROCESS))
         self._processes.output.connect(self.log.append)
         self._processes.running_changed.connect(self._on_process_running)
@@ -276,6 +286,23 @@ class MainWindow(QtWidgets.QMainWindow):
             }[key]
             self._processes.start(key, "ros2", ["launch", "arm_bringup", *launch])
 
+    # ------------------------------------------------------------------ tools
+    def run_tool(self, tool):
+        try:
+            program, args = command_for(tool, self.tools.pi, data_dir() / "ssh")
+        except ValueError as exc:
+            self.tools.append(f"✖ {exc}")
+            return
+        self._processes.start(TOOL_PROCESS, program, args)
+
+    def _save_pi(self, pi: PiTarget):
+        for key in ("host", "user", "repo"):
+            self._settings.setValue(f"pi/{key}", getattr(pi, key))
+
+    def _load_pi(self):
+        s = self._settings
+        self.tools.set_pi(PiTarget(s.value("pi/host", ""), s.value("pi/user", ""), s.value("pi/repo", PiTarget.repo)))
+
     # ------------------------------------------------------------------ recording (ADR-0020)
     def set_recording(self, wanted: bool):
         if not wanted:
@@ -304,7 +331,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rec_button.blockSignals(False)
 
     def _on_process_running(self, name, running):
-        if name == RECORD_PROCESS:
+        if name == TOOL_PROCESS:
+            self.tools.set_running(running)
+            if not running:
+                self.tools.append("— τέλος —")
+        elif name == RECORD_PROCESS:
             self._set_rec_checked(running)
             if not running and self._recording:
                 self._bridge.log_event({"kind": "recording_stop", "path": self._recording})

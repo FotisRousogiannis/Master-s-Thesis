@@ -47,8 +47,8 @@ ADR του φακέλου [`decisions/`](decisions/README.md).
 | `arm_description` | URDF + ros2_control tags | xacro | ✅ (προσωρινή γεωμετρία, ADR-0009) |
 | `arm_bringup` | controllers, `bringup.launch.py hardware:=mock\|gazebo`, παράθυρα `rviz.launch.py` / `gazebo_gui.launch.py` (ADR-0018) | launch/YAML | ✅ |
 | `arm_calibration` | ρυθμίσεις (παλμοί servo, κανάλια, μηδενικά encoders, όρια) από `calibration.yaml` ως παράμετροι ROS 2 (ADR-0017, ADR-0019) | Python | ✅ (δεν τις διαβάζει ακόμα το υλικό) |
-| `arm_logbook` | ημερολόγιο σε SQLite: τελευταία θέση, ιστορικό calibration, καταγραφές, σφάλματα (ADR-0020) | Python | ✅ (αδοκίμαστο στο Docker) |
-| `arm_gui` | εφαρμογή ελέγχου: Σύστημα, Αρθρώσεις, Αισθητήρες, Συσκευές (`/diagnostics`), Παράμετροι, ROS 2, Log· σκούρο/φωτεινό θέμα· εικονίδιο εκκίνησης (`software/launcher/`) | Python | ✅ v0.2 |
+| `arm_logbook` | ημερολόγιο σε SQLite: τελευταία θέση, ιστορικό calibration, καταγραφές, σφάλματα· `logbook` για ανάγνωση (ADR-0020) | Python | ✅ (αδοκίμαστο στο Docker) |
+| `arm_gui` | εφαρμογή ελέγχου: Σύστημα, Αρθρώσεις, Αισθητήρες, Συσκευές (`/diagnostics`), Παράμετροι, ROS 2, Εργαλεία (`tools.yaml`), Log· «● REC»· σκούρο/φωτεινό θέμα· εικονίδιο εκκίνησης (`software/launcher/`) | Python | ✅ v0.2 |
 | `arm_interfaces`, `arm_manager` | καταστάσεις, ποιος κινεί τον βραχίονα | msg / Python | ⬜ |
 | `arm_moveit_config` | MoveIt 2 | YAML | ⬜ |
 | `arm_perception`, `arm_tasks` | όραση, pick & place | Python | ⬜ |

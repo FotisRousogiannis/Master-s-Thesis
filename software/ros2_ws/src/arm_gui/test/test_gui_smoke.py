@@ -344,3 +344,48 @@ def test_recording_runs_only_with_the_system_and_is_logged(window, tmp_path, mon
     procs.stop("system")  # stopping the system also ends the recording
     assert not rec.isChecked() and not rec.isEnabled() and "record" not in procs.alive
     assert b.events[-1] == {"kind": "recording_stop", "path": path}
+
+
+def test_tools_catalog_is_valid_and_pi_tools_go_through_ssh(tmp_path):
+    from arm_gui.tools import PiTarget, command_for, load_catalog
+    tools = {t.id: t for t in load_catalog()}
+    assert {"i2c_scan", "outputs_off", "controllers", "logbook_position"} <= set(tools)
+    assert tools["probe_channels"].moves and not tools["i2c_scan"].moves
+    assert command_for(tools["controllers"], PiTarget(), tmp_path) == ("bash", ["-c", "ros2 control list_controllers"])
+    with pytest.raises(ValueError):
+        command_for(tools["i2c_scan"], PiTarget(), tmp_path)  # no Pi configured
+    program, args = command_for(tools["i2c_scan"], PiTarget("pi.local", "fotis", "Master-s-Thesis"), tmp_path)
+    assert program == "ssh" and "BatchMode=yes" in args and "fotis@pi.local" in args
+    assert args[-1] == "cd ~/Master-s-Thesis && python3 -u software/tools/wrist_bench/wrist_bench.py scan"
+    assert command_for(tools["i2c_scan"], PiTarget("h", "u", "/opt/repo"), tmp_path)[1][-1].startswith("cd /opt/repo && ")
+
+
+def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_path, monkeypatch):
+    monkeypatch.setenv("ARM_DATA_DIR", str(tmp_path))
+    panel, procs = window.tools, window._processes
+    panel._filter.setText("i2c")
+    panel.select("i2c_scan")
+    assert panel.selected().id == "i2c_scan"
+    panel.run_selected()  # no Pi yet: nothing starts
+    assert "tool" not in procs.alive and "Raspberry Pi" in panel._output.toPlainText()
+
+    panel._host.setText("pi.local")
+    panel._user.setText("fotis")
+    panel._on_pi_edited()
+    assert window._settings.value("pi/host") == "pi.local"  # remembered for next time
+    panel.run_selected()
+    assert procs.started[-1][0] == "ssh" and "tool" in procs.alive and not panel._run.isEnabled()
+    procs.output.emit("tool", "mux7: 0x36 0x48")
+    assert "0x48" in panel._output.toPlainText()
+    procs.stop("tool")
+    assert panel._run.isEnabled()
+
+    panel._filter.setText("")
+    panel.select("probe_channels")
+    panel.confirm = lambda *_: False
+    n = len(procs.started)
+    panel.run_selected()
+    assert len(procs.started) == n  # moving tool refused
+    panel.confirm = lambda *_: True
+    panel.run_selected()
+    assert procs.started[-1][-1].endswith("wrist_bench.py probe")

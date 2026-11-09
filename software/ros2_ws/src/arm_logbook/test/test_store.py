@@ -55,3 +55,21 @@ def test_position_is_saved_once_when_the_arm_stops():
     assert d.update({"j": 0.9}, now=5.0) is None   # already saved
     d.update({"j": 1.5}, now=6.0)
     assert d.update({"j": 1.5}, now=6.6) == {"j": 1.5}
+
+
+def test_cli_reads_without_writing(tmp_path, capsys):
+    from arm_logbook import cli
+    db = tmp_path / "arm_logbook.db"
+    assert cli.main(["position", "--database", str(db)]) == 1 and not db.exists()  # never creates it
+    book = Logbook(db)
+    book.save_positions({"joint_1": 3.14159265}, time=0.0)
+    book.add_calibration(0.0, "joint_1", zero_deg=130.0, reference_deg=90.0)
+    book.close()
+    assert cli.main(["position", "--database", str(db)]) == 0
+    assert "180.00°" in capsys.readouterr().out
+    cli.main(["calibrations", "joint_1", "--database", str(db)])
+    assert "μηδέν 130.0°" in capsys.readouterr().out
+    ro = Logbook(db, readonly=True)
+    with pytest.raises(sqlite3.OperationalError):
+        ro.save_positions({"joint_1": 0.0}, time=1.0)
+    ro.close()

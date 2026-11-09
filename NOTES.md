@@ -99,13 +99,16 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 - **Λογισμικό υπολογιστή (ADR-0016/17/18/19/20):** `arm_bringup` (ros2_control, `hardware:=mock|gazebo`), `arm_calibration`
   (`calibration.yaml` → παράμετροι ROS 2) και εφαρμογή ελέγχου **Arm Studio** v0.2 (`arm_gui`, Python + Qt 5): πάνελ
   Σύστημα, Αρθρώσεις, Αισθητήρες, Συσκευές (`/diagnostics`), Παράμετροι, ROS 2, Log· σκούρο/φωτεινό θέμα· κουμπιά
-  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (64)· **εκκρεμεί η πρώτη δοκιμή
+  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (67)· **εκκρεμεί η πρώτη δοκιμή
   μέσα στο Docker** από τον Φώτη (βήμα 7 στο `docs/setup/ubuntu.md`). Δεν υπάρχει ακόμα: δημοσίευση `/diagnostics`
   από το υλικό, χρήση της βαθμονόμησης από τα servo. **Αρχικοποίηση αρθρώσεων (ADR-0019):** AS5600 1:1 στον άξονα εξόδου → χωρίς homing, μηδέν ανά άρθρωση στο
   `calibration.yaml` («Μηδέν = τρέχουσα θέση»)· μηδενικά ακόμα 0.0 (δεν έχουν μετρηθεί). Κατά τη λειτουργία συνεχής παρακολούθηση (unwrapping) στο ESP32· στην εκκίνηση η στροφή από την τελευταία θέση.
   **Ημερολόγιο (ADR-0020):** `arm_logbook` σε SQLite (`.local/arm_logbook.db`), «● REC» (rosbag στο `.local/recordings/`).
   Gripper: servo συνεχούς περιστροφής + AS5600 + 2 × ZD10, τελευταίο κανάλι, όπως μια άρθρωση.
-  Εκκρεμούν: πάνελ Calibration ανά άρθρωση· 7ος AS5600 (mux καρπού/PCB)· αντιστοίχιση servo → άρθρωση.
+  Εκκρεμούν: πάνελ Calibration ανά άρθρωση· αντιστοίχιση servo → άρθρωση.
+  **Πάνελ «Εργαλεία»** (`arm_gui/tools.yaml`): σάρωση I²C κ.ά. στο Pi μέσω SSH (`docs/setup/raspberry_pi_ssh.md`).
+- **Πάγκος τώρα:** Raspberry Pi 4 + TCA9548A για όλο τον βραχίονα, χωρίς PCB· PCA9685 σε ένα κανάλι, 7 AS5600 στα
+  άλλα, ADS1115 μαζί με τον AS5600 του gripper. Ανοιχτό: το Pi μένει εργαλείο δοκιμών ή γίνεται προσωρινά το υλικό του ROS.
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),
   διαφορικό στα κανάλια 9/10 με ανεστραμμένο Β. Τα servo κινούνται με `jog`· εκκρεμεί πλήρης αντιστοίχιση καναλιών (T3/T4) και T5.

@@ -43,8 +43,14 @@ CREATE TABLE IF NOT EXISTS faults (
 
 
 class Logbook:
-    def __init__(self, path):
+    def __init__(self, path, readonly: bool = False):
+        """readonly: for viewers (the CLI); only the arm_logbook node writes."""
         self.path = Path(path)
+        if readonly:
+            if not self.path.exists():
+                raise FileNotFoundError(f"{self.path}: δεν υπάρχει ακόμα ημερολόγιο")
+            self._db = sqlite3.connect(f"{self.path.resolve().as_uri()}?mode=ro", uri=True)
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(str(self.path))
         self._db.execute("PRAGMA synchronous = FULL")  # durable on power loss

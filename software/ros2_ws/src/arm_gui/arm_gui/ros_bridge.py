@@ -4,6 +4,7 @@ rclpy spins in its own thread; every callback hands its data to the GUI thread t
 Qt signal (queued connection), so widgets are only ever touched from the GUI thread.
 """
 
+import json
 import threading
 import time
 
@@ -81,6 +82,7 @@ class RosBridge(QtCore.QObject):
         self._node.create_subscription(JointState, "/joint_states", self._on_joint_state, 10)
         self._node.create_subscription(DiagnosticArray, "/diagnostics", self._on_diagnostics, 10)
         self._action = ActionClient(self._node, FollowJointTrajectory, f"/{ARM_CONTROLLER}/follow_joint_trajectory")
+        self._logbook_pub = self._node.create_publisher(String, "/logbook/event", 10)  # ADR-0020
         self._trajectory_pub = self._node.create_publisher(JointTrajectory, f"/{ARM_CONTROLLER}/joint_trajectory", 10)
         self._list_controllers = self._node.create_client(ListControllers, "/controller_manager/list_controllers")
         self._node.create_timer(1.0, self._poll_graph)
@@ -250,6 +252,10 @@ class RosBridge(QtCore.QObject):
         ).start()
 
     # ---------------------------------------------------------------- commands (GUI thread)
+    def log_event(self, event: dict):
+        """One entry for the logbook (arm_logbook node, ADR-0020)."""
+        self._logbook_pub.publish(String(data=json.dumps(event, ensure_ascii=False)))
+
     def send_joint_goal(self, targets: dict, duration_s: float):
         """Move the given joints (SI units) to their targets in duration_s, all arriving together."""
         if not self._action.server_is_ready():

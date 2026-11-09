@@ -113,6 +113,8 @@ QPushButton[primary="true"]:disabled {{ background: {t.raised}; color: {t.muted}
 QPushButton#stop_button {{ background: {t.stop}; color: #ffffff; border: none; font-weight: 700; font-size: 14px;
                            padding: 8px 28px; border-radius: 8px; }}
 QPushButton#stop_button:pressed {{ background: {t.stop_pressed}; }}
+QPushButton#rec_button {{ font-weight: 600; padding: 6px 14px; }}
+QPushButton#rec_button:checked {{ background: {t.error}; color: #ffffff; border: none; }}
 
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background: {t.surface}; border: 1px solid {t.border}; border-radius: 5px;
                                                   padding: 4px 6px; selection-background-color: {t.select}; }}

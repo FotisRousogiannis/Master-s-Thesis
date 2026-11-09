@@ -33,6 +33,7 @@
 | [0017](0017-calibration-parameters-single-source.md) | Ρυθμίσεις βαθμονόμησης: YAML στο αποθετήριο, παράμετροι ROS 2, αλλαγή από το GUI | Αποδεκτή | 2026-11-09 |
 | [0018](0018-device-status-diagnostics-and-windows.md) | Κατάσταση συσκευών μέσω /diagnostics· RViz και Gazebo ως ξεχωριστά παράθυρα | Αποδεκτή | 2026-11-09 |
 | [0019](0019-joint-initialization-absolute-encoders.md) | Αρχικοποίηση αρθρώσεων: απόλυτοι encoders 1:1, μηδέν στη βαθμονόμηση, χωρίς homing | Αποδεκτή | 2026-11-09 |
+| [0020](0020-logbook-recording-calibration-features.md) | Ημερολόγιο σε SQLite, καταγραφή (REC) και calibration ανά άρθρωση ως λειτουργίες του UI | Αποδεκτή | 2026-11-09 |
 
 ## Πρότυπο
 

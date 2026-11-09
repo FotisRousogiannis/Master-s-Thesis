@@ -56,6 +56,14 @@ def _stack(context):
     actions = [
         # Servo calibration and safety limits (ADR-0017): same node on every hardware, editable from Arm Studio.
         Node(package="arm_calibration", executable="calibration_node", output="screen"),
+        # Logbook (ADR-0020). The last position is kept only for the real arm: a simulated
+        # position must never become the start-up reference of the real one.
+        Node(
+            package="arm_logbook",
+            executable="logbook_node",
+            output="screen",
+            parameters=[{"track_position": hardware == "real"}],
+        ),
         Node(
             package="robot_state_publisher",
             executable="robot_state_publisher",

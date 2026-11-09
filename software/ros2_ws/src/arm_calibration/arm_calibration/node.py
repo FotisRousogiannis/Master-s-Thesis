@@ -12,6 +12,7 @@ channels) before it is accepted. ~/save writes the file, ~/reload discards unsav
 The hardware layer (arm_hardware -> ESP32) reads these parameters when it connects.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from rcl_interfaces.msg import (
 )
 from diagnostic_msgs.msg import DiagnosticArray
 from rclpy.node import Node
+from std_msgs.msg import String
 from std_srvs.srv import Trigger
 
 from . import calibration, encoders
@@ -66,6 +68,7 @@ class CalibrationNode(Node):
         self._encoder_reports = {}  # joint -> (stamp s, level, raw deg or None)
         self.create_subscription(DiagnosticArray, "/diagnostics", self._on_diagnostics, 10)
         self.create_service(Trigger, "~/set_zero", self._on_set_zero)
+        self._logbook = self.create_publisher(String, "/logbook/event", 10)  # history (ADR-0020)
         self.get_logger().info(f"{len(self._values)} παράμετροι από {self._file}")
 
     def _on_set(self, params):
@@ -107,6 +110,11 @@ class CalibrationNode(Node):
             [rclpy.parameter.Parameter(f"encoders.{j}.zero_deg", value=float(z)) for j, z in zeros.items()]
         )
         response.success = result.successful
+        if result.successful:
+            for joint, zero in zeros.items():
+                event = {"kind": "calibration", "joint": joint, "zero_deg": zero, "reference_deg": 0.0,
+                         "invert": self._values[f"encoders.{joint}.invert"]}
+                self._logbook.publish(String(data=json.dumps(event)))
         response.message = (
             "Νέα μηδενικά: " + ", ".join(f"{j} {z:.2f}°" for j, z in zeros.items())
             + ". Πάτα «Αποθήκευση στο αρχείο» για να μείνουν."

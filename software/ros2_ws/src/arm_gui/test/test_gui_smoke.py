@@ -33,6 +33,10 @@ class FakeBridge(QtCore.QObject):
         super().__init__()
         self.goals, self.stops = [], 0
         self.param_requests, self.param_sets, self.triggers = [], [], []
+        self.events = []
+
+    def log_event(self, event):
+        self.events.append(event)
 
     def node_info(self, name):
         return {"Δημοσιεύει": [("/joint_states", ["sensor_msgs/msg/JointState"])], "Συνδρομές": []} if name else {}
@@ -314,3 +318,29 @@ def test_devices_panel_shows_which_devices_are_active(window):
     shown = [panel._tree.topLevelItem(i).child(j).text(0)
              for i in range(panel._tree.topLevelItemCount()) for j in range(panel._tree.topLevelItem(i).childCount())]
     assert shown == ["wrist_diff_a"]
+
+
+def test_recording_runs_only_with_the_system_and_is_logged(window, tmp_path, monkeypatch):
+    monkeypatch.setenv("ARM_DATA_DIR", str(tmp_path))
+    procs, b, rec = window._processes, window._bridge, window.rec_button
+    assert not rec.isEnabled()  # nothing to record yet
+    window.system._auto_open.setChecked(False)
+    window.system._start.click()
+    assert rec.isEnabled()
+
+    window.ask_note = lambda: None  # cancelled: nothing starts
+    rec.click()
+    assert not rec.isChecked() and "record" not in procs.alive
+
+    window.ask_note = lambda: "PID joint_2"
+    rec.click()
+    assert rec.isChecked() and "record" in procs.alive
+    cmd = procs.started[-1]
+    assert cmd[:4] == ["ros2", "bag", "record", "-o"] and "/joint_states" in cmd
+    path = cmd[4]
+    assert path.startswith(str(tmp_path / "recordings")) and (tmp_path / "recordings").is_dir()
+    assert b.events[-1]["kind"] == "recording_start" and b.events[-1]["note"] == "PID joint_2"
+
+    procs.stop("system")  # stopping the system also ends the recording
+    assert not rec.isChecked() and not rec.isEnabled() and "record" not in procs.alive
+    assert b.events[-1] == {"kind": "recording_stop", "path": path}

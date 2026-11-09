@@ -168,9 +168,14 @@
 - Συνεχής παρακολούθηση γωνίας (unwrapping, πρόταση του Φώτη, ADR-0019): η θέση αλλάζει κατά τη διαφορά από την
   προηγούμενη ένδειξη, άρα το 358° → 1° είναι +3° και όχι πλήρης στροφή. Πρότυπο για το firmware `encoders.Tracker`,
   με tests (`arm_calibration` 19). Το ±5° περιθώριο απορρίφθηκε.
+- **ADR-0020:** ημερολόγιο σε **SQLite** (όχι NoSQL: δομημένα δεδομένα, transactions, χωρίς server). Νέο package
+  `arm_logbook`: τελευταία θέση (μόνο με `hardware:=real`), ιστορικό calibration, κατάλογος καταγραφών, σφάλματα.
+  Διακόπτης **«● REC»** στο Arm Studio (`ros2 bag record` στο `.local/recordings/`). Το calibration ανά άρθρωση
+  από το UI και ο gripper σχεδιάστηκαν· δεν υλοποιήθηκαν ακόμα. Tests: `arm_logbook` 4, `arm_gui` 29.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
 - Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
-- Πραγματικό εύρος των joint_1/4/6· firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019.
+- Gripper: τύπος servo, encoder, κανάλι (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
+- Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 

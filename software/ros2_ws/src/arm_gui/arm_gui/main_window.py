@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from pathlib import Path
 
 from . import APP_NAME, theme
@@ -19,6 +20,12 @@ from .qt import QtCore, QtGui, QtWidgets, Qt
 
 SYSTEM_PROCESS = "system"
 WINDOW_PROCESSES = ("rviz", "gazebo")  # same keys as the window layouts
+RECORD_PROCESS = "record"
+# What a recording keeps (ADR-0020): enough to replay the motion in RViz and plot it.
+RECORD_TOPICS = [
+    "/joint_states", "/tf", "/tf_static", "/robot_description", "/diagnostics",
+    "/arm_controller/joint_trajectory", "/arm_controller/controller_state", "/clock",
+]
 ICON = Path(__file__).resolve().parent / "resources" / "arm_studio.png"
 PLACE_POLL_MS = 1000
 STOP_WAIT_ON_EXIT_MS = 10000
@@ -27,6 +34,11 @@ STOP_WAIT_ON_EXIT_MS = 10000
 def config_dir() -> Path:
     """Outside the container image when ARM_GUI_CONFIG_DIR is set (compose.yaml), so layouts survive `docker compose down`."""
     return Path(os.environ.get("ARM_GUI_CONFIG_DIR", Path.home() / ".config" / "arm_gui"))
+
+
+def data_dir() -> Path:
+    """Logbook and recordings (ADR-0020): <repo>/.local in Docker (ARM_DATA_DIR), on the host disk, outside git."""
+    return Path(os.environ.get("ARM_DATA_DIR", Path.home() / ".local" / "share" / "arm_studio"))
 
 
 def _rect(q) -> Rect:
@@ -47,6 +59,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._targets: dict[str, Rect] = {}  # where the external windows should go
         self._placed: set[str] = set()  # window ids already placed for the current targets
         self._hardware = "mock"
+        self._recording = None  # path of the running recording
 
         self.system = SystemPanel()
         self.joints = JointsPanel()
@@ -138,6 +151,14 @@ class MainWindow(QtWidgets.QMainWindow):
         spacer = QtWidgets.QWidget()
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         bar.addWidget(spacer)
+
+        self.rec_button = QtWidgets.QPushButton("●  REC")
+        self.rec_button.setObjectName("rec_button")
+        self.rec_button.setCheckable(True)
+        self.rec_button.setEnabled(False)
+        self.rec_button.setToolTip("Καταγραφή (rosbag) των αρθρώσεων, του tf και των διαγνωστικών· μόνο όσο τρέχει το σύστημα")
+        self.rec_button.toggled.connect(self.set_recording)
+        bar.addWidget(self.rec_button)
 
         self.stop_button = QtWidgets.QPushButton("■  STOP  (Esc)")
         self.stop_button.setObjectName("stop_button")
@@ -255,13 +276,47 @@ class MainWindow(QtWidgets.QMainWindow):
             }[key]
             self._processes.start(key, "ros2", ["launch", "arm_bringup", *launch])
 
+    # ------------------------------------------------------------------ recording (ADR-0020)
+    def set_recording(self, wanted: bool):
+        if not wanted:
+            self._processes.stop(RECORD_PROCESS)
+            return
+        if self._processes.is_running(RECORD_PROCESS):
+            return
+        note = self.ask_note()
+        if note is None:
+            self._set_rec_checked(False)
+            return
+        path = data_dir() / "recordings" / time.strftime("%Y-%m-%d_%H-%M-%S")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._recording = str(path)
+        self._processes.start(RECORD_PROCESS, "ros2", ["bag", "record", "-o", str(path), *RECORD_TOPICS])
+        self._bridge.log_event({"kind": "recording_start", "path": str(path), "note": note, "topics": RECORD_TOPICS})
+
+    def ask_note(self):
+        """What is being tested; None = cancelled."""
+        text, ok = QtWidgets.QInputDialog.getText(self, "Καταγραφή", "Σημείωση (τι δοκιμάζεις, ρυθμίσεις):")
+        return text.strip() if ok else None
+
+    def _set_rec_checked(self, checked: bool):
+        self.rec_button.blockSignals(True)
+        self.rec_button.setChecked(checked)
+        self.rec_button.blockSignals(False)
+
     def _on_process_running(self, name, running):
-        if name == SYSTEM_PROCESS:
+        if name == RECORD_PROCESS:
+            self._set_rec_checked(running)
+            if not running and self._recording:
+                self._bridge.log_event({"kind": "recording_stop", "path": self._recording})
+                self.log.append("app", f"Καταγραφή αποθηκεύτηκε: {self._recording}")
+                self._recording = None
+        elif name == SYSTEM_PROCESS:
             self.system.set_running(running)
             self._set_pill(self._system_pill, "ok" if running else "off",
                            "Σύστημα σε λειτουργία" if running else "Σύστημα σταματημένο")
+            self.rec_button.setEnabled(running)
             if not running:
-                for key in WINDOW_PROCESSES:
+                for key in (*WINDOW_PROCESSES, RECORD_PROCESS):
                     self._processes.stop(key)
         elif name in WINDOW_PROCESSES:
             self.system.set_window_open(name, running)

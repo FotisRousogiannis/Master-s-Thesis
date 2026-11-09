@@ -96,13 +96,15 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 ## Κατάσταση λογισμικού / υλικού (2026-11-09)
 - **Περιβάλλον ανάπτυξης** λειτουργικό (Docker, ROS 2 Jazzy) — `docs/setup/ubuntu.md`, tag `v0.1-dev-env` στο `testing`.
 - **URDF:** προσωρινό (ADR-0009). Export από Fusion: δικό μας script `software/tools/fusion_export/` (ADR-0011) — δεν έχει τρέξει ακόμα στον βραχίονα.
-- **Λογισμικό υπολογιστή (ADR-0016/17/18/19):** `arm_bringup` (ros2_control, `hardware:=mock|gazebo`), `arm_calibration`
+- **Λογισμικό υπολογιστή (ADR-0016/17/18/19/20):** `arm_bringup` (ros2_control, `hardware:=mock|gazebo`), `arm_calibration`
   (`calibration.yaml` → παράμετροι ROS 2) και εφαρμογή ελέγχου **Arm Studio** v0.2 (`arm_gui`, Python + Qt 5): πάνελ
   Σύστημα, Αρθρώσεις, Αισθητήρες, Συσκευές (`/diagnostics`), Παράμετροι, ROS 2, Log· σκούρο/φωτεινό θέμα· κουμπιά
-  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (58)· **εκκρεμεί η πρώτη δοκιμή
+  RViz/Gazebo· εικονίδιο εκκίνησης (`software/launcher/`). Tests εκτός ROS περνούν (63)· **εκκρεμεί η πρώτη δοκιμή
   μέσα στο Docker** από τον Φώτη (βήμα 7 στο `docs/setup/ubuntu.md`). Δεν υπάρχει ακόμα: δημοσίευση `/diagnostics`
   από το υλικό, χρήση της βαθμονόμησης από τα servo. **Αρχικοποίηση αρθρώσεων (ADR-0019):** AS5600 1:1 στον άξονα εξόδου → χωρίς homing, μηδέν ανά άρθρωση στο
-  `calibration.yaml` («Μηδέν = τρέχουσα θέση»)· μηδενικά ακόμα 0.0 (δεν έχουν μετρηθεί). Κατά τη λειτουργία συνεχής παρακολούθηση (unwrapping) στο ESP32· η αναδίπλωση μετρά μόνο στην πρώτη μέτρηση της εκκίνησης.
+  `calibration.yaml` («Μηδέν = τρέχουσα θέση»)· μηδενικά ακόμα 0.0 (δεν έχουν μετρηθεί). Κατά τη λειτουργία συνεχής παρακολούθηση (unwrapping) στο ESP32· στην εκκίνηση η στροφή από την τελευταία θέση.
+  **Ημερολόγιο (ADR-0020):** `arm_logbook` σε SQLite (`.local/arm_logbook.db`), «● REC» (rosbag στο `.local/recordings/`).
+  Εκκρεμούν: πάνελ Calibration ανά άρθρωση, gripper (τύπος servo/encoder/κανάλι από τον Φώτη).
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),
   διαφορικό στα κανάλια 9/10 με ανεστραμμένο Β. Τα servo κινούνται με `jog`· εκκρεμεί πλήρης αντιστοίχιση καναλιών (T3/T4) και T5.

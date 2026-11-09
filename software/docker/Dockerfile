@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-pytest \
         python3-pip \
         git sudo bash-completion nano mesa-utils \
+        wmctrl \
     && rm -rf /var/lib/apt/lists/*
 
 # The noble base image already provides the "ubuntu" user (uid/gid 1000).

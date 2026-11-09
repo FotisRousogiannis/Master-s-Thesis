@@ -1,0 +1,15 @@
+# USB connection to the arm's ESP32 boards (micro-ROS serial transport, ADR-0016).
+# The whole /dev is shared so a board plugged in AFTER the container started is visible too;
+# the cgroup rules allow only USB serial devices: ttyACM (major 166, ESP32-S3 native USB)
+# and ttyUSB (major 188, USB-UART bridges). Used automatically by software/launcher/arm_studio.sh:
+#   docker compose -f compose.yaml -f compose.usb.yaml up -d
+# Windows: attach the board to WSL first with usbipd (usbipd attach --wsl --busid <id>).
+services:
+  dev:
+    volumes:
+      - /dev:/dev
+    device_cgroup_rules:
+      - "c 166:* rmw"
+      - "c 188:* rmw"
+    group_add:
+      - dialout

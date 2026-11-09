@@ -3,6 +3,9 @@ software/ros2_ws/build/
 software/ros2_ws/install/
 software/ros2_ws/log/
 
+# Local settings and logs (Arm Studio layouts, launcher log)
+.local/
+
 # Python
 __pycache__/
 *.pyc

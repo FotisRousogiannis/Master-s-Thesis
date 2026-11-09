@@ -18,6 +18,8 @@ services:
       - DISPLAY=${DISPLAY:-:0}
       - QT_X11_NO_MITSHM=1
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      # Arm Studio layouts/settings live in the repo's .local/ (not in git) so they survive `docker compose down`.
+      - ARM_GUI_CONFIG_DIR=/home/ubuntu/master-s-thesis/.local/arm_gui
     volumes:
       - ../..:/home/ubuntu/master-s-thesis
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

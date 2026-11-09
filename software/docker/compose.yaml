@@ -20,6 +20,8 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       # Arm Studio layouts/settings live in the repo's .local/ (not in git) so they survive `docker compose down`.
       - ARM_GUI_CONFIG_DIR=/home/ubuntu/master-s-thesis/.local/arm_gui
+      # Calibration is saved straight into the repo file (ADR-0017), whatever the colcon install mode.
+      - ARM_CALIBRATION_FILE=/home/ubuntu/master-s-thesis/software/ros2_ws/src/arm_calibration/config/calibration.yaml
     volumes:
       - ../..:/home/ubuntu/master-s-thesis
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

@@ -1,0 +1,32 @@
+# Βαθμονόμηση servo και όρια ασφαλείας του βραχίονα (ADR-0017).
+# Μοναδική πηγή: αλλάζει από το Arm Studio (πάνελ «Παράμετροι» → «Αποθήκευση στο αρχείο») ή με το χέρι.
+# Τιμές από software/tools/wrist_bench/wrist_bench.json (μετρήσεις πάγκου καρπού, 2026-11).
+spec:
+  pwm_freq_hz: 50
+  pulse_min_us: 500
+  pulse_max_us: 2500
+servos:
+  wrist_diff_a:
+    channel: 9
+    neutral_us: 1600
+    invert: false
+    note: διαφορικό καρπού, κινητήρας A
+  wrist_diff_b:
+    channel: 10
+    neutral_us: 1600
+    invert: true
+    note: διαφορικό καρπού, κινητήρας B (κατοπτρικός)
+  wrist_upper_1:
+    channel: 8
+    neutral_us: 1600
+    invert: false
+    note: κανάλι προς επαλήθευση (T3/T4)
+  wrist_upper_2:
+    channel: 11
+    neutral_us: 1600
+    invert: false
+    note: κανάλι προς επαλήθευση (T3/T4)
+safety:
+  max_offset_us: 900
+  max_duration_s: 3.0
+  max_travel_deg: 30.0

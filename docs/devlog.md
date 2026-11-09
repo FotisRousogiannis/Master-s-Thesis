@@ -172,10 +172,13 @@
   `arm_logbook`: τελευταία θέση (μόνο με `hardware:=real`), ιστορικό calibration, κατάλογος καταγραφών, σφάλματα.
   Διακόπτης **«● REC»** στο Arm Studio (`ros2 bag record` στο `.local/recordings/`). Το calibration ανά άρθρωση
   από το UI και ο gripper σχεδιάστηκαν· δεν υλοποιήθηκαν ακόμα. Tests: `arm_logbook` 4, `arm_gui` 29.
+- Gripper (Φώτης): servo συνεχούς περιστροφής, AS5600 στον άξονα, 2 × ZD10 στα δάχτυλα, τελευταίο κανάλι PCA9685.
+  Στη βαθμονόμηση: `encoders.gripper` και `gripper.open_deg = 0.0` (δεν ανοίγει πριν από το calibration).
+  Ανοιχτά: στροφές από κλειστό σε ανοιχτό, κανάλι mux του 7ου AS5600 (PCB), αντιστοίχιση servo → άρθρωση.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
 - Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
-- Gripper: τύπος servo, encoder, κανάλι (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
+- Gripper: στροφές του άξονα, mux του 7ου AS5600, αντιστοίχιση servo → άρθρωση (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
 - Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 

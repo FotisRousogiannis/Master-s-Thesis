@@ -27,6 +27,10 @@ servos:
     invert: false
     note: κανάλι προς επαλήθευση (T3/T4)
 encoders:
+  gripper:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0020) — 0° = πλήρως κλειστή
   joint_1:
     zero_deg: 0.0
     invert: false
@@ -51,6 +55,8 @@ encoders:
     zero_deg: 0.0
     invert: false
     note: δεν έχει οριστεί (ADR-0019)
+gripper:
+  open_deg: 0.0
 safety:
   max_offset_us: 900
   max_duration_s: 3.0

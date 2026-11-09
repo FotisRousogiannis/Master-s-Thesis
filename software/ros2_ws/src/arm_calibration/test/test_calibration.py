@@ -72,9 +72,13 @@ def test_invalid_calibration_is_never_written(tmp_path, flat):
 
 
 def test_every_joint_has_an_encoder_zero(flat):
-    assert c.encoder_names(flat) == [f"joint_{i}" for i in range(1, 7)]
+    assert c.encoder_names(flat) == ["gripper", *(f"joint_{i}" for i in range(1, 7))]
     assert c.field_for("encoders.joint_3.zero_deg").type is float
     flat["encoders.joint_3.zero_deg"] = 360.0  # same as 0: only [0, 360) is allowed
     assert any("joint_3.zero_deg" in e for e in c.validate(flat))
     del flat["encoders.joint_3.invert"]
     assert "λείπει το encoders.joint_3.invert" in c.validate(flat)
+
+
+def test_gripper_cannot_open_until_calibrated(flat):
+    assert flat["gripper.open_deg"] == 0.0  # range [0, 0]: no motion before calibration

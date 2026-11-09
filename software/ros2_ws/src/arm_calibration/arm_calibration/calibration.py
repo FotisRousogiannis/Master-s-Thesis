@@ -39,6 +39,9 @@ FIXED_FIELDS = {
     "safety.max_offset_us": Field(int, "Μέγιστη απόκλιση από το νεκρό σημείο [µs] (±900 = πλήρης ταχύτητα)", 0, 1000, 10),
     "safety.max_duration_s": Field(float, "Μέγιστη διάρκεια συνεχούς κίνησης [s]", 0.1, 30.0, 0.1),
     "safety.max_travel_deg": Field(float, "Διακοπή αν ένας encoder μετακινηθεί περισσότερο [°]", 1.0, 360.0, 1.0),
+    # Gripper (ADR-0020): 0° = fully closed (its encoder zero); it may only move between 0 and open_deg.
+    # 0.0 until calibrated = it cannot open at all, which is the safe default.
+    "gripper.open_deg": Field(float, "Γωνία πλήρως ανοιχτής αρπάγης, από το κλειστό (0°) [°]", -360.0, 360.0, 0.1),
 }
 
 SERVO_FIELDS = {
@@ -176,6 +179,7 @@ def dump(flat: dict) -> str:
         "spec": tree.get("spec", {}),
         "servos": {name: tree["servos"][name] for name in sorted(tree.get("servos", {}))},
         "encoders": {name: tree["encoders"][name] for name in sorted(tree.get("encoders", {}))},
+        "gripper": tree.get("gripper", {}),
         "safety": tree.get("safety", {}),
     }
     return HEADER + yaml.safe_dump(ordered, allow_unicode=True, sort_keys=False, default_flow_style=False)

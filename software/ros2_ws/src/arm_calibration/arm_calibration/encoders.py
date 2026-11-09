@@ -51,3 +51,49 @@ def zeros_from_reports(joints, reports: dict, now: float, max_age: float = 2.0):
         else:
             zeros[joint] = round(raw, 2)
     return ({} if problems else zeros), problems
+
+
+class EncoderJump(ValueError):
+    """Two consecutive readings differ more than any real motion allows: encoder fault."""
+
+
+class Tracker:
+    """Continuous joint position from consecutive encoder readings ("unwrapping", ADR-0019).
+
+    The encoder only knows 0..360: after 359.9 it gives 0 again. Between two readings a joint
+    moves far less than 180°, so a change of e.g. 358 -> 1 is +3° (it went on), never -357°.
+    The first reading uses joint_angle() (the arm must be inside its limits at power-up);
+    after that the position keeps counting past ±180° instead of jumping to the other end.
+
+    Reference for the firmware (ESP32, ~500 Hz, ADR-0005), which must see every reading.
+    max_step_deg: largest believable change between two readings; above it the reading is
+    rejected as an encoder fault. Must be larger than (max joint speed × sample period) and
+    well below 180°.
+    """
+
+    def __init__(self, zero: float, invert: bool, lower: float, upper: float, max_step_deg: float = 90.0):
+        if not 0 < max_step_deg < 180:
+            raise ValueError("max_step_deg must be in (0, 180)")
+        self.zero, self.invert, self.lower, self.upper = zero, invert, lower, upper
+        self.max_step = max_step_deg
+        self.position = None  # joint angle, degrees; None until the first reading
+        self._raw = None
+
+    def update(self, raw: float) -> float:
+        if self.position is None:
+            self.position = joint_angle(raw, self.zero, self.invert, self.lower, self.upper)
+        else:
+            delta = raw - self._raw
+            if delta > 180.0:
+                delta -= FULL_TURN
+            elif delta < -180.0:
+                delta += FULL_TURN
+            if abs(delta) > self.max_step:
+                raise EncoderJump(f"η ένδειξη άλλαξε {delta:+.1f}° σε μία μέτρηση")
+            self.position += -delta if self.invert else delta
+        self._raw = raw
+        return self.position
+
+    @property
+    def in_limits(self) -> bool:
+        return self.position is not None and self.lower <= self.position <= self.upper

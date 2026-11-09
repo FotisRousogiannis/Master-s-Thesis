@@ -47,3 +47,35 @@ def test_zeros_are_set_for_all_joints_or_none():
                 {"joint_1": (10.0, 0, None), "joint_2": (10.0, 0, 300.0)}):   # no raw angle
         zeros, problems = e.zeros_from_reports(["joint_1", "joint_2"], bad, now=10.5)
         assert zeros == {} and len(problems) == 1 and problems[0].startswith("joint_1")
+
+
+def _run(tracker, readings):
+    return [tracker.update(r) for r in readings]
+
+
+def test_passing_360_to_0_continues_instead_of_jumping():
+    t = e.Tracker(zero=300.0, invert=False, lower=-90, upper=90)
+    assert _run(t, [355.0, 358.0, 1.0, 3.0]) == pytest.approx([55.0, 58.0, 61.0, 63.0])
+    assert _run(t, [1.0, 358.0, 355.0]) == pytest.approx([61.0, 58.0, 55.0])  # and back
+
+
+def test_inverted_encoder_is_tracked_in_the_joint_direction():
+    t = e.Tracker(zero=10.0, invert=True, lower=-90, upper=90)
+    assert _run(t, [10.0, 5.0, 359.0]) == pytest.approx([0.0, 5.0, 11.0])
+
+
+def test_a_full_turn_joint_overshooting_its_limit_is_seen_as_overshoot_not_the_other_end():
+    # joint_1 (yaw, ±180°), zero at 0: the encoder wrap is exactly at the limit
+    t = e.Tracker(zero=0.0, invert=False, lower=-180, upper=180)
+    _run(t, [170.0, 179.0, 180.5])
+    assert t.update(181.0) == pytest.approx(181.0)  # joint_angle alone would say -179°
+    assert not t.in_limits  # so the overshoot is detected and can be stopped
+
+
+def test_an_impossible_jump_is_rejected_as_encoder_fault():
+    t = e.Tracker(zero=0.0, invert=False, lower=-90, upper=90, max_step_deg=20)
+    t.update(10.0)
+    with pytest.raises(e.EncoderJump):
+        t.update(60.0)
+    assert t.position == pytest.approx(10.0)  # the bad reading is not used
+    assert t.update(12.0) == pytest.approx(12.0)

@@ -223,3 +223,30 @@ ros2 launch arm_description display.launch.py
 ✅ Άνοιξαν RViz και Joint State Publisher· οι αρθρώσεις κινούνται με τις μπάρες.
 Το περιβάλλον λειτουργεί από άκρη σε άκρη: Docker → ROS 2 → γραφικά (XWayland, Intel GPU) → δικός μας κώδικας.
 
+---
+
+## Βήμα 7 — Εικονίδιο «Arm Studio» (εκκίνηση χωρίς γραμμή εντολών)
+
+### Εντολές
+```bash
+cd ~/Desktop/Master-s-Thesis
+git pull --ff-only
+cd software/docker && docker compose build && cd ../..   # νέο πακέτο στο image: wmctrl
+./software/launcher/install_linux.sh
+```
+Μετά: μενού εφαρμογών → **Arm Studio**. Στο πάνελ «Σύστημα»: «Προσομοίωση χωρίς φυσική (mock)» → **Εκκίνηση**.
+
+### Γιατί
+- **`docker compose build`:** το image αποκτά το `wmctrl`, με το οποίο η εφαρμογή τοποθετεί τα παράθυρα Gazebo/RViz.
+- **`install_linux.sh`:** γράφει το `~/.local/share/applications/arm-studio.desktop` και αντίγραφο στην επιφάνεια
+  εργασίας· το εικονίδιο τρέχει το `software/launcher/arm_studio.sh` (container → build → εφαρμογή). Λεπτομέρειες:
+  `software/launcher/README.md`.
+
+### Αναμενόμενο
+Ανοίγει η εφαρμογή· με «Εκκίνηση» ανοίγει το RViz, στο πάνελ «Σύστημα» εμφανίζονται οι controllers
+`joint_state_broadcaster` και `arm_controller` ως `active`, και οι μπάρες του πάνελ «Αρθρώσεις» κινούν τον βραχίονα.
+Με «Προσομοίωση Gazebo» ανοίγει επιπλέον το Gazebo.
+
+### Αποτέλεσμα στο μηχάνημα αναφοράς
+⏳ Δεν έχει δοκιμαστεί ακόμα.
+

@@ -125,3 +125,28 @@
 - Φώτης: F8 στην πλακέτα 100×120. DRC KiCad 10: **0** ασυμφωνίες με σχηματικό, **0** επικαλύψεις, αποστάσεις,
   βραχυκυκλώματα. Απομένουν ασύνδετα (499), silkscreen, 199 «lib_footprint_mismatch» (footprints από βιβλιοθήκη KiCad 7),
   8 starved thermals. Επόμενο: χειροκίνητη τακτοποίηση, αρχή από την τροφοδοσία.
+
+## 2026-11-09
+**Έγινε**
+- Συζήτηση και απόφαση για την αρχιτεκτονική λογισμικού και την εφαρμογή ελέγχου (ADR-0016): στρώματα
+  (ros2_control → MoveIt → εποπτεία/εργασίες → GUI), «λεπτό» GUI σε Python + Qt 5 (`python_qt_binding`),
+  C++ μόνο όπου απαιτείται (firmware, `arm_hardware`), τρία δυναμικά παράθυρα (Gazebo, RViz, εφαρμογή),
+  εκκίνηση με εικονίδιο σε Ubuntu/Windows, σύνδεση με τον βραχίονα με WiFi ή USB. Gazebo Harmonic παραμένει
+  (ADR-0001)· το MuJoCo εξετάστηκε (καλύτερες επαφές) αλλά η σύνδεσή του με ROS 2 / ros2_control είναι μέσω τρίτων.
+- `arm_description`: ros2_control tags με επιλογή υλικού `hardware:=mock|gazebo|real` (`arm.ros2_control.xacro`).
+- Νέο package **`arm_bringup`**: `controllers.yaml` (joint_state_broadcaster, arm_controller), `bringup.launch.py`
+  (mock με `ros2_control_node`, ή Gazebo Harmonic με `gz_ros2_control`, spawn, γέφυρα `/clock`), κόσμος Gazebo.
+- Νέο package **`arm_gui`** («Arm Studio» v0.1): πάνελ Σύστημα (εκκίνηση/τερματισμός, controllers, nodes, επιλογή
+  WiFi/USB για το υλικό), Αρθρώσεις (μπάρες από τα όρια του URDF, ταχύτητα % του ορίου, Home), Αισθητήρες
+  (/joint_states· αφή, ESP32, INA219, AS5600 ως ανενεργά μέχρι να υπάρξουν), Log· STOP πάντα ορατό (Esc)·
+  πάνελ που μετακινούνται/ξεκολλούν· διατάξεις παραθύρων «Laptop», «2 οθόνες», «Χωρίς Gazebo» και του χρήστη.
+- Εκκίνηση με εικονίδιο: `software/launcher/` (Ubuntu `.desktop`, Windows συντόμευση προς `wsl.exe`).
+- Docker: `wmctrl` στο image, ρυθμίσεις εφαρμογής στο `.local/` (εκτός git), `compose.usb.yaml` για σειριακές USB.
+- Tests εκτός ROS: `arm_description` 7, `arm_bringup` 4, `arm_gui` 21 (μοντέλο, διατάξεις, όλο το παράθυρο με
+  ψεύτικη γέφυρα ROS, offscreen) — περνούν. **Δεν έχει τρέξει ακόμα μέσα στο Docker** (`colcon build/test`,
+  πραγματικοί controllers, Gazebo, τοποθέτηση παραθύρων με wmctrl σε XWayland, USB passthrough, Windows).
+
+**Επόμενα**
+- Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
+- Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
+

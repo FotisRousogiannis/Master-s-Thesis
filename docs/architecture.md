@@ -30,12 +30,34 @@ ADR του φακέλου [`decisions/`](decisions/README.md).
 | Υπολογιστής | Gazebo + gz_ros2_control | προσομοίωση — αντικαθιστά τα ESP32 | 0001 |
 | ESP32 ×2 | firmware (PlatformIO, micro-ROS, FreeRTOS) | βρόχος θέσης ~500 Hz, μίξη διαφορικού, ασφάλεια | 0005, 0007 |
 
+## Λογισμικό στον υπολογιστή — στρώματα (ADR-0016)
+
+```
+ Διεπαφή     arm_gui «Arm Studio» (Qt, Python) · RViz · Gazebo — τρία δυναμικά παράθυρα
+ ─────────── μόνο ROS interfaces ───────────────────────────────────────────
+ Εποπτεία    arm_manager: IDLE / MANUAL / AUTO / FAULT / STOP          (επόμενο)
+ Εργασίες    arm_tasks (pick & place) · arm_perception                  (επόμενο)
+ Κίνηση      MoveIt 2 · MoveIt Servo                                    (επόμενο)
+ Έλεγχος     ros2_control: joint_state_broadcaster, arm_controller      ✅ arm_bringup
+ Υλικό       hardware:=mock ✅ │ gazebo ✅ │ real (arm_hardware → micro-ROS: WiFi ή USB)
+```
+
+| Package | Ρόλος | Γλώσσα | Κατάσταση |
+|---|---|---|---|
+| `arm_description` | URDF + ros2_control tags | xacro | ✅ (προσωρινή γεωμετρία, ADR-0009) |
+| `arm_bringup` | controllers, `bringup.launch.py hardware:=mock\|gazebo` | launch/YAML | ✅ |
+| `arm_gui` | εφαρμογή ελέγχου, εικονίδιο εκκίνησης (`software/launcher/`) | Python | ✅ v0.1 |
+| `arm_interfaces`, `arm_manager` | καταστάσεις, ποιος κινεί τον βραχίονα | msg / Python | ⬜ |
+| `arm_moveit_config` | MoveIt 2 | YAML | ⬜ |
+| `arm_perception`, `arm_tasks` | όραση, pick & place | Python | ⬜ |
+| `arm_hardware` | plugin ros2_control → ESP32 | C++ | ⬜ |
+
 ## Δίαυλοι
 
 | Σύνδεση | Πρωτόκολλο | ADR |
 |---|---|---|
 | ESP32 ↔ αισθητήρες / οδηγός servo | I²C (τοπικά, ≤ ~30 cm) | 0006 |
-| ESP32 ↔ υπολογιστής | WiFi (micro-ROS/UDP)· USB σειριακό για debugging | 0006 |
+| ESP32 ↔ υπολογιστής | WiFi (micro-ROS/UDP) ή USB σειριακό (micro-ROS serial) — επιλογή στο Arm Studio | 0006, 0016 |
 | Υπολογιστής ↔ router | Ethernet | 0006 |
 | Κάμερα ↔ υπολογιστής | USB 3 | 0008 |
 
@@ -44,7 +66,8 @@ ADR του φακέλου [`decisions/`](decisions/README.md).
 - Το I²C δεν βγαίνει από το τμήμα του βραχίονα στο οποίο βρίσκεται το ESP32.
 - Πάνω από το ros2_control υπάρχουν μόνο **λογικές** αρθρώσεις· το υλικό είναι αθέατο.
 - Προσομοίωση και πραγματικός βραχίονας διαφέρουν **μόνο** στο hardware interface.
-- E-stop υλικού στην τροφοδοσία των servo.
+- E-stop υλικού στην τροφοδοσία των servo. Το STOP του Arm Studio είναι λογισμικό και δεν το αντικαθιστά.
+- Το GUI δεν περιέχει λογική ελέγχου· κάθε λειτουργία του είναι ROS interface που δοκιμάζεται και από τερματικό.
 
 ## Απορριφθείσες εναλλακτικές (σύνοψη)
 

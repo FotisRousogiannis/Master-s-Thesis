@@ -145,8 +145,22 @@
 - Tests εκτός ROS: `arm_description` 7, `arm_bringup` 4, `arm_gui` 21 (μοντέλο, διατάξεις, όλο το παράθυρο με
   ψεύτικη γέφυρα ROS, offscreen) — περνούν. **Δεν έχει τρέξει ακόμα μέσα στο Docker** (`colcon build/test`,
   πραγματικοί controllers, Gazebo, τοποθέτηση παραθύρων με wmctrl σε XWayland, USB passthrough, Windows).
+- Arm Studio v0.2 (ίδια μέρα):
+  - σκούρο και φωτεινό θέμα (χρώματα από το εικονίδιο της εφαρμογής), εναλλαγή από το μενού «Προβολή»·
+  - νέο package **`arm_calibration`** και πάνελ **«Παράμετροι»** (ADR-0017): παλμοί servo, κανάλια, όρια ασφαλείας
+    από το `calibration.yaml`, αλλαγή από το GUI, αποθήκευση πίσω στο αρχείο·
+  - πάνελ **«ROS 2»**: nodes (τι δημοσιεύει / ακούει / υπηρεσίες) και topics με φίλτρο·
+  - πάνελ **«Συσκευές»** (ADR-0018): ενεργά servos / encoders / αισθητήρες / πλακέτες από το `/diagnostics`·
+  - κουμπιά **RViz / Gazebo** στο πάνελ «Σύστημα»: ανοίγουν και κλείνουν χωρίς να σταματά το σύστημα
+    (`rviz.launch.py`, `gazebo_gui.launch.py`, `bringup.launch.py gui:=false`).
+- Tests εκτός ROS τώρα: `arm_description` 7, `arm_bringup` 4, `arm_calibration` 8, `arm_gui` 27 — περνούν.
+  **Αδοκίμαστα μέσα στο Docker**, επιπλέον των παραπάνω: το node `/arm_calibration` και οι υπηρεσίες παραμέτρων,
+  η συνδρομή στο `/diagnostics`, ο χωρισμός Gazebo server / GUI. Κανείς δεν δημοσιεύει ακόμα κατάσταση συσκευών,
+  και καμία τιμή βαθμονόμησης δεν φτάνει ακόμα στα servo.
+- Ανοιχτό θέμα: **αρχικοποίηση των αρθρώσεων** (πώς μαθαίνει ο βραχίονας τη θέση του στην εκκίνηση) — σε συζήτηση.
 
 **Επόμενα**
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
 - Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
+- Απόφαση για την αρχικοποίηση των αρθρώσεων (ADR)· firmware/`arm_hardware`: δημοσίευση `/diagnostics` και χρήση του `calibration.yaml`.
 

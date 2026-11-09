@@ -3,7 +3,8 @@
 Usage:
     ros2 launch arm_bringup bringup.launch.py                      # mock hardware + RViz
     ros2 launch arm_bringup bringup.launch.py hardware:=gazebo     # Gazebo Harmonic + RViz
-    ros2 launch arm_bringup bringup.launch.py rviz:=false
+    ros2 launch arm_bringup bringup.launch.py rviz:=false gui:=false   # no windows (Arm Studio opens them itself
+                                                                       # with rviz.launch.py / gazebo_gui.launch.py)
 
 Everything above ros2_control (controllers, GUI, MoveIt) is identical for every hardware.
 """
@@ -37,6 +38,8 @@ def _stack(context):
     description_share = FindPackageShare("arm_description").perform(context)
     bringup_share = FindPackageShare("arm_bringup").perform(context)
     controllers_file = f"{bringup_share}/config/controllers.yaml"
+    # -s: simulation server only; the window is then a separate program that can be closed and reopened.
+    gz_server_only = "" if LaunchConfiguration("gui").perform(context).lower() in ("true", "1") else "-s "
 
     robot_description = ParameterValue(
         Command(
@@ -51,6 +54,8 @@ def _stack(context):
     )
 
     actions = [
+        # Servo calibration and safety limits (ADR-0017): same node on every hardware, editable from Arm Studio.
+        Node(package="arm_calibration", executable="calibration_node", output="screen"),
         Node(
             package="robot_state_publisher",
             executable="robot_state_publisher",
@@ -68,7 +73,7 @@ def _stack(context):
                 PythonLaunchDescriptionSource(
                     [FindPackageShare("ros_gz_sim").perform(context), "/launch/gz_sim.launch.py"]
                 ),
-                launch_arguments={"gz_args": f"-r -v 2 {bringup_share}/worlds/arm_world.sdf"}.items(),
+                launch_arguments={"gz_args": f"-r {gz_server_only}-v 2 {bringup_share}/worlds/arm_world.sdf"}.items(),
             ),
             Node(
                 package="ros_gz_sim",
@@ -127,6 +132,7 @@ def generate_launch_description():
                 description="Hardware behind ros2_control: mock | gazebo (real: not implemented yet).",
             ),
             DeclareLaunchArgument("rviz", default_value="true", description="Open RViz."),
+            DeclareLaunchArgument("gui", default_value="true", description="Open the Gazebo window (hardware:=gazebo)."),
             OpaqueFunction(function=_stack),
         ]
     )

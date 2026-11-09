@@ -4,17 +4,22 @@ import json
 import os
 from pathlib import Path
 
-from . import APP_NAME
+from . import APP_NAME, theme
 from .layouts import APP, PRESETS, Rect, WindowPlacer, fit_to_screens, preset_layout
 from .model import parse_joints
+from .panels.devices_panel import DevicesPanel
+from .panels.graph_panel import GraphPanel
 from .panels.joints_panel import JointsPanel
 from .panels.log_panel import LogPanel
+from .panels.parameters_panel import CALIBRATION_NODE, ParametersPanel
 from .panels.sensors_panel import SensorsPanel
 from .panels.system_panel import SystemPanel
 from .processes import ProcessManager
 from .qt import QtCore, QtGui, QtWidgets, Qt
 
 SYSTEM_PROCESS = "system"
+WINDOW_PROCESSES = ("rviz", "gazebo")  # same keys as the window layouts
+ICON = Path(__file__).resolve().parent / "resources" / "arm_studio.png"
 PLACE_POLL_MS = 1000
 STOP_WAIT_ON_EXIT_MS = 10000
 
@@ -32,17 +37,23 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, bridge, processes=None, placer=None, settings_file=None):
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} — ρομποτικός βραχίονας")
+        self.setWindowIcon(QtGui.QIcon(str(ICON)))
         self._bridge = bridge
         self._processes = processes or ProcessManager(self)
         self._placer = placer or WindowPlacer()
         settings_file = settings_file or str(config_dir() / "settings.ini")
         self._settings = QtCore.QSettings(settings_file, QtCore.QSettings.IniFormat)
+        theme.apply(self._settings.value("ui/theme", "dark"))
         self._targets: dict[str, Rect] = {}  # where the external windows should go
         self._placed: set[str] = set()  # window ids already placed for the current targets
+        self._hardware = "mock"
 
         self.system = SystemPanel()
         self.joints = JointsPanel()
         self.sensors = SensorsPanel()
+        self.devices = DevicesPanel()
+        self.parameters = ParametersPanel()
+        self.graph = GraphPanel(bridge.node_info)
         self.log = LogPanel()
         self._docks = {}
         self._build_docks()
@@ -67,6 +78,9 @@ class MainWindow(QtWidgets.QMainWindow):
             ("system", "Σύστημα", self.system),
             ("joints", "Αρθρώσεις", self.joints),
             ("sensors", "Αισθητήρες", self.sensors),
+            ("devices", "Συσκευές", self.devices),
+            ("parameters", "Παράμετροι", self.parameters),
+            ("graph", "ROS 2", self.graph),
             ("log", "Log", self.log),
         ]:
             dock = QtWidgets.QDockWidget(title, self)
@@ -84,7 +98,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, d["system"])
         self.splitDockWidget(d["system"], d["joints"], Qt.Horizontal)
         self.splitDockWidget(d["joints"], d["sensors"], Qt.Horizontal)
-        self.tabifyDockWidget(d["sensors"], d["log"])
+        for key in ("devices", "parameters", "graph", "log"):
+            self.tabifyDockWidget(d["sensors"], d[key])
         for dock in d.values():
             dock.show()
         d["sensors"].raise_()
@@ -96,20 +111,57 @@ class MainWindow(QtWidgets.QMainWindow):
         bar.setFloatable(False)
         bar.toggleViewAction().setEnabled(False)  # STOP must always be visible
         self.addToolBar(Qt.TopToolBarArea, bar)
-        self.stop_button = QtWidgets.QPushButton("STOP (Esc)")
+
+        logo = QtWidgets.QLabel()
+        logo.setPixmap(QtGui.QIcon(str(ICON)).pixmap(36, 36))
+        bar.addWidget(logo)
+        titles = QtWidgets.QWidget()
+        tl = QtWidgets.QVBoxLayout(titles)
+        tl.setContentsMargins(0, 0, 12, 0)
+        tl.setSpacing(0)
+        title = QtWidgets.QLabel(APP_NAME)
+        title.setObjectName("app_title")
+        subtitle = QtWidgets.QLabel("Ρομποτικός βραχίονας 6 DOF")
+        subtitle.setObjectName("app_subtitle")
+        tl.addWidget(title)
+        tl.addWidget(subtitle)
+        bar.addWidget(titles)
+
+        self._system_pill = self._pill()
+        self._ros_pill = self._pill()
+        bar.addWidget(self._system_pill)
+        bar.addWidget(self._ros_pill)
+        self._motion_status = QtWidgets.QLabel("")
+        self._motion_status.setProperty("muted", True)
+        bar.addWidget(self._motion_status)
+
+        spacer = QtWidgets.QWidget()
+        spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        bar.addWidget(spacer)
+
+        self.stop_button = QtWidgets.QPushButton("■  STOP  (Esc)")
+        self.stop_button.setObjectName("stop_button")
         self.stop_button.setToolTip(
             "Ακύρωση κίνησης και κράτημα θέσης. Λογισμικό — ΔΕΝ αντικαθιστά το E-stop της τροφοδοσίας."
-        )
-        self.stop_button.setStyleSheet(
-            "QPushButton { background: #c62828; color: white; font-weight: bold; padding: 6px 24px; }"
-            "QPushButton:pressed { background: #8e0000; }"
         )
         self.stop_button.clicked.connect(self._bridge.stop)
         QtWidgets.QShortcut(QtGui.QKeySequence(Qt.Key_Escape), self, activated=self._bridge.stop)
         bar.addWidget(self.stop_button)
-        bar.addSeparator()
-        self._motion_status = QtWidgets.QLabel("")
-        bar.addWidget(self._motion_status)
+        self._set_pill(self._system_pill, "off", "Σύστημα σταματημένο")
+        self._set_pill(self._ros_pill, "off", "ROS 2: —")
+
+    @staticmethod
+    def _pill():
+        label = QtWidgets.QLabel()
+        label.setProperty("pill", True)
+        return label
+
+    @staticmethod
+    def _set_pill(label, state, text):
+        label.setText(text)
+        if label.property("state") != state:
+            label.setProperty("state", state)
+            theme.repolish(label)
 
     def _build_menus(self):
         file_menu = self.menuBar().addMenu("&Αρχείο")
@@ -120,6 +172,13 @@ class MainWindow(QtWidgets.QMainWindow):
             view.addAction(dock.toggleViewAction())
         view.addSeparator()
         view.addAction("Επαναφορά πάνελ", self._default_dock_arrangement)
+        view.addSeparator()
+        themes = QtWidgets.QActionGroup(self)
+        for key, label in (("dark", "Σκούρο θέμα"), ("light", "Ανοιχτό θέμα")):
+            action = view.addAction(label, lambda k=key: self.set_theme(k))
+            action.setCheckable(True)
+            action.setChecked(theme.current().name == key)
+            themes.addAction(action)
 
         self._layout_menu = self.menuBar().addMenu("&Διάταξη")
         self._rebuild_layout_menu()
@@ -150,27 +209,77 @@ class MainWindow(QtWidgets.QMainWindow):
         b.joint_state.connect(self.joints.set_current)
         b.joint_state.connect(self.sensors.set_joint_state)
         b.controllers_changed.connect(self.system.set_controllers)
-        b.nodes_changed.connect(self.system.set_nodes)
+        b.nodes_changed.connect(self.parameters.set_nodes)
+        b.nodes_changed.connect(self._on_nodes)
+        b.graph_changed.connect(self.graph.set_graph)
+        b.parameters_loaded.connect(self.parameters.show_parameters)
+        b.parameters_loaded.connect(self._on_parameters)
+        b.diagnostics.connect(self.devices.update_diagnostics)
+        b.parameters_set.connect(self.parameters.show_set_results)
+        b.service_result.connect(self.parameters.show_service_result)
+        b.service_result.connect(lambda srv, ok, msg: self.log.append("υπηρεσία", f"{srv}: {msg}"))
+        self.parameters.load_requested.connect(b.request_parameters)
+        self.parameters.apply_requested.connect(b.set_parameters)
+        self.parameters.service_requested.connect(b.call_trigger)
         b.goal_status.connect(self._on_goal_status)
         b.log.connect(lambda line: self.log.append("app", line))
         self.joints.goal_requested.connect(b.send_joint_goal)
         self.system.start_requested.connect(self.start_system)
+        self.system.window_requested.connect(self.set_window)
         self.system.stop_requested.connect(lambda: self._processes.stop(SYSTEM_PROCESS))
         self._processes.output.connect(self.log.append)
         self._processes.running_changed.connect(self._on_process_running)
 
     # ------------------------------------------------------------------ system
-    def start_system(self, hardware: str, rviz: bool):
-        self._placed.clear()  # new Gazebo/RViz windows: place them again
+    def start_system(self, hardware: str, open_windows: bool):
+        """The stack starts without windows; RViz and Gazebo are separate programs, opened and closed on demand."""
+        self._hardware = hardware
         self._processes.start(
             SYSTEM_PROCESS,
             "ros2",
-            ["launch", "arm_bringup", "bringup.launch.py", f"hardware:={hardware}", f"rviz:={str(rviz).lower()}"],
+            ["launch", "arm_bringup", "bringup.launch.py", f"hardware:={hardware}", "rviz:=false", "gui:=false"],
         )
+        if open_windows:
+            self.set_window("rviz", True)
+            if hardware == "gazebo":
+                self.set_window("gazebo", True)
+
+    def set_window(self, key: str, wanted: bool):
+        if not wanted:
+            self._processes.stop(key)
+        elif not self._processes.is_running(key):
+            self._placed.clear()  # a new window: place it again
+            launch = {
+                "rviz": ["rviz.launch.py", f"use_sim_time:={str(self._hardware == 'gazebo').lower()}"],
+                "gazebo": ["gazebo_gui.launch.py"],
+            }[key]
+            self._processes.start(key, "ros2", ["launch", "arm_bringup", *launch])
 
     def _on_process_running(self, name, running):
         if name == SYSTEM_PROCESS:
             self.system.set_running(running)
+            self._set_pill(self._system_pill, "ok" if running else "off",
+                           "Σύστημα σε λειτουργία" if running else "Σύστημα σταματημένο")
+            if not running:
+                for key in WINDOW_PROCESSES:
+                    self._processes.stop(key)
+        elif name in WINDOW_PROCESSES:
+            self.system.set_window_open(name, running)
+
+    def _on_nodes(self, nodes):
+        others = [n for n in nodes if n != "/arm_gui"]
+        self._set_pill(self._ros_pill, "ok" if others else "off", f"ROS 2: {len(others)} nodes")
+
+    def _on_parameters(self, node, params):
+        """The servos of the calibration are devices we expect to hear from."""
+        if node == CALIBRATION_NODE and not isinstance(params, str):
+            names = {p["name"].split(".")[1] for p in params if p["name"].startswith("servos.")}
+            self.devices.set_expected(sorted(f"servo/{n}" for n in names))
+
+    def set_theme(self, name: str):
+        theme.apply(name)
+        self._settings.setValue("ui/theme", name)
+        self.system.set_controllers(self.system.controllers)
 
     def _on_description(self, urdf):
         try:

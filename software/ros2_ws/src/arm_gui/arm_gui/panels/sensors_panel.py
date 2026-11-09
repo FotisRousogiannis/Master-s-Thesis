@@ -1,7 +1,6 @@
-"""Sensors panel: joint feedback now; gripper, boards and power once they exist.
+"""Sensors panel: live joint feedback from /joint_states.
 
-The same panel is used in simulation and on the real arm (ADR-0016): groups that only the
-hardware provides are shown disabled, so the layout never changes between the two.
+Which devices (servos, encoders, sensors, boards) are alive is the Devices panel (ADR-0018).
 """
 
 import math
@@ -34,23 +33,6 @@ class SensorsPanel(QtWidgets.QWidget):
         self._age = QtWidgets.QLabel("Δεν έχουν ληφθεί δεδομένα")
         jl.addWidget(self._age)
         layout.addWidget(joints_box, 1)
-
-        # Placeholders, filled when the corresponding topics exist (gripper, arm_hardware / firmware).
-        later = QtWidgets.QGroupBox("Αρπάγη και υλικό (επόμενες φάσεις)")
-        grid = QtWidgets.QGridLayout(later)
-        for row, (title, note) in enumerate(
-            [
-                ("Αφή αρπάγης (ZD10 ×2)", "όταν προστεθεί η αρπάγη στο μοντέλο"),
-                ("Πλακέτες ESP32 (πλάτη, καρπός)", "μόνο με τον πραγματικό βραχίονα"),
-                ("Τροφοδοσία servo (INA219)", "μόνο με τον πραγματικό βραχίονα"),
-                ("Μαγνήτες encoders (AS5600)", "μόνο με τον πραγματικό βραχίονα"),
-            ]
-        ):
-            grid.addWidget(QtWidgets.QLabel(title), row, 0)
-            grid.addWidget(QtWidgets.QLabel("—"), row, 1)
-            grid.addWidget(QtWidgets.QLabel(note), row, 2)
-        later.setEnabled(False)
-        layout.addWidget(later)
 
         self._last_rx = None
         self._timer = QtCore.QTimer(self)

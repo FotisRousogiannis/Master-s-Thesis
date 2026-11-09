@@ -20,7 +20,7 @@ def test_encoder_wrap_is_hidden_when_the_zero_is_near_0_360():
 
 
 def test_the_jump_lands_in_the_unreachable_part_of_the_circle():
-    start, margin = e.window(-137.5, 137.5)  # joint_3 of the provisional URDF (±2.4 rad)
+    start, margin = e.window(-137.5, 137.5)  # a joint with a 275° range
     assert margin == pytest.approx(85.0)
     for raw in range(0, 360):
         angle = e.joint_angle(float(raw), 0.0, False, -137.5, 137.5)

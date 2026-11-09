@@ -104,7 +104,7 @@
        joint_4: wrist roll, joint_5: wrist pitch, joint_6: flange roll -->
   <xacro:arm_joint name="joint_1" parent="base_link" child="link_1" offset="${base_height}"  axis="0 0 1" lower="${-pi}"     upper="${pi}"/>
   <xacro:arm_joint name="joint_2" parent="link_1"    child="link_2" offset="${link1_length}" axis="0 1 0" lower="${-pi / 2}" upper="${pi / 2}"/>
-  <xacro:arm_joint name="joint_3" parent="link_2"    child="link_3" offset="${link2_length}" axis="0 1 0" lower="${-2.4}"    upper="${2.4}"/>
+  <xacro:arm_joint name="joint_3" parent="link_2"    child="link_3" offset="${link2_length}" axis="0 1 0" lower="${-pi / 2}" upper="${pi / 2}"/>
   <xacro:arm_joint name="joint_4" parent="link_3"    child="link_4" offset="${link3_length}" axis="0 0 1" lower="${-pi}"     upper="${pi}"/>
   <xacro:arm_joint name="joint_5" parent="link_4"    child="link_5" offset="${link4_length}" axis="0 1 0" lower="${-pi / 2}" upper="${pi / 2}"/>
   <xacro:arm_joint name="joint_6" parent="link_5"    child="link_6" offset="${link5_length}" axis="0 0 1" lower="${-pi}"     upper="${pi}"/>

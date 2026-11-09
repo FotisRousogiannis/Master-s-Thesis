@@ -197,6 +197,8 @@
 - Ο Φώτης: `docker compose build`, `install_linux.sh`, δοκιμή mock και Gazebo από το εικονίδιο (βήμα 7 του οδηγού).
 - Διορθώσεις από τη δοκιμή· μετά `arm_interfaces` + `arm_manager` και πάνελ Καταστάσεων.
 - Gripper: στροφές του άξονα, mux του 7ου AS5600, αντιστοίχιση servo → άρθρωση (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
+- **Αλλαγή τρόπου δουλειάς:** από εδώ ο Φώτης γράφει τον κώδικα και τα tests με καθοδήγηση και code review· η
+  συνεδρία γράφει τα docs (NOTES §9). Πρώτο μάθημα: πώς στήνεται η εφαρμογή (front/back, ROS 2, Pi).
 - Έκδοση Ubuntu στο Pi· node `arm_pi_driver` και σύνδεσή του με το `ros2_control` (`hardware:=real`).
 - Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 

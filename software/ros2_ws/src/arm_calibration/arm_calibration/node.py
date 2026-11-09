@@ -3,9 +3,12 @@
     ros2 run arm_calibration calibration_node
     ros2 param set /arm_calibration servos.wrist_diff_a.neutral_us 1605
     ros2 service call /arm_calibration/save std_srvs/srv/Trigger
+    ros2 service call /arm_calibration/set_zero std_srvs/srv/Trigger   # arm in its reference pose
 
 Every change is validated against the whole calibration (ranges, pulse limits, unique
 channels) before it is accepted. ~/save writes the file, ~/reload discards unsaved changes.
+~/set_zero takes the encoder readings of the arm in its reference pose as the joint zeros
+(ADR-0019): all joints or none, from the encoder/<joint> entries of /diagnostics.
 The hardware layer (arm_hardware -> ESP32) reads these parameters when it connects.
 """
 
@@ -20,10 +23,11 @@ from rcl_interfaces.msg import (
     ParameterDescriptor,
     SetParametersResult,
 )
+from diagnostic_msgs.msg import DiagnosticArray
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 
-from . import calibration
+from . import calibration, encoders
 
 
 def _descriptor(name: str) -> ParameterDescriptor:
@@ -59,6 +63,9 @@ class CalibrationNode(Node):
         self.add_on_set_parameters_callback(self._on_set)
         self.create_service(Trigger, "~/save", self._on_save)
         self.create_service(Trigger, "~/reload", self._on_reload)
+        self._encoder_reports = {}  # joint -> (stamp s, level, raw deg or None)
+        self.create_subscription(DiagnosticArray, "/diagnostics", self._on_diagnostics, 10)
+        self.create_service(Trigger, "~/set_zero", self._on_set_zero)
         self.get_logger().info(f"{len(self._values)} παράμετροι από {self._file}")
 
     def _on_set(self, params):
@@ -73,6 +80,40 @@ class CalibrationNode(Node):
             return SetParametersResult(successful=False, reason="; ".join(errors))
         self._values = candidate
         return SetParametersResult(successful=True)
+
+    def _now(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _on_diagnostics(self, msg):
+        for status in msg.status:
+            if not status.name.startswith("encoder/"):
+                continue
+            level = status.level[0] if isinstance(status.level, (bytes, bytearray)) else int(status.level)
+            values = {kv.key: kv.value for kv in status.values}
+            try:
+                raw = float(values[encoders.RAW_KEY])
+            except (KeyError, ValueError):
+                raw = None
+            self._encoder_reports[status.name.split("/", 1)[1]] = (self._now(), level, raw)
+
+    def _on_set_zero(self, _request, response):
+        joints = calibration.encoder_names(self._values)
+        zeros, problems = encoders.zeros_from_reports(joints, self._encoder_reports, self._now())
+        if problems:
+            response.success = False
+            response.message = "Δεν άλλαξε κανένα μηδέν: " + "; ".join(problems)
+            return response
+        result = self.set_parameters_atomically(
+            [rclpy.parameter.Parameter(f"encoders.{j}.zero_deg", value=float(z)) for j, z in zeros.items()]
+        )
+        response.success = result.successful
+        response.message = (
+            "Νέα μηδενικά: " + ", ".join(f"{j} {z:.2f}°" for j, z in zeros.items())
+            + ". Πάτα «Αποθήκευση στο αρχείο» για να μείνουν."
+            if result.successful
+            else result.reason
+        )
+        return response
 
     def _on_save(self, _request, response):
         try:

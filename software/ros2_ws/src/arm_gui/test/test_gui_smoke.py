@@ -222,6 +222,25 @@ def test_calibration_node_is_opened_automatically_and_edits_are_applied(window):
     assert b.triggers == ["/arm_calibration/save"]
 
 
+def test_encoder_zeros_are_set_only_after_confirmation_and_then_reloaded(window):
+    b, panel = window._bridge, window.parameters
+    b.nodes_changed.emit(["/arm_calibration"])
+    b.parameters_loaded.emit("/arm_calibration", CAL_PARAMS)
+    assert panel._set_zero.isVisibleTo(panel)
+    answers = [False, True]
+    panel.confirm = lambda _title, _text: answers.pop(0)
+    panel._set_zero.click()  # "no": nothing is sent
+    assert b.triggers == []
+    panel._set_zero.click()
+    assert b.triggers == ["/arm_calibration/set_zero"]
+    panel.show_service_result("/arm_calibration/set_zero", False, "Δεν άλλαξε κανένα μηδέν: joint_1: ο encoder δεν έχει αναφέρει")
+    assert "joint_1" in panel._status.text() and b.param_requests == ["/arm_calibration"]
+    panel.show_service_result("/arm_calibration/set_zero", True, "Νέα μηδενικά: …")
+    assert b.param_requests == ["/arm_calibration", "/arm_calibration"]  # shows the new zeros
+    panel._editors["servos.wrist_diff_a.neutral_us"].widget.setValue(1605)
+    assert not panel._set_zero.isEnabled()  # unapplied edits first
+
+
 def test_rejected_parameter_stays_modified_and_shows_the_reason(window):
     b = window._bridge
     b.nodes_changed.emit(["/arm_calibration"])
@@ -267,10 +286,11 @@ def test_devices_panel_shows_which_devices_are_active(window):
         {"name": f"servos.{s}.channel", "type": "integer", "value": 9, "description": "", "read_only": False,
          "min": 0, "max": 15}
         for s in ("wrist_diff_a", "wrist_diff_b")
-    ]
+    ] + [{"name": "encoders.joint_5.zero_deg", "type": "double", "value": 0.0, "description": "", "read_only": False,
+          "min": 0.0, "max": 360.0}]
     window.parameters._node = "/arm_calibration"
     b.parameters_loaded.emit("/arm_calibration", params)
-    assert panel.counts() == {"Servos": (0, 2)}  # configured, never reported
+    assert panel.counts() == {"Servos": (0, 2), "Encoders": (0, 1)}  # configured, never reported
     assert panel.state_of("servo/wrist_diff_a") == "expected"
 
     b.diagnostics.emit([

@@ -271,10 +271,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_pill(self._ros_pill, "ok" if others else "off", f"ROS 2: {len(others)} nodes")
 
     def _on_parameters(self, node, params):
-        """The servos of the calibration are devices we expect to hear from."""
+        """The servos and encoders of the calibration are devices we expect to hear from."""
         if node == CALIBRATION_NODE and not isinstance(params, str):
-            names = {p["name"].split(".")[1] for p in params if p["name"].startswith("servos.")}
-            self.devices.set_expected(sorted(f"servo/{n}" for n in names))
+            expected = set()
+            for p in params:
+                group, *rest = p["name"].split(".")
+                if group in ("servos", "encoders") and rest:
+                    expected.add(f"{group[:-1]}/{rest[0]}")
+            self.devices.set_expected(sorted(expected))
 
     def set_theme(self, name: str):
         theme.apply(name)

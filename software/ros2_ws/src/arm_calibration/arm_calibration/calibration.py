@@ -1,6 +1,6 @@
 """Calibration file <-> flat ROS 2 parameters, with validation. No ROS dependency (unit-tested).
 
-The YAML is nested (spec / servos.<name> / safety); ROS parameters are its flattened,
+The YAML is nested (spec / servos.<name> / encoders.<joint> / safety); ROS parameters are its flattened,
 dot-separated keys, e.g. ``servos.wrist_diff_a.neutral_us``.
 """
 
@@ -15,7 +15,7 @@ HARD_PULSE_MAX_US = 2500
 PCA_CHANNELS = 16
 
 HEADER = """\
-# Βαθμονόμηση servo και όρια ασφαλείας του βραχίονα (ADR-0017).
+# Βαθμονόμηση servo, μηδενικά encoders και όρια ασφαλείας του βραχίονα (ADR-0017, ADR-0019).
 # Μοναδική πηγή: αλλάζει από το Arm Studio (πάνελ «Παράμετροι» → «Αποθήκευση στο αρχείο») ή με το χέρι.
 # Τιμές από software/tools/wrist_bench/wrist_bench.json (μετρήσεις πάγκου καρπού, 2026-11).
 """
@@ -48,13 +48,21 @@ SERVO_FIELDS = {
     "note": Field(str, "Σημείωση"),
 }
 
+# One per joint: AS5600 on the joint output axis, 1:1 (ADR-0019).
+ENCODER_FIELDS = {
+    "zero_deg": Field(float, "Ένδειξη του encoder όταν η άρθρωση είναι στο 0 [°]", 0.0, 360.0, 0.01),
+    "invert": Field(bool, "Ο encoder μετρά αντίθετα από τη θετική φορά της άρθρωσης"),
+    "note": Field(str, "Σημείωση"),
+}
+GROUPS = {"servos": SERVO_FIELDS, "encoders": ENCODER_FIELDS}
+
 
 def field_for(name: str) -> Field:
     if name in FIXED_FIELDS:
         return FIXED_FIELDS[name]
     parts = name.split(".")
-    if len(parts) == 3 and parts[0] == "servos" and parts[2] in SERVO_FIELDS:
-        return SERVO_FIELDS[parts[2]]
+    if len(parts) == 3 and parts[0] in GROUPS and parts[2] in GROUPS[parts[0]]:
+        return GROUPS[parts[0]][parts[2]]
     raise KeyError(f"unknown calibration parameter: {name}")
 
 
@@ -98,8 +106,16 @@ def coerce(name: str, value):
     return str(value)
 
 
+def names_in(flat: dict, group: str) -> list[str]:
+    return sorted({name.split(".")[1] for name in flat if name.startswith(f"{group}.")})
+
+
 def servo_names(flat: dict) -> list[str]:
-    return sorted({name.split(".")[1] for name in flat if name.startswith("servos.")})
+    return names_in(flat, "servos")
+
+
+def encoder_names(flat: dict) -> list[str]:
+    return names_in(flat, "encoders")
 
 
 def validate(flat: dict) -> list[str]:
@@ -111,10 +127,11 @@ def validate(flat: dict) -> list[str]:
     for name in FIXED_FIELDS:
         if name not in flat:
             errors.append(f"λείπει το {name}")
-    for servo in servo_names(flat):
-        for leaf in SERVO_FIELDS:
-            if f"servos.{servo}.{leaf}" not in flat:
-                errors.append(f"λείπει το servos.{servo}.{leaf}")
+    for group, fields in GROUPS.items():
+        for item in names_in(flat, group):
+            for leaf in fields:
+                if f"{group}.{item}.{leaf}" not in flat:
+                    errors.append(f"λείπει το {group}.{item}.{leaf}")
     if errors:
         return errors
 
@@ -124,7 +141,9 @@ def validate(flat: dict) -> list[str]:
         except KeyError as exc:
             errors.append(str(exc))
             continue
-        if f.min is not None and not f.min <= value <= f.max:
+        if name.endswith(".zero_deg") and not 0.0 <= value < 360.0:
+            errors.append(f"{name} = {value}: εκτός ορίων [0, 360)")
+        elif f.min is not None and not f.min <= value <= f.max:
             errors.append(f"{name} = {value}: εκτός ορίων [{f.min}, {f.max}]")
 
     lo, hi = flat["spec.pulse_min_us"], flat["spec.pulse_max_us"]
@@ -156,6 +175,7 @@ def dump(flat: dict) -> str:
     ordered = {
         "spec": tree.get("spec", {}),
         "servos": {name: tree["servos"][name] for name in sorted(tree.get("servos", {}))},
+        "encoders": {name: tree["encoders"][name] for name in sorted(tree.get("encoders", {}))},
         "safety": tree.get("safety", {}),
     }
     return HEADER + yaml.safe_dump(ordered, allow_unicode=True, sort_keys=False, default_flow_style=False)

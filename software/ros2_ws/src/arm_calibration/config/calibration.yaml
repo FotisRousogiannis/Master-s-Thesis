@@ -1,4 +1,4 @@
-# Βαθμονόμηση servo και όρια ασφαλείας του βραχίονα (ADR-0017).
+# Βαθμονόμηση servo, μηδενικά encoders και όρια ασφαλείας του βραχίονα (ADR-0017, ADR-0019).
 # Μοναδική πηγή: αλλάζει από το Arm Studio (πάνελ «Παράμετροι» → «Αποθήκευση στο αρχείο») ή με το χέρι.
 # Τιμές από software/tools/wrist_bench/wrist_bench.json (μετρήσεις πάγκου καρπού, 2026-11).
 spec:
@@ -26,6 +26,31 @@ servos:
     neutral_us: 1600
     invert: false
     note: κανάλι προς επαλήθευση (T3/T4)
+encoders:
+  joint_1:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
+  joint_2:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
+  joint_3:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
+  joint_4:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
+  joint_5:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
+  joint_6:
+    zero_deg: 0.0
+    invert: false
+    note: δεν έχει οριστεί (ADR-0019)
 safety:
   max_offset_us: 900
   max_duration_s: 3.0

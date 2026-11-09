@@ -1,7 +1,8 @@
 """Parameters panel: read and change the ROS 2 parameters of any node (ADR-0017).
 
-For /arm_calibration (servo pulse widths, channels, safety limits) it also saves the values
-to the calibration file in the repository, or reloads them from it.
+For /arm_calibration (servo pulse widths, channels, encoder zeros, safety limits) it also saves
+the values to the calibration file in the repository, reloads them from it, and sets the encoder
+zeros from the arm in its reference pose (ADR-0019).
 """
 
 from .. import theme
@@ -130,10 +131,15 @@ class ParametersPanel(QtWidgets.QWidget):
         self._save.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/save"))
         self._load_file = QtWidgets.QPushButton("Επαναφόρτωση από αρχείο")
         self._load_file.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/reload"))
+        self._set_zero = QtWidgets.QPushButton("Μηδέν = τρέχουσα θέση")
+        self._set_zero.setToolTip(
+            "Ο βραχίονας πρέπει να είναι στη στάση αναφοράς. Οι ενδείξεις όλων των encoders γίνονται τα νέα μηδενικά."
+        )
+        self._set_zero.clicked.connect(self.set_zero)
         for b in (self._apply, self._revert):
             buttons.addWidget(b)
         buttons.addStretch(1)
-        for b in (self._save, self._load_file):
+        for b in (self._set_zero, self._save, self._load_file):
             buttons.addWidget(b)
         layout.addLayout(buttons)
 
@@ -201,7 +207,7 @@ class ParametersPanel(QtWidgets.QWidget):
     def show_service_result(self, service, ok, message):
         if service.startswith(CALIBRATION_NODE):
             self._status.setText(("✔ " if ok else "✖ ") + message)
-            if ok and service.endswith("/reload"):
+            if ok and service.endswith(("/reload", "/set_zero")):
                 self.reload()
 
     # ------------------------------------------------------------------ actions
@@ -218,6 +224,20 @@ class ParametersPanel(QtWidgets.QWidget):
             self._status.setText(f"Εφαρμογή {len(changed)} αλλαγών…")
             self.apply_requested.emit(self._node, changed)
 
+    def set_zero(self):
+        if self.confirm(
+            "Μηδενικά encoders",
+            "Είναι ο βραχίονας στη στάση αναφοράς (όλες οι αρθρώσεις στο 0);\n\n"
+            "Οι τωρινές ενδείξεις όλων των encoders θα γίνουν τα νέα μηδενικά. "
+            "Αν λείπει ή έχει πρόβλημα έστω ένας encoder, δεν αλλάζει κανένα.",
+        ):
+            self._status.setText("Ορισμός μηδενικών…")
+            self.service_requested.emit(f"{CALIBRATION_NODE}/set_zero")
+
+    def confirm(self, title, text) -> bool:
+        answer = QtWidgets.QMessageBox.question(self, title, text)
+        return answer == QtWidgets.QMessageBox.Yes
+
     def revert(self):
         for editor in self._editors.values():
             editor.revert()
@@ -233,6 +253,8 @@ class ParametersPanel(QtWidgets.QWidget):
         is_cal = self._node == CALIBRATION_NODE
         self._save.setVisible(is_cal)
         self._load_file.setVisible(is_cal)
+        self._set_zero.setVisible(is_cal)
+        self._set_zero.setEnabled(n == 0)
         self._save.setEnabled(n == 0)  # apply first, so the file gets what the node really holds
         self._save.setToolTip(
             "Γράφει τις τρέχουσες τιμές στο calibration.yaml" if n == 0 else "Πρώτα «Εφαρμογή» των αλλαγών"

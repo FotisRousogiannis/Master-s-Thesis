@@ -73,18 +73,27 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
 - [ ] Βιβλιογραφία, Συντομογραφίες, Παραρτήματα
 - [ ] Ενημέρωση πινάκων περιεχομένων / εικόνων / πινάκων (στο Word: F9)
 
-## Κατάσταση λογισμικού / υλικού (2026-11-08)
+## Κατάσταση λογισμικού / υλικού (2026-11-09)
 - **Περιβάλλον ανάπτυξης** λειτουργικό (Docker, ROS 2 Jazzy) — `docs/setup/ubuntu.md`, tag `v0.1-dev-env` στο `testing`.
 - **URDF:** προσωρινό (ADR-0009). Export από Fusion: δικό μας script `software/tools/fusion_export/` (ADR-0011) — δεν έχει τρέξει ακόμα στον βραχίονα.
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),
   διαφορικό στα κανάλια 9/10 με ανεστραμμένο Β. Τα servo κινούνται με `jog`· εκκρεμεί πλήρης αντιστοίχιση καναλιών (T3/T4) και T5.
 - **Αισθητήρες αφής:** 2 × ZD10 + ADS1115 (0x48, mux κανάλι 2), διαιρέτης με **6.8 kΩ** — επαληθευμένο (2.5 V σε μέγιστη πίεση). `docs/hardware/wiring.md`.
-- **PCB segment board** (`hardware/pcb/segment_board/`, ADR-0013/14/15): σχηματικό από κώδικα (`gen/build.py`),
-  ERC KiCad 9 χωρίς σφάλματα, προσομοίωση SPICE των αναλογικών (`sim/`), footprints project (eFuse, Pi ανάποδα, πηνίο),
-  LCSC για όλα τα SMD, **αρχικό PCB** (`gen/pcb.py`, μία φορά) με κανόνες JLC/net classes (`gen/rules.py`).
-- **Επόμενο:** layout στο KiCad από τον Φώτη με καθοδήγηση (τοποθέτηση → τροφοδοσίες → σήματα → DRC στο CI).
-  Εκκρεμεί: μέτρηση ρεύματος ηρεμίας servo (επιβεβαίωση 10 Ω), ρύθμιση buck servo στα 7.2–7.4 V.
+- **PCB segment board** (`hardware/pcb/segment_board/`, ADR-0013/14/15, README εκεί): σχηματικό από κώδικα
+  (`gen/build.py`, **μην** αλλάζεις συνδέσεις στο KiCad), ERC/DRC στο CI με **KiCad 10** (ο Φώτης έχει KiCad 10, όχι 9),
+  προσομοίωση SPICE (`sim/`), footprints project (`gen/footprints.py`), LCSC για όλα τα SMD (`bom/`).
+  Πλακέτα **100 × 120 mm**, 4 στρώσεις, 0402 παθητικά, LM339 TSSOP, έξοδοι 7.4/5.1 V προς επόμενη πλακέτα (πριν το eFuse).
+  `gen/pcb.py --force` = αρχική αυτόματη τοποθέτηση (ΣΒΗΝΕΙ τη χειροκίνητη δουλειά — μόνο αν ζητηθεί)· `gen/rules.py`
+  ξαναγράφει net classes/κανόνες στο `.kicad_pro` (ασφαλές).
+- **Τρέχον βήμα:** χειροκίνητη τακτοποίηση στο KiCad 10 από τον Φώτη, με καθοδήγηση από φωτογραφίες/push. Αρχή από την
+  τροφοδοσία 7.4 V: J1 (XT30) → F1 → Q1 → D1 → U1 (eFuse) → C2/C3 → R7 (shunt) → U2 (INA219)· μετά 5.1 V (U3) και 3.3 V
+  (U4/U5/U6/L1), μετά I2C (U9/U10/U11), LM339 (U12–U16), RS-485 (U17). Κατόπιν δρομολόγηση (τροφοδοσίες με το χέρι,
+  πιθανόν Freerouting για σήματα) και DRC.
+- **Ροή με τον Φώτη:** κλείνει το KiCad πριν το `git pull`· μετά από αλλαγές σχηματικού: F8 (με «replace footprints» και
+  «update fields») → B → Ctrl+S → push· το CI (`.github/workflows/pcb.yml`) δείχνει DRC.
+- **Εκκρεμεί:** μέτρηση ρεύματος ηρεμίας servo (επιβεβαίωση 10 Ω), ρύθμιση buck servo στα 7.2–7.4 V, push του tag
+  `v0.1-dev-env` από τον Φώτη.
 
 ## Συνέχεια σε νέα συνεδρία
 Πρώτα: ανάγνωση αυτού του αρχείου, του `docs/decisions/README.md`, του `docs/architecture.md` και του `docs/devlog.md`.

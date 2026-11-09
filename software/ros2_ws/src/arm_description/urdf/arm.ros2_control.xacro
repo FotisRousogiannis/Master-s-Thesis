@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control description of the arm's LOGICAL joints (docs/decisions/0016).
+
+  The only thing that changes between simulation and the real arm is the hardware
+  plugin selected by the "hardware" argument:
+    mock   - mock_components/GenericSystem: commands are echoed back as state (no physics)
+    gazebo - gz_ros2_control/GazeboSimSystem: joints driven by Gazebo Harmonic
+    real   - arm_hardware (micro-ROS -> ESP32), not implemented yet
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="arm_command_joint" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- One <joint> entry per name, for any number of joints. -->
+  <xacro:macro name="arm_command_joints" params="names">
+    <xacro:if value="${names}">
+      <xacro:arm_command_joint name="${names[0]}"/>
+      <xacro:arm_command_joints names="${names[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro name="arm_ros2_control" params="hardware joints controllers_file">
+
+    <ros2_control name="arm_system" type="system">
+      <hardware>
+        <xacro:if value="${hardware == 'mock'}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:if value="${hardware == 'gazebo'}">
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </xacro:if>
+        <xacro:if value="${hardware == 'real'}">
+          <plugin>arm_hardware/ArmSystem</plugin>
+        </xacro:if>
+      </hardware>
+
+      <xacro:arm_command_joints names="${joints}"/>
+    </ros2_control>
+
+    <xacro:if value="${hardware == 'gazebo'}">
+      <gazebo>
+        <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <parameters>${controllers_file}</parameters>
+        </plugin>
+      </gazebo>
+    </xacro:if>
+
+  </xacro:macro>
+
+</robot>

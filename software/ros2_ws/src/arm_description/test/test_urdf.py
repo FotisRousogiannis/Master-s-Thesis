@@ -55,3 +55,22 @@ def test_physical_links_have_positive_mass_and_inertia(robot):
         inertia = inertial.find("inertia")
         for axis in ("ixx", "iyy", "izz"):
             assert float(inertia.get(axis)) > 0.0, f"{link.get('name')} {axis}"
+
+
+@pytest.mark.parametrize("hardware", ["mock", "gazebo", "real"])
+def test_ros2_control_covers_every_arm_joint(hardware):
+    robot = ET.fromstring(
+        xacro.process_file(str(XACRO_FILE), mappings={"hardware": hardware, "controllers_file": "/c.yaml"}).toxml()
+    )
+    systems = robot.findall("ros2_control")
+    assert len(systems) == 1
+    assert [j.get("name") for j in systems[0].findall("joint")] == ARM_JOINTS
+    for joint in systems[0].findall("joint"):
+        assert [c.get("name") for c in joint.findall("command_interface")] == ["position"]
+        assert {s.get("name") for s in joint.findall("state_interface")} == {"position", "velocity"}
+    # The Gazebo plugin must exist only in simulation and must point at the controllers file.
+    plugins = robot.findall("gazebo/plugin")
+    if hardware == "gazebo":
+        assert len(plugins) == 1 and plugins[0].find("parameters").text == "/c.yaml"
+    else:
+        assert plugins == []

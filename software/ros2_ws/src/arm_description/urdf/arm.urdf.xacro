@@ -11,7 +11,13 @@
 -->
 <robot name="robotic_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <!-- hardware: mock | gazebo | real (docs/decisions/0016). controllers_file: absolute path to the
+       controllers YAML, needed only by the Gazebo plugin (passed by arm_bringup). -->
+  <xacro:arg name="hardware" default="mock"/>
+  <xacro:arg name="controllers_file" default=""/>
+
   <xacro:include filename="inertial_macros.xacro"/>
+  <xacro:include filename="arm.ros2_control.xacro"/>
 
   <!-- Provisional dimensions [m] and masses [kg] -->
   <xacro:property name="base_radius"   value="0.10"/>
@@ -110,5 +116,8 @@
     <child link="tool0"/>
     <origin xyz="0 0 ${link6_length}" rpy="0 0 0"/>
   </joint>
+
+  <xacro:arm_ros2_control hardware="$(arg hardware)" controllers_file="$(arg controllers_file)"
+                          joints="${['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']}"/>
 
 </robot>

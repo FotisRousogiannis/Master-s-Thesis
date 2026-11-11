@@ -210,3 +210,8 @@
   το build του image με τα νέα πακέτα (`wmctrl`, `openssh-client`) απέτυχε, γιατί οι DNS του δικτύου δεν έλυναν το
   `archive.ubuntu.com`, ούτε στον ίδιο τον υπολογιστή. Λύση: `/etc/docker/daemon.json` με δημόσιους DNS (1.1.1.1,
   8.8.8.8)· καταγράφηκε στο `docs/setup/ubuntu.md` (αντιμετώπιση προβλημάτων).
+- Σύνδεση με το Pi **μόνο με καλώδιο** (το Pi δεν είναι σε WiFi, χωρίς οθόνη): `pi_link.sh setup-direct` στον υπολογιστή,
+  το Pi πήρε 10.42.0.116 (DHCP), SSH ✅, internet και DNS στο Pi μέσω του υπολογιστή ✅.
+- Το Pi έχει **Raspberry Pi OS, Debian 13 (trixie)**, με NetworkManager, όχι Ubuntu Server όπως γράφαμε: το
+  `setup_network.sh` (netplan/systemd-networkd) δεν χρησιμοποιείται εκεί· το ROS 2 στο Pi θα τρέχει σε Docker
+  (ADR-0021, συμπλήρωμα). I²C έτοιμο (`/dev/i2c-1`, ομάδα `i2c`, `smbus2`).

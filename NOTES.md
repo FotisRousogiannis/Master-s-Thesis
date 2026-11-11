@@ -112,10 +112,10 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   Gripper: servo συνεχούς περιστροφής + AS5600 + 2 × ZD10, τελευταίο κανάλι, όπως μια άρθρωση.
   Εκκρεμούν: πάνελ Calibration ανά άρθρωση· αντιστοίχιση servo → άρθρωση.
   **Πάνελ «Εργαλεία»** (`arm_gui/tools.yaml`): σάρωση I²C κ.ά. στο Pi μέσω SSH (`docs/setup/raspberry_pi.md`).
-- **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (Ubuntu Server) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
+- **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
-  7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: έκδοση
-  Ubuntu στο Pi, επιβεβαίωση πλήθους servo ανά ομάδα, node `arm_pi_driver`. Πάνελ **«Σύνδεση»**: εύρεση Pi,
+  7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για
+  NetworkManager, επιβεβαίωση πλήθους servo ανά ομάδα, node `arm_pi_driver`. Πάνελ **«Σύνδεση»**: εύρεση Pi,
   έλεγχος καλώδιο → Pi → SSH → ROS 2, κλειδί SSH.
 - **Πάγκος καρπού** (Raspberry Pi, ADR-0012): `software/tools/wrist_bench/` + πρωτόκολλο `docs/testing/wrist_bench.md`.
   PCA9685 στο mux κανάλι 0, AS5600 στα κανάλια 1/6/7, servo νεκρό σημείο 1600 µs (500–2500),

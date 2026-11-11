@@ -1,5 +1,10 @@
 # Raspberry Pi: σύνδεση με τον υπολογιστή (ADR-0021)
 
+> ⚠ **Το Pi του πάγκου έχει Raspberry Pi OS (Debian 13, NetworkManager), όχι Ubuntu Server** (ADR-0021, συμπλήρωμα).
+> Το `software/pi/setup_network.sh` (βήμα 1) είναι για Ubuntu Server με systemd-networkd: **μην το τρέξεις** σε
+> αυτό το Pi. Χωρίς αυτό, το Pi παίρνει ήδη διεύθυνση 10.42.0.x από τον υπολογιστή (DHCP) και τη βλέπεις με
+> `sudo sh -c 'cat /var/lib/NetworkManager/dnsmasq-*.leases'`.
+
 Το Pi είναι ο προσωρινός ελεγκτής του βραχίονα. Ο υπολογιστής του μιλά με **ROS 2** (έλεγχος) και **SSH**
 (συντήρηση, πάνελ «Εργαλεία»), πάνω από **καλώδιο Ethernet** (κύρια σύνδεση) ή **WiFi**.
 

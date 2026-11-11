@@ -90,7 +90,7 @@ python3 wrist_bench.py stop
 | Φάση | Ημερομηνία | Αποτέλεσμα | Σημειώσεις |
 |---|---|---|---|
 | 0 | 2026-11-11 | ⏳ | build: οι DNS του δικτύου του πανεπιστημίου δεν έλυναν το `archive.ubuntu.com` → δημόσιοι DNS στο Docker (`docs/setup/ubuntu.md`, αντιμετώπιση προβλημάτων) |
-| 1 | | ⏳ | έκδοση Ubuntu: |
-| 2 | | ⏳ | |
+| 1 | 2026-11-11 | ✅ | **Raspberry Pi OS, Debian 13 (trixie)**, aarch64· `/dev/i2c-1` ok, `fotis` ∈ `i2c`, `smbus2` ok, repo υπάρχει· NetworkManager (όχι Ubuntu Server) |
+| 2 | 2026-11-11 | 🟡 | `pi_link.sh setup-direct` ✅ (θύρα `enp8s0`)· Pi με DHCP στο 10.42.0.116, SSH ✅, internet/DNS στο Pi ✅· `setup_network.sh` **όχι** (NetworkManager)· κλειδί και πάνελ «Σύνδεση» εκκρεμούν |
 | 3 | | ⏳ | σάρωση: |
 | 4 | | ⏳ | κανάλι → άρθρωση/φορά: |

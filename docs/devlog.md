@@ -204,3 +204,9 @@
 - Έκδοση Ubuntu στο Pi· node `arm_pi_driver` και σύνδεσή του με το `ros2_control` (`hardware:=real`).
 - Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 
+## 2026-11-11
+**Έγινε**
+- Φάση 0 της δοκιμής συστήματος (`docs/testing/system_test_v0.md`) στο μηχάνημα αναφοράς, στο δίκτυο του πανεπιστημίου:
+  το build του image με τα νέα πακέτα (`wmctrl`, `openssh-client`) απέτυχε, γιατί οι DNS του δικτύου δεν έλυναν το
+  `archive.ubuntu.com`, ούτε στον ίδιο τον υπολογιστή. Λύση: `/etc/docker/daemon.json` με δημόσιους DNS (1.1.1.1,
+  8.8.8.8)· καταγράφηκε στο `docs/setup/ubuntu.md` (αντιμετώπιση προβλημάτων).

@@ -251,5 +251,32 @@ cd software/docker && docker compose build && cd ../..   # νέο πακέτο �
 άδειο ή «αναμένεται» μέχρι το υλικό να δημοσιεύει `/diagnostics` (ADR-0018).
 
 ### Αποτέλεσμα στο μηχάνημα αναφοράς
-⏳ Δεν έχει δοκιμαστεί ακόμα.
+⏳ Σε εξέλιξη (2026-11-11, δίκτυο πανεπιστημίου). Το πρώτο `docker compose build` με τα νέα πακέτα απέτυχε με
+`Could not resolve 'archive.ubuntu.com'`: οι DNS του δικτύου (194.177.200.5/.254) δεν έλυναν το όνομα ούτε στον
+ίδιο τον υπολογιστή. Λύση: δημόσιοι DNS για το Docker (παρακάτω).
 
+---
+
+## Αντιμετώπιση προβλημάτων
+
+### `Could not resolve 'archive.ubuntu.com'` στο build (και «Unable to locate package …»)
+Συνέβη στο δίκτυο του πανεπιστημίου: οι DNS servers του δικτύου δεν απαντούν για κάποια ονόματα. Τα «Unable to
+locate package» είναι συνέπεια (δεν κατέβηκε η λίστα πακέτων του Ubuntu). Έλεγχος, στον υπολογιστή και στο Docker:
+```bash
+getent hosts archive.ubuntu.com; echo "exit=$?"
+```
+```bash
+docker run --rm osrf/ros:jazzy-desktop getent hosts archive.ubuntu.com; echo "exit=$?"
+```
+`exit=2` = το όνομα δεν βρέθηκε. Αν με δημόσιο DNS βρίσκεται
+(`docker run --rm --dns 1.1.1.1 osrf/ros:jazzy-desktop getent hosts archive.ubuntu.com` → `exit=0`), το Docker
+ρυθμίζεται να ρωτά δημόσιους DNS (Cloudflare 1.1.1.1, Google 8.8.8.8). **Αν υπάρχει ήδη `/etc/docker/daemon.json`,
+προσθέτεις το κλειδί `"dns"` σε αυτό αντί να το αντικαταστήσεις.**
+```bash
+echo '{ "dns": ["1.1.1.1", "8.8.8.8"] }' | sudo tee /etc/docker/daemon.json
+```
+```bash
+sudo systemctl restart docker
+```
+Αν ούτε ο δημόσιος DNS απαντά, το δίκτυο τον μπλοκάρει: το πρώτο build γίνεται από άλλο δίκτυο (π.χ. hotspot).
+Για το ίδιο το Ubuntu (π.χ. `apt update`): Ρυθμίσεις → Wi-Fi → ⚙ → IPv4 → DNS «Αυτόματα» off → `1.1.1.1, 8.8.8.8`.

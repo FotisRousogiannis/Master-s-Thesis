@@ -199,6 +199,8 @@
 - Gripper: στροφές του άξονα, mux του 7ου AS5600, αντιστοίχιση servo → άρθρωση (Φώτης). Πάνελ Calibration ανά άρθρωση (ADR-0020) μαζί με την εντολή κίνησης με ταχύτητα προς το υλικό.
 - **Αλλαγή τρόπου δουλειάς:** από εδώ ο Φώτης γράφει τον κώδικα και τα tests με καθοδήγηση και code review· η
   συνεδρία γράφει τα docs (NOTES §9). Πρώτο μάθημα: πώς στήνεται η εφαρμογή (front/back, ROS 2, Pi).
+- Πριν από τον δικό του κώδικα, ο Φώτης δοκιμάζει το υπάρχον σύστημα: `docs/testing/system_test_v0.md` (υπολογιστής,
+  σύνδεση με το Pi, σάρωση I²C, κίνηση ανά κανάλι με το `wrist_bench`). Η κίνηση από το Arm Studio περιμένει το `arm_pi_driver`.
 - Έκδοση Ubuntu στο Pi· node `arm_pi_driver` και σύνδεσή του με το `ros2_control` (`hardware:=real`).
 - Firmware/`arm_hardware`: `/diagnostics` (με `raw_deg`), χρήση του `calibration.yaml`, εκκίνηση κατά ADR-0019/0020.
 

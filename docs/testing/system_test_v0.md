@@ -91,6 +91,15 @@ python3 wrist_bench.py stop
 |---|---|---|---|
 | 0 | 2026-11-11 | ⏳ | build: οι DNS του δικτύου του πανεπιστημίου δεν έλυναν το `archive.ubuntu.com` → δημόσιοι DNS στο Docker (`docs/setup/ubuntu.md`, αντιμετώπιση προβλημάτων) |
 | 1 | 2026-11-11 | ✅ | **Raspberry Pi OS, Debian 13 (trixie)**, aarch64· `/dev/i2c-1` ok, `fotis` ∈ `i2c`, `smbus2` ok, repo υπάρχει· NetworkManager (όχι Ubuntu Server) |
-| 2 | 2026-11-11 | 🟡 | `pi_link.sh setup-direct` ✅ (θύρα `enp8s0`)· Pi με DHCP στο 10.42.0.116, SSH ✅, internet/DNS στο Pi ✅· `setup_network.sh` **όχι** (NetworkManager)· κλειδί και πάνελ «Σύνδεση» εκκρεμούν |
+| 2 | 2026-11-12 | ✅ | καλώδιο (`arm-pi-direct` στο `enp8s0`) ✅, Pi με DHCP στο 10.42.0.116 ✅, πάνελ «Σύνδεση»: καλώδιο/Pi/SSH πράσινα ✅. Κλειδί μόνο από τερματικό (`pi_link.sh key`)· `setup_network.sh` όχι (NetworkManager). Βλ. «Γνωστά προβλήματα» |
 | 3 | | ⏳ | σάρωση: |
 | 4 | | ⏳ | κανάλι → άρθρωση/φορά: |
+
+## Γνωστά προβλήματα που βρέθηκαν
+| # | Πρόβλημα | Αιτία / παράκαμψη |
+|---|---|---|
+| Π1 | Πάνελ «Σύνδεση»: «δεν βρέθηκε … ούτε στο 10.42.0.2 ούτε ως armpi.local» ενώ ψάχνει και το Host | το μήνυμα (`connection_panel.py`, `_show_checks`) δεν αναφέρει το Host που δοκιμάστηκε· η αναζήτηση είναι σωστή |
+| Π2 | «Ρύθμιση κλειδιού SSH…» φτιάχνει το κλειδί αλλά δεν το περνά στο Pi (`Permission denied`) | ο κωδικός δεν φτάνει στο `ssh-copy-id` μέσω `SSH_ASKPASS` στο container· παράκαμψη: `software/launcher/pi_link.sh key fotis <IP>` από τερματικό |
+| Π3 | Μετά από επανεκκίνηση η θύρα Ethernet μπαίνει στο «Wired connection 1» αντί για το «arm-pi-direct» | `nmcli connection up arm-pi-direct`· μόνιμα με `connection.autoconnect-priority` (μόνο αν το καλώδιο είναι μόνο για το Pi) |
+| Π4 | Το Pi έπαψε να ζητά διεύθυνση όσο η θύρα ήταν σε λάθος σύνδεση | επανεκκίνηση του Pi ή ξανά το καλώδιο στο Pi |
+

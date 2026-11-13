@@ -381,7 +381,14 @@ def diffjog(bench, pair, rate=50, use_encoders=True):
     ctrl = DiffJogController(s["max_offset_us"], s.get("diffjog_start_offset_us", 150), s.get("diffjog_step_us", 30))
     limit = s.get("jog_max_travel_deg", 90)
     encoders = bench.pair_encoders(pair) if use_encoders else {}
-    start = {n: e.read()[0] for n, e in encoders.items()}
+    start = {}
+    for n, e in encoders.items():
+        try:
+            start[n] = e.read()[0]
+        except OSError:
+            bench.mux.select(None)
+            raise SystemExit(f"encoder {n} (TCA9548A channel {e.mux_channel}) does not answer: check its wiring "
+                             f"and run `scan`; or run without the travel limit: diffjog {pair} --no-encoders")
     print(f"diffjog {pair}: A={d['motor_a']} (ch{ch[d['motor_a']]})  B={d['motor_b']} (ch{ch[d['motor_b']]})  "
           f"b_sign={d.get('b_sign', 1)}\n"
           "  hold W / S : pitch + / - (motors together)     hold A / D : roll - / + (motors opposed)\n"

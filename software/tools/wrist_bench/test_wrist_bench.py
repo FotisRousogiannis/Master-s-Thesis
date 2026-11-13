@@ -315,3 +315,15 @@ def test_diffjog_without_encoders_never_reads_them(config, monkeypatch):
     bus = NoEncoderBus()
     wb.diffjog(wb.Bench(config, bus), "base", use_encoders=False)
     assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
+
+
+def test_diffjog_names_an_encoder_that_does_not_answer(config, monkeypatch):
+    class SilentEncoderBus(FakeBus):
+        def read_i2c_block_data(self, addr, reg, n):
+            raise OSError(5, "Input/output error")
+
+    _fake_terminal(monkeypatch, "q")
+    with pytest.raises(SystemExit) as exc:
+        wb.diffjog(wb.Bench(config, SilentEncoderBus()), "base")
+    assert "enc_ch4 (TCA9548A channel 4) does not answer" in str(exc.value)
+    assert "--no-encoders" in str(exc.value)

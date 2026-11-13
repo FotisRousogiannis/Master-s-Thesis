@@ -11,6 +11,8 @@ in pulse offset, duration and encoder travel, and always ends with the outputs o
     python3 wrist_bench.py deadband SERVO ENCODER [--span 60] [--step 5] [--dwell 1.0]
     python3 wrist_bench.py probe [--channels 0-15] [--offset US] [--duration 1.0]
     python3 wrist_bench.py jog (SERVO | --channel N)    keyboard: hold W/S to turn, A/D speed
+    python3 wrist_bench.py diffjog PAIR [--no-encoders]  differential pair (base, wrist): hold W/S pitch,
+                                                         A/D roll, +/- speed
     python3 wrist_bench.py stop
 
 OFFSET_US is relative to the servo's neutral pulse (continuous-rotation servos:
@@ -226,11 +228,18 @@ class Bench:
             time.sleep(pause)
         return results
 
-    def differential(self, pitch_us, roll_us):
-        d = self.cfg["differential"]
+    def differential(self, pitch_us, roll_us, pair=None):
+        """Offsets of the two motors: A = p + r, B = b_sign * (p - r).
+        pair: a name in config["differentials"] (base, wrist); None = config["differential"]."""
+        d = self.cfg["differentials"][pair] if pair else self.cfg["differential"]
         a = self.clamp_offset(pitch_us + roll_us)
         b = self.clamp_offset(d.get("b_sign", 1) * (pitch_us - roll_us))
         return {d["motor_a"]: a, d["motor_b"]: b}
+
+    def pair_encoders(self, pair):
+        """The encoders listed under a differential pair (its own mux channels)."""
+        return {name: AS5600(self.bus, self.mux, e["mux_channel"], e.get("sign", 1), e.get("zero_deg", 0.0))
+                for name, e in self.cfg["differentials"][pair].get("encoders", {}).items()}
 
 
 class JogController:
@@ -254,35 +263,57 @@ class JogController:
 
     # Greek keyboard layout: the same physical keys send these characters.
     GREEK_KEYS = {"ς": "w", "Σ": "s", "σ": "s", "α": "a", "Α": "a", "δ": "d", "Δ": "d", ";": "q", "·": "q"}
+    MOTIONS = {"w": 1, "s": -1}   # key -> direction (held keys)
+    FASTER, SLOWER = "d", "a"
 
     def on_key(self, key, now):
         key = self.GREEK_KEYS.get(key, key).lower()
-        if key in ("w", "s"):
-            direction = 1 if key == "w" else -1
+        if key in self.MOTIONS:
+            direction = self.MOTIONS[key]
             if direction == self.direction and self.last_press is not None \
                     and now - self.last_press < self.first_hold_s:
                 self.repeats += 1
             else:
                 self.repeats = 0
             self.direction, self.last_press = direction, now
-        elif key == "d":
+        elif key in self.FASTER:
             self.offset_us = min(self.offset_us + self.step_us, self.max_offset_us)
-        elif key == "a":
+        elif key in self.SLOWER:
             self.offset_us = max(self.offset_us - self.step_us, self.step_us)
         elif key == " ":
             self.direction, self.last_press = 0, None
         elif key == "q":
             self.quit = True
 
-    def command(self, now):
-        """Signed offset to apply now, or 0 to stop."""
+    def active(self, now):
+        """The held direction, or None once the key stopped arriving."""
         if self.direction == 0 or self.last_press is None:
-            return 0
+            return None
         hold = self.first_hold_s if self.repeats == 0 else self.repeat_hold_s
         if now - self.last_press > hold:
             self.direction, self.last_press = 0, None
-            return 0
-        return self.direction * self.offset_us
+            return None
+        return self.direction
+
+    def command(self, now):
+        """Signed offset to apply now, or 0 to stop."""
+        direction = self.active(now)
+        return 0 if direction is None else direction * self.offset_us
+
+
+class DiffJogController(JogController):
+    """Keyboard logic for a differential pair: W/S pitch (motors together), A/D roll (opposed),
+    +/- speed. Same hold-to-run behaviour as JogController."""
+
+    MOTIONS = {"w": (1, 0), "s": (-1, 0), "d": (0, 1), "a": (0, -1)}   # (pitch, roll)
+    FASTER, SLOWER = "+=", "-_"
+
+    def command(self, now):
+        """(pitch_us, roll_us) to apply now; (0, 0) = stop."""
+        direction = self.active(now)
+        if direction is None:
+            return 0, 0
+        return direction[0] * self.offset_us, direction[1] * self.offset_us
 
 
 def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
@@ -327,6 +358,68 @@ def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
             sys.stdout.write(line + "   ")
             sys.stdout.flush()
             over = [n for n in names if abs(travel[n]) > limit]
+            if over:
+                print(f"\nABORT: travel limit {limit} deg exceeded on {over}")
+                break
+            time.sleep(1.0 / rate)
+    finally:
+        bench.stop()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        print("\noutputs off")
+
+
+def diffjog(bench, pair, rate=50, use_encoders=True):
+    """Keyboard teleop of a differential pair (both motors together, ADR-0021 bench)."""
+    import termios
+    import tty
+
+    servos = bench.cfg["servos"]
+    d = bench.cfg["differentials"][pair]
+    ch = {d["motor_a"]: servos[d["motor_a"]]["channel"], d["motor_b"]: servos[d["motor_b"]]["channel"]}
+    neutral = {m: servos[m]["neutral_us"] for m in ch}
+    s = bench.safety
+    ctrl = DiffJogController(s["max_offset_us"], s.get("diffjog_start_offset_us", 150), s.get("diffjog_step_us", 30))
+    limit = s.get("jog_max_travel_deg", 90)
+    encoders = bench.pair_encoders(pair) if use_encoders else {}
+    start = {n: e.read()[0] for n, e in encoders.items()}
+    print(f"diffjog {pair}: A={d['motor_a']} (ch{ch[d['motor_a']]})  B={d['motor_b']} (ch{ch[d['motor_b']]})  "
+          f"b_sign={d.get('b_sign', 1)}\n"
+          "  hold W / S : pitch + / - (motors together)     hold A / D : roll - / + (motors opposed)\n"
+          "  + / - : faster / slower     SPACE : stop     Q : quit\n"
+          + (f"  stops if an encoder travels more than {limit} deg from the start\n" if encoders
+             else "  NO ENCODERS: no travel limit - motion stops only when you release the key\n"))
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    applied = None
+    try:
+        tty.setcbreak(fd)
+        while not ctrl.quit:
+            now = time.monotonic()
+            while select.select([fd], [], [], 0)[0]:
+                data = os.read(fd, 64)
+                if not data:
+                    break
+                for key in data.decode("utf-8", errors="ignore"):
+                    ctrl.on_key(key, now)
+            pitch, roll = ctrl.command(now)
+            offsets = bench.differential(pitch, roll, pair)
+            if offsets != applied:
+                for motor, offset in offsets.items():
+                    if offset:
+                        bench.pca.set_pulse(ch[motor], neutral[motor] + offset)
+                    else:
+                        bench.pca.channel_off(ch[motor])
+                applied = offsets
+            readings = {n: e.read() for n, e in encoders.items()}
+            travel = {n: wrap_delta(readings[n][0], start[n]) for n in encoders}
+            state = ("STOP" if not (pitch or roll) else "PITCH+" if pitch > 0 else "PITCH-" if pitch < 0
+                     else "ROLL+" if roll > 0 else "ROLL-")
+            line = (f"\r[{state:6s}] speed {ctrl.offset_us:3d} us  "
+                    + "  ".join(f"{m} {o:+4d}" for m, o in offsets.items()) + "  "
+                    + "  ".join(f"{n} {readings[n][0]:6.1f}° ({travel[n]:+6.1f}) {readings[n][2]}" for n in encoders))
+            sys.stdout.write(line + "   ")
+            sys.stdout.flush()
+            over = [n for n in encoders if abs(travel[n]) > limit]
             if over:
                 print(f"\nABORT: travel limit {limit} deg exceeded on {over}")
                 break
@@ -397,6 +490,9 @@ def main(argv=None):
     p.add_argument("servo", nargs="?", help="servo name from the config")
     p.add_argument("--channel", type=int, help="raw PCA9685 channel (uses default_neutral_us)")
     p.add_argument("--no-encoders", action="store_true", help="do not read encoders (no travel limit)")
+    p = sub.add_parser("diffjog")
+    p.add_argument("pair", help="differential pair from the config: base or wrist")
+    p.add_argument("--no-encoders", action="store_true", help="do not read the pair's encoders (no travel limit)")
     args = ap.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text())
@@ -410,7 +506,7 @@ def main(argv=None):
         except KeyboardInterrupt:
             print("\ninterrupted", file=sys.stderr)
         finally:
-            if args.cmd in ("pwm", "diff", "deadband", "probe", "jog", "stop"):
+            if args.cmd in ("pwm", "diff", "deadband", "probe", "jog", "diffjog", "stop"):
                 bench.stop()
     return 0
 
@@ -433,6 +529,11 @@ def dispatch(bench, args):
         else:
             raise SystemExit("give a servo name or --channel N")
         jog(bench, channel, neutral, label, use_encoders=not args.no_encoders)
+        return 0
+    if args.cmd == "diffjog":
+        if args.pair not in bench.cfg.get("differentials", {}):
+            raise SystemExit(f"unknown pair {args.pair!r}; config has: {', '.join(bench.cfg.get('differentials', {}))}")
+        diffjog(bench, args.pair, use_encoders=not args.no_encoders)
         return 0
     if args.cmd == "probe":
         channels = parse_channels(args.channels)

@@ -250,3 +250,68 @@ def test_jog_greek_layout_keys():
     assert c.command(0.4) == -390
     c.on_key(";", 0.5)                   # physical Q
     assert c.quit
+
+
+def test_diffjog_keys_pitch_roll_and_speed():
+    c = wb.DiffJogController(max_offset_us=200, start_offset_us=150, step_us=30)
+    c.on_key("w", 0.0)
+    assert c.command(0.1) == (150, 0)          # pitch: motors together
+    c.on_key("a", 0.2)
+    assert c.command(0.3) == (0, -150)         # roll: motors opposed
+    c.on_key("+", 0.4)
+    assert c.offset_us == 180
+    c.on_key("=", 0.4)                         # + without Shift
+    assert c.offset_us == 200                  # capped at the safety limit
+    for _ in range(10):
+        c.on_key("-", 0.4)
+    assert c.offset_us == 30                   # never below one step
+    c.on_key("δ", 0.5)                         # physical D on a Greek layout
+    assert c.command(0.6) == (0, 30)
+    assert c.command(1.5) == (0, 0)            # key released -> stop
+    c.on_key(";", 1.6)
+    assert c.quit
+
+
+def test_base_pair_mixing_matches_the_old_calibration(config):
+    """Base: channels 0/1, motor B mirrored (Robotic-Arm arm_calibration.json, invert_b true)."""
+    bench = wb.Bench(config, FakeBus())
+    servos = config["servos"]
+    assert servos["base_a"]["channel"] == 0 and servos["base_b"]["channel"] == 1
+    assert bench.differential(100, 0, "base") == {"base_a": 100, "base_b": -100}   # pitch
+    assert bench.differential(0, 100, "base") == {"base_a": 100, "base_b": 100}    # roll
+    assert bench.differential(0, 2000, "base") == {"base_a": 900, "base_b": 900}   # clamped
+    assert bench.differential(30, 0) == bench.differential(30, 0, "wrist")         # old `diff` unchanged
+
+
+def _fake_terminal(monkeypatch, text):
+    import io
+    import types
+
+    keys = io.BytesIO(text.encode())
+    monkeypatch.setattr(wb.sys, "stdin", types.SimpleNamespace(fileno=lambda: 0))
+    monkeypatch.setattr(wb.os, "read", lambda fd, n: keys.read(n))
+    monkeypatch.setattr(wb.select, "select", lambda r, w, x, t: (r if keys.tell() < len(text) else [], [], []))
+    monkeypatch.setitem(sys.modules, "termios", types.SimpleNamespace(tcgetattr=lambda fd: None,
+                                                                      tcsetattr=lambda *a: None, TCSADRAIN=1))
+    monkeypatch.setitem(sys.modules, "tty", types.SimpleNamespace(setcbreak=lambda fd: None))
+
+
+def test_diffjog_drives_both_motors_through_the_mux_and_ends_off(config, monkeypatch):
+    _fake_terminal(monkeypatch, "wq")                                # pitch, then quit
+    bus = FakeBus(devices_per_channel={4: {0x36}}, raw_angles={4: 100})
+    bench = wb.Bench(config, bus)
+    wb.diffjog(bench, "base")
+    pulses = {w[2]: w[3] for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0, wb.PCA_LED0 + 4)}
+    a, b = bench.pca.us_to_ticks(1600 + 150), bench.pca.us_to_ticks(1600 - 150)
+    assert pulses[wb.PCA_LED0] == [0, 0, a & 0xFF, a >> 8]           # ch0 = base_a
+    assert pulses[wb.PCA_LED0 + 4] == [0, 0, b & 0xFF, b >> 8]       # ch1 = base_b, mirrored
+    assert ("byte", 0x70, 1) in bus.writes                           # PCA9685 reached through mux channel 0
+    blocks = [w for w in bus.writes if w[0] == "block"]
+    assert blocks[-1] == ("block", 0x40, wb.PCA_ALL_OFF, [0, 0, 0, 0x10])
+
+
+def test_diffjog_without_encoders_never_reads_them(config, monkeypatch):
+    _fake_terminal(monkeypatch, "q")
+    bus = NoEncoderBus()
+    wb.diffjog(wb.Bench(config, bus), "base", use_encoders=False)
+    assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF

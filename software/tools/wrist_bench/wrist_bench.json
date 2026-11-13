@@ -1,5 +1,5 @@
 {
-  "_comment": "Servo spec (neutral 1600, 500-2500 us) and wrist differential (ch 9/10, motor B mirrored) from Robotic-Arm software/tools/arm_calibration.json (commit 140b76d). Upper-part channels 8/11 still TO BE VERIFIED.",
+  "_comment": "Servo spec (neutral 1600, 500-2500 us) and wrist differential (ch 9/10, motor B mirrored) from Robotic-Arm software/tools/arm_calibration.json (commit 140b76d). Upper-part channels 8/11 still TO BE VERIFIED. Base differential (ch 0/1, motor B mirrored) from Robotic-Arm software/tools/arm_calibration.json (commit 140b76d, verified on the bench there); base encoder for diffjog: only mux 4 (mux 2 magnet not detected, 2026-11-13).",
   "i2c_bus": 1,
   "tca_address": 112,
   "pca": {"address": 64, "mux_channel": 0, "freq_hz": 50, "osc_hz": 25000000, "default_neutral_us": 1600,
@@ -8,7 +8,9 @@
     "diff_a":  {"channel": 9,  "neutral_us": 1600},
     "diff_b":  {"channel": 10, "neutral_us": 1600},
     "upper_1": {"channel": 8,  "neutral_us": 1600},
-    "upper_2": {"channel": 11, "neutral_us": 1600}
+    "upper_2": {"channel": 11, "neutral_us": 1600},
+    "base_a":  {"channel": 0,  "neutral_us": 1600},
+    "base_b":  {"channel": 1,  "neutral_us": 1600}
   },
   "encoders": {
     "enc_ch1": {"mux_channel": 1},
@@ -16,6 +18,11 @@
     "enc_ch7": {"mux_channel": 7}
   },
   "differential": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": -1},
+  "differentials": {
+    "base":  {"motor_a": "base_a", "motor_b": "base_b", "b_sign": -1, "encoders": {"enc_ch4": {"mux_channel": 4}}},
+    "wrist": {"motor_a": "diff_a", "motor_b": "diff_b", "b_sign": -1, "encoders": {}}
+  },
   "safety": {"max_offset_us": 900, "max_duration_s": 3.0, "max_travel_deg": 30, "jog_max_travel_deg": 90,
-             "jog_start_offset_us": 300, "jog_step_us": 90}
+             "jog_start_offset_us": 300, "jog_step_us": 90,
+             "diffjog_start_offset_us": 150, "diffjog_step_us": 30}
 }

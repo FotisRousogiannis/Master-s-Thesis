@@ -79,6 +79,12 @@ python3 wrist_bench.py probe --channels 0 --offset 150 --duration 0.5
 (joint_1+2, joint_5+6) ένα servo μόνο του κινεί **και τις δύο** αρθρώσεις· είναι αναμενόμενο. Φορά και ταχύτητα με το
 χέρι: `python3 wrist_bench.py jog --channel N` (W/S κίνηση, SPACE στάση, Q έξοδος).
 
+**Διαφορικά** (π.χ. η βάση, joint_1 + joint_2): τα δύο μοτέρ είναι δεμένα μηχανικά και κινούνται **μαζί**, όχι ένα-ένα:
+```bash
+python3 wrist_bench.py diffjog base
+```
+Κράτα W/S (pitch, μοτέρ μαζί) ή A/D (roll, μοτέρ αντίθετα)· +/− για ταχύτητα. Ξεκινά αργά (150 µs).
+
 Πάντα στο τέλος (και από το Arm Studio: «Εργαλεία» → «Όλες οι έξοδοι off»):
 ```bash
 python3 wrist_bench.py stop

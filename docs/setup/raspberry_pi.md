@@ -39,8 +39,9 @@
    python3 software/tools/wrist_bench/wrist_bench.py scan
    ```
    ```bash
-   python3 software/tools/wrist_bench/wrist_bench.py diffjog base --no-encoders
+   python3 software/tools/wrist_bench/teleop.py
    ```
+   (μενού: σάρωση, μαγνήτες, επιλογή καναλιών, κίνηση διαφορικού)
    και πάντα στο τέλος:
    ```bash
    python3 software/tools/wrist_bench/wrist_bench.py stop

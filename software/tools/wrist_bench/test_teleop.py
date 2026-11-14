@@ -100,3 +100,18 @@ def test_menu_runs_the_chosen_actions(config):
     answers = iter(["1", "5", "q"])
     tele.menu(ask=lambda prompt: next(answers))
     assert any("Σάρωση I²C" in l for l in lines) and "Όλες οι έξοδοι off." in lines
+
+
+
+def test_recordings_go_into_the_measurements_folder(tmp_path):
+    folder = tmp_path / "docs" / "measurements" / "base"
+    assert t.measurement_path("", folder) is None
+    assert t.measurement_path("run5", folder) == str(folder / "run5.csv")             # bare name -> folder + .csv
+    assert t.measurement_path("run6.csv", folder) == str(folder / "run6.csv")
+    assert folder.is_dir()
+    own = tmp_path / "elsewhere" / "x"
+    assert t.measurement_path(str(own), folder) == str(own) + ".csv"                   # a path is kept
+    (folder / "run5.csv").write_text("old")
+    again = t.measurement_path("run5", folder, now=lambda: (2026, 11, 14, 12, 30, 5, 0, 0, 0))
+    assert again == str(folder / "run5_20261114_123005.csv")                          # never overwrite
+    assert t.MEASUREMENTS.parts[-3:] == ("docs", "measurements", "base")

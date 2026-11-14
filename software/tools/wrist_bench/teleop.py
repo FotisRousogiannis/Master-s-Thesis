@@ -32,6 +32,7 @@ from pathlib import Path
 import control as ctl
 import wrist_bench as wb
 
+MEASUREMENTS = Path(__file__).resolve().parents[3] / "docs" / "measurements" / "base"
 PCA_CHANNELS = range(16)
 MUX_CHANNELS = range(8)
 
@@ -63,6 +64,26 @@ def compensated_pulse(speed, neutral_us, edges, span_us):
     speed = max(-1.0, min(1.0, speed))
     down, up = edges
     return up + speed * span_us if speed > 0 else down + speed * span_us
+
+
+def measurement_path(text, folder=MEASUREMENTS, now=time.localtime):
+    """Where a recording goes. Empty -> None (no recording). A bare name ("run5") goes into the repo's
+    docs/measurements/base/ with .csv added; a path with a folder is used as given (.csv added if missing).
+    An existing file is never overwritten: the date and time are added to the name."""
+    text = text.strip()
+    if not text:
+        return None
+    path = Path(text) if ("/" in text or text.startswith("~")) else Path(folder) / text
+    path = path.expanduser()
+    if path.suffix.lower() != ".csv":
+        path = path.with_name(path.name + ".csv")
+    if path.exists():
+        path = path.with_name(f"{path.stem}_{time.strftime('%Y%m%d_%H%M%S', now())}.csv")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return str(path)
+
+
+CSV_PROMPT = "Όνομα καταγραφής (π.χ. run5 → docs/measurements/base/run5.csv· κενό = χωρίς): "
 
 
 def parse_list(text, allowed):
@@ -627,8 +648,7 @@ class Teleop:
                        ).strip()
             if text:
                 targets[ax] = float(text)
-        path = ask("Αρχείο CSV για καταγραφή (κενό = χωρίς): ").strip()
-        self.move_to(targets, csv_path=path or None)
+        self.move_to(targets, csv_path=measurement_path(ask(CSV_PROMPT)))
 
     def edit_pid(self, ask=input):
         for key, value in self.pid.items():
@@ -657,8 +677,7 @@ class Teleop:
             elif choice == "3":
                 self.choose(ask)
             elif choice == "4":
-                path = ask("Αρχείο CSV για καταγραφή (κενό = χωρίς): ").strip()
-                self.drive(csv_path=path or None)
+                self.drive(csv_path=measurement_path(ask(CSV_PROMPT)))
             elif choice == "5":
                 self.outputs_off()
             elif choice == "6":
@@ -670,8 +689,7 @@ class Teleop:
             elif choice == "9":
                 self.measure_deadband(ask)
             elif choice == "10":
-                path = ask("Αρχείο CSV για τη σάρωση (κενό = χωρίς): ").strip()
-                self.measure_motor_deadband(ask, csv_path=path or None)
+                self.measure_motor_deadband(ask, csv_path=measurement_path(ask(CSV_PROMPT)))
             elif choice in ("q", ";"):
                 return
 

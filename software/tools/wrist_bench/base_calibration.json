@@ -35,6 +35,18 @@
   "motors": {
     "a": 0,
     "b": 1,
-    "invert_b": true
+    "invert_b": true,
+    "neutral_a_us": 1630,
+    "neutral_b_us": 1605,
+    "deadband_edges_us": {
+      "a": [
+        1420,
+        1840
+      ],
+      "b": [
+        1510,
+        1700
+      ]
+    }
   }
 }

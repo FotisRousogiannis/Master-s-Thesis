@@ -22,7 +22,7 @@
     "min_speed": 0.3,
     "tolerance_deg": 1.0,
     "settle_s": 0.5,
-    "timeout_s": 20.0,
+    "timeout_s": 60.0,
     "limit_margin_deg": 5.0
   },
   "motors": {

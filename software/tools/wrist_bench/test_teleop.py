@@ -48,6 +48,8 @@ def test_differential_pulses_with_mirrored_b(config):
     assert tele.pulses(0.4, 0.0) == {0: pytest.approx(1960), 1: pytest.approx(1160)}   # pitch: opposite pulses
     assert tele.pulses(0.0, 0.4) == {0: pytest.approx(1960), 1: pytest.approx(1960)}   # roll: same pulses
     assert tele.pulses(0.0, 0.0) == {0: None, 1: None}                                 # stop = outputs off
+    # equal pitch and roll: only A runs; B gets neutral so it brakes instead of turning freely
+    assert tele.pulses(0.3, 0.3) == {0: pytest.approx(1600 + 0.6 * 900), 1: 1600}
 
 
 def test_scan_and_magnets(config):

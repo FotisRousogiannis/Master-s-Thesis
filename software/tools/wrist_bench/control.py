@@ -33,7 +33,7 @@ DEFAULT_PID = {
     "min_speed": 0.3,     # smallest command that still moves the base (150 us did not, 360 us did)
     "tolerance_deg": 1.0, # inside this the axis is "there": output 0 (outputs off)
     "settle_s": 0.5,      # both axes inside the tolerance this long -> done
-    "timeout_s": 20.0,    # give up if not there by then
+    "timeout_s": 60.0,    # give up if not there by then (base: ~4 deg/s at 0.5, 80 deg took >20 s)
     "limit_margin_deg": 5.0,  # stop if an axis goes this far past its limits
 }
 

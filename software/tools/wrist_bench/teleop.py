@@ -163,7 +163,12 @@ class Teleop:
         neutral = pca.get("default_neutral_us", 1600)
         sa = max(-1.0, min(1.0, pitch + roll))
         sb = max(-1.0, min(1.0, pitch - roll)) * (-1 if self.invert_b else 1)
-        to_pulse = lambda sp: None if sp == 0 else speed_to_pulse(  # noqa: E731
+        if sa == 0 and sb == 0:
+            return {self.a: None, self.b: None}          # both stopped: outputs off
+        # A motor at 0 while the other runs gets the neutral pulse, so its own controller brakes it.
+        # Without a pulse it is free, and the running motor just turns it backwards through the
+        # differential instead of moving the joint (seen on the base, 2026-11-14: roll stuck at 18.8 deg).
+        to_pulse = lambda sp: speed_to_pulse(  # noqa: E731
             sp, neutral, pca.get("pulse_min_us", 500), pca.get("pulse_max_us", 2500), s["max_offset_us"])
         return {self.a: to_pulse(sa), self.b: to_pulse(sb)}
 

@@ -179,6 +179,9 @@ class Teleop:
         bench, ctrl = self.bench, TeleopController()
         limit = bench.safety.get("jog_max_travel_deg", 90)
         encoders = {ch: wb.AS5600(bench.bus, bench.mux, ch) for ch in self.encoder_channels}
+        calibrated = (set(self.axes) == set(ctl.AXES)
+                      and all(c.mux_channel in encoders for c in self.axes.values()))
+        trackers = {ax: c.tracker() for ax, c in self.axes.items()} if calibrated else {}
         start, limited = {}, []
         for ch, e in encoders.items():
             try:
@@ -239,7 +242,16 @@ class Teleop:
                                     + [f"{p:.0f}" if p else "off" for p in pulses.values()]
                                     + [f"{readings[c][0]:.3f}" for c in encoders]
                                     + [f"{travel[c]:.3f}" for c in encoders])
-                line = (f"\r[{state:6s}] ταχύτητα {ctrl.magnitude:.1f}  "
+                joints = ""
+                if trackers:
+                    try:
+                        joints = "  ".join(
+                            f"{self.axes[ax].name(ax)} {t.update(readings[self.axes[ax].mux_channel][0]):+7.2f}°"
+                            for ax, t in trackers.items()) + "  | "
+                    except ctl.EncoderJump:
+                        self.out("\nΣΤΟΠ: άλμα encoder")
+                        return
+                line = (f"\r[{state:6s}] ταχύτητα {ctrl.magnitude:.1f}  " + joints
                         + "  ".join(f"ch{c}={p:.0f}" if p else f"ch{c}=off" for c, p in pulses.items()) + "  "
                         + "  ".join(f"mux{c} {readings[c][0]:6.1f}° ({travel[c]:+6.1f}) {readings[c][2]}"
                                     for c in encoders))
@@ -370,7 +382,9 @@ class Teleop:
                           or (current.upper_deg if current else 90))
             raw = self.raw_angles([channel])[channel][0]
             self.bench.mux.select(None)
-            self.axes[axis] = ctl.AxisCalibration(channel, sign, ctl.zero_for(raw, sign, angle), lower, upper)
+            keep = dict(label=current.label, deadband_pos=current.deadband_pos, deadband_neg=current.deadband_neg) \
+                if current and current.mux_channel == channel and current.sign == sign else {}
+            self.axes[axis] = ctl.AxisCalibration(channel, sign, ctl.zero_for(raw, sign, angle), lower, upper, **keep)
             self.out(f"  {axis}: μηδέν {self.axes[axis].zero_deg}° (ένδειξη {raw:.2f}° = {angle}°), "
                      f"όρια [{lower}, {upper}]")
         self.save()
@@ -421,8 +435,9 @@ class Teleop:
                                         + [v for ax in ctl.AXES for v in (f"{pair.targets[ax]:.2f}",
                                            f"{angles[ax]:.3f}", f"{cmd[ax]:.3f}")]
                                         + [f"{p:.0f}" if p else "off" for p in pulses.values()])
-                    sys.stdout.write("\r" + "  ".join(f"{ax} {angles[ax]:7.2f}° (σφάλμα {errors[ax]:+6.2f}, "
-                                                        f"εντολή {cmd[ax]:+.2f})" for ax in ctl.AXES) + "   ")
+                    sys.stdout.write("\r" + "  ".join(f"{self.axes[ax].name(ax)} {angles[ax]:7.2f}° (σφάλμα "
+                                                        f"{errors[ax]:+6.2f}, εντολή {cmd[ax]:+.2f})" for ax in ctl.AXES)
+                                     + "   ")
                     sys.stdout.flush()
                     if pair.there(errors):
                         settled_since = settled_since if settled_since is not None else now
@@ -446,6 +461,51 @@ class Teleop:
                 self.out(f"καταγραφή: {csv_path}")
         return ok
 
+    def measure_deadband(self, ask=input, sleep=time.sleep, start=0.05, step=0.02, top=0.6, hold_s=0.6,
+                         min_move_deg=0.5):
+        """For each axis and direction: short moves with a growing command until the axis encoder shows
+        movement. The smallest command that moves is saved per axis and direction and used by the PID."""
+        if any(ax not in self.axes for ax in ctl.AXES):
+            self.out("✖ Πρώτα calibration (επιλογή 6).")
+            return None
+        if ask("Μέτρηση νεκρής ζώνης: κάθε άξονας κινείται λίγο προς τις δύο φορές. Ελεύθερος ο βραχίονας; [y/N]: "
+               ).strip().lower() not in ("y", "yes", "ν", "ναι"):
+            return None
+        pair = ctl.PairController(self.axes, self.pid)
+        channels = sorted({c.mux_channel for c in self.axes.values()})
+        results = {}
+        try:
+            for ax in ctl.AXES:
+                c = self.axes[ax]
+                for direction in (1, -1):
+                    steps, command, found = [], start, None
+                    while command <= top + 1e-9:
+                        before = pair.angles({ch: a for ch, (a, _s) in self.raw_angles(channels).items()})[ax]
+                        self.pulse_axis(ax, direction * command, hold_s, sleep)
+                        sleep(0.2)
+                        now = pair.angles({ch: a for ch, (a, _s) in self.raw_angles(channels).items()})[ax]
+                        steps.append((direction * command, now - before))
+                        if not c.lower_deg - 10 <= now <= c.upper_deg + 10:
+                            self.out(f"✖ {c.name(ax)} στις {now:.1f}°, κοντά στα όρια: σταματώ.")
+                            return None
+                        found = ctl.first_moving(steps, min_move_deg)
+                        if found is not None:
+                            break
+                        command = round(command + step, 3)
+                    results[(ax, direction)] = found
+                    self.out(f"  {c.name(ax):24s} {'+' if direction > 0 else '-'}: "
+                             + (f"κινείται από {found:.2f}" if found is not None else f"δεν κινήθηκε ως {top}"))
+        except (OSError, ctl.EncoderJump) as exc:
+            self.out(f"✖ encoder: {exc}")
+            return None
+        finally:
+            self.bench.stop()
+        for ax in ctl.AXES:
+            self.axes[ax].deadband_pos = results.get((ax, 1))
+            self.axes[ax].deadband_neg = results.get((ax, -1))
+        self.save()
+        return results
+
     def ask_move(self, ask=input):
         if any(ax not in self.axes for ax in ctl.AXES):
             self.out("✖ Πρώτα calibration (επιλογή 6).")
@@ -453,7 +513,8 @@ class Teleop:
         targets = {}
         for ax in ctl.AXES:
             c = self.axes[ax]
-            text = ask(f"Στόχος {ax} σε μοίρες [{c.lower_deg} … {c.upper_deg}], Enter = μένει όπου είναι: ").strip()
+            text = ask(f"Στόχος {c.name(ax)} σε μοίρες [{c.lower_deg} … {c.upper_deg}], Enter = μένει όπου είναι: "
+                       ).strip()
             if text:
                 targets[ax] = float(text)
         path = ask("Αρχείο CSV για καταγραφή (κενό = χωρίς): ").strip()
@@ -474,7 +535,8 @@ class Teleop:
                      "  [1] Σάρωση I²C\n  [2] Μαγνήτες encoders (5 αναγνώσεις)\n  [3] Επιλογή καναλιών\n"
                      "  [4] Κίνηση διαφορικού\n  [5] Έξοδοι off\n"
                      f"  [6] Calibration (κλειστός βρόχος)   {'✔ ' + ', '.join(self.axes) if self.axes else '✖ δεν έχει γίνει'}\n"
-                     "  [7] Μετακίνηση σε γωνία (PID)\n  [8] Ρυθμίσεις PID\n  [q] Έξοδος")
+                     "  [7] Μετακίνηση σε γωνία (PID)\n  [8] Ρυθμίσεις PID\n"
+                     "  [9] Νεκρή ζώνη (αυτόματη μέτρηση)\n  [q] Έξοδος")
             choice = ask("> ").strip().lower()
             if choice == "1":
                 self.scan()
@@ -493,6 +555,8 @@ class Teleop:
                 self.ask_move(ask)
             elif choice == "8":
                 self.edit_pid(ask)
+            elif choice == "9":
+                self.measure_deadband(ask)
             elif choice in ("q", ";"):
                 return
 

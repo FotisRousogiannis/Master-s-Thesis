@@ -35,6 +35,7 @@ DEFAULT_PID = {
     "settle_s": 0.5,      # both axes inside the tolerance this long -> done
     "timeout_s": 60.0,    # give up if not there by then (base: ~4 deg/s at 0.5, 80 deg took >20 s)
     "limit_margin_deg": 5.0,  # stop if an axis goes this far past its limits
+    "deadband_margin": 0.03,  # added to a measured deadband to get the smallest command used
 }
 
 
@@ -45,6 +46,12 @@ class AxisCalibration:
     zero_deg: float       # raw encoder angle when the axis is at 0
     lower_deg: float = -90.0
     upper_deg: float = 90.0
+    label: str = ""                      # physical name, e.g. "yaw (joint_1)"
+    deadband_pos: float | None = None    # smallest + command that moves this axis (measured, [9])
+    deadband_neg: float | None = None    # same for - (can differ: gravity)
+
+    def name(self, axis: str) -> str:
+        return self.label or axis
 
     def tracker(self) -> Tracker:
         return Tracker(self.zero_deg, self.sign < 0, self.lower_deg, self.upper_deg)
@@ -155,10 +162,31 @@ class PairController:
             u = self.pids[ax].update(error, angles[ax], dt)
             if abs(error) <= self.cfg["tolerance_deg"]:
                 u = 0.0
-            elif abs(u) < self.cfg["min_speed"]:
-                u = math.copysign(self.cfg["min_speed"], error)   # below this the servo does not move
+            else:
+                floor = self.min_command(ax, error)
+                if abs(u) < floor:
+                    u = math.copysign(floor, error)   # below this the axis does not move
             commands[ax] = max(-self.cfg["max_speed"], min(self.cfg["max_speed"], u))
         return commands, errors
 
+    def min_command(self, axis: str, error: float) -> float:
+        """Smallest command that moves `axis` towards `error`: the measured deadband of that direction
+        plus a margin, else the general min_speed."""
+        c = self.axes[axis]
+        measured = c.deadband_pos if error > 0 else c.deadband_neg
+        if measured is None:
+            return self.cfg["min_speed"]
+        return min(self.cfg["max_speed"], measured + self.cfg.get("deadband_margin", 0.03))
+
     def there(self, errors: dict) -> bool:
         return all(abs(e) <= self.cfg["tolerance_deg"] for e in errors.values())
+
+
+def first_moving(steps, min_move_deg=0.5):
+    """Deadband from a ramp: steps = [(command, axis movement in deg)], increasing command.
+    Returns the first command whose step moved the axis at least min_move_deg in its direction."""
+    for command, moved in steps:
+        if moved * math.copysign(1, command) >= min_move_deg:
+            return abs(command)
+    return None
+

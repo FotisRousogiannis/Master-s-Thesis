@@ -5,14 +5,16 @@
     "sign": 1,
     "zero_deg": 267.715,
     "lower_deg": -90.0,
-    "upper_deg": 90.0
+    "upper_deg": 90.0,
+    "label": "yaw (στροφή, joint_1)"
   },
   "roll": {
     "mux_channel": 1,
     "sign": -1,
     "zero_deg": 117.246,
     "lower_deg": -90.0,
-    "upper_deg": 90.0
+    "upper_deg": 90.0,
+    "label": "ανύψωση (joint_2)"
   },
   "pid": {
     "kp": 0.02,

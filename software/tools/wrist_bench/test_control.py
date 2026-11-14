@@ -232,3 +232,73 @@ def test_identification_keeps_moving_a_slow_base_until_it_is_clear(config, tmp_p
     mapping = tele.identify([2, 4], ask=lambda prompt: "", sleep=clock.sleep)
     assert mapping == {"pitch": (4, 1), "roll": (2, -1)}
     assert any(l.startswith("  pitch (W, 1.") or l.startswith("  pitch (W, 2.") for l in lines)   # needed more than one step
+
+
+def test_deadband_floor_per_axis_and_direction():
+    axes = {"pitch": ctl.AxisCalibration(4, 1, 0.0, deadband_pos=0.10, deadband_neg=0.12),
+            "roll": ctl.AxisCalibration(2, 1, 0.0, deadband_pos=0.35, deadband_neg=0.08)}
+    pair = ctl.PairController(axes, ctl.DEFAULT_PID)
+    pair.set_targets({"pitch": 0.0, "roll": 0.0})
+    cmd, _ = pair.step({"pitch": -3.0, "roll": -3.0}, 0.02)      # both need +: small errors
+    assert cmd == {"pitch": pytest.approx(0.13), "roll": pytest.approx(0.38)}
+    cmd, _ = pair.step({"pitch": 3.0, "roll": 3.0}, 0.02)        # both need -
+    assert cmd == {"pitch": pytest.approx(-0.15), "roll": pytest.approx(-0.11)}
+
+
+def test_first_moving_and_old_calibration_files(tmp_path):
+    assert ctl.first_moving([(0.05, 0.0), (0.07, 0.2), (0.09, 0.8)]) == 0.09
+    assert ctl.first_moving([(-0.05, 0.3), (-0.07, -0.6)]) == 0.07          # must move the commanded way
+    assert ctl.first_moving([(0.05, 0.1)]) is None
+    old = tmp_path / "old.json"   # written before labels / deadbands existed
+    old.write_text(json.dumps({"pitch": {"mux_channel": 2, "sign": 1, "zero_deg": 1.0},
+                               "roll": {"mux_channel": 1, "sign": -1, "zero_deg": 2.0}}))
+    axes, _pid = ctl.load_calibration(old)
+    assert axes["pitch"].deadband_pos is None and axes["roll"].name("roll") == "roll"
+
+
+class GravityBase(SimBase):
+    """The roll axis lifts the arm: going up needs more command than going down."""
+
+    def advance(self, dt):
+        a, b = self._motor(0), -self._motor(1)
+        roll_rate = (a - b) / 2
+        roll_rate = max(0.0, roll_rate - 8.0) if roll_rate > 0 else roll_rate
+        self.pitch += (a + b) / 2 * dt
+        self.roll += roll_rate * dt
+
+
+def test_deadband_measurement_is_saved_and_used(config, tmp_path):
+    bus = GravityBase()
+    clock = FakeClock(bus)
+    lines = []
+    tele = t.Teleop(wb.Bench(config, bus), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "cal.json")
+    answers = iter(["", "y", "0", "", "", "0", "-45", "45"])
+    tele.calibrate(ask=lambda prompt: next(answers), sleep=clock.sleep, jog=lambda: None)
+    results = tele.measure_deadband(ask=lambda prompt: "y", sleep=clock.sleep)
+    # servo deadband 0.2; motor B's larger scaling on its - side crosses it a bit earlier
+    assert 0.15 <= results[("pitch", 1)] <= 0.25 and 0.15 <= results[("pitch", -1)] <= 0.25
+    # roll: sign -1 in the calibration, the + command lowers in this model; lifting needs more
+    up, down = results[("roll", -1)], results[("roll", 1)]
+    assert up is not None and down is not None and up != down
+    saved = json.loads((tmp_path / "cal.json").read_text())
+    assert saved["pitch"]["deadband_pos"] == pytest.approx(results[("pitch", 1)])
+    assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
+
+
+def test_manual_drive_shows_calibrated_joint_angles(config, tmp_path, monkeypatch, capsys):
+    from test_wrist_bench import _fake_terminal
+
+    tele, bus, clock, lines = calibrated_teleop(config, tmp_path)
+    tele.axes["pitch"].label = "yaw (στροφή, joint_1)"
+    _fake_terminal(monkeypatch, "q")
+    tele.drive()
+    shown = capsys.readouterr().out
+    assert "yaw (στροφή, joint_1)" in shown and "| ch0=off" in shown
+
+
+def test_recalibration_keeps_labels_and_deadbands(config, tmp_path):
+    tele, bus, clock, lines = calibrated_teleop(config, tmp_path)
+    tele.axes["roll"].label, tele.axes["roll"].deadband_pos = "ανύψωση (joint_2)", 0.33
+    answers = iter(["n", "0", "", "", "0", "", ""])          # no identification: same encoders
+    tele.calibrate(ask=lambda prompt: next(answers), sleep=clock.sleep, jog=lambda: None)
+    assert tele.axes["roll"].label == "ανύψωση (joint_2)" and tele.axes["roll"].deadband_pos == 0.33

@@ -3,18 +3,22 @@
   "pitch": {
     "mux_channel": 2,
     "sign": 1,
-    "zero_deg": 267.715,
+    "zero_deg": 267.803,
     "lower_deg": -90.0,
     "upper_deg": 90.0,
-    "label": "joint_1 (yaw)"
+    "label": "joint_1 (yaw)",
+    "deadband_pos": 0.09,
+    "deadband_neg": 0.13
   },
   "roll": {
     "mux_channel": 1,
     "sign": -1,
-    "zero_deg": 117.246,
+    "zero_deg": 117.07,
     "lower_deg": -90.0,
     "upper_deg": 90.0,
-    "label": "joint_2 (roll)"
+    "label": "joint_2 (roll)",
+    "deadband_pos": 0.13,
+    "deadband_neg": 0.11
   },
   "pid": {
     "kp": 0.02,
@@ -25,7 +29,8 @@
     "tolerance_deg": 1.0,
     "settle_s": 0.5,
     "timeout_s": 60.0,
-    "limit_margin_deg": 5.0
+    "limit_margin_deg": 5.0,
+    "deadband_margin": 0.03
   },
   "motors": {
     "a": 0,

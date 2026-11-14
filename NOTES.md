@@ -112,6 +112,10 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   Gripper: servo συνεχούς περιστροφής + AS5600 + 2 × ZD10, τελευταίο κανάλι, όπως μια άρθρωση.
   Εκκρεμούν: πάνελ Calibration ανά άρθρωση· αντιστοίχιση servo → άρθρωση.
   **Πάνελ «Εργαλεία»** (`arm_gui/tools.yaml`): σάρωση I²C κ.ά. στο Pi μέσω SSH (`docs/setup/raspberry_pi.md`).
+- **Έλεγχος βάσης (2026-11-14): το σύστημα του πάγκου δουλεύει.** `software/tools/wrist_bench/teleop.py` (+ `control.py`):
+  calibration, νεκρή ζώνη ανά μοτέρ/άξονα, αντιστάθμιση ανά μοτέρ, PID ανά άξονα· run5: yaw ±0.07°, roll ±0.58°
+  (`docs/measurements/base/`). Γράφτηκε από τη συνεδρία κατόπιν αιτήματος· **από εδώ τον κώδικα τον γράφει ο Φώτης**
+  (§9), ξεκινώντας από ανάλυση καταγραφών, μετά δοκιμή επαναληψιμότητας, μετά το node του Pi.
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

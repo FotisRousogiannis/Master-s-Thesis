@@ -3,9 +3,9 @@
   "pitch": {
     "mux_channel": 2,
     "sign": 1,
-    "zero_deg": 267.803,
-    "lower_deg": -90.0,
-    "upper_deg": 90.0,
+    "zero_deg": 267.891,
+    "lower_deg": -30.0,
+    "upper_deg": 50.0,
     "label": "joint_1 (yaw)",
     "deadband_pos": 0.05,
     "deadband_neg": 0.05
@@ -13,7 +13,7 @@
   "roll": {
     "mux_channel": 1,
     "sign": -1,
-    "zero_deg": 117.07,
+    "zero_deg": 112.676,
     "lower_deg": -90.0,
     "upper_deg": 90.0,
     "label": "joint_2 (roll)",

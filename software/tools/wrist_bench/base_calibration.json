@@ -1,0 +1,33 @@
+{
+  "_comment": "Bench calibration of the base differential, written by teleop.py (ADR-0019, ADR-0021).",
+  "pitch": {
+    "mux_channel": 2,
+    "sign": 1,
+    "zero_deg": 267.715,
+    "lower_deg": -90.0,
+    "upper_deg": 90.0
+  },
+  "roll": {
+    "mux_channel": 1,
+    "sign": -1,
+    "zero_deg": 117.246,
+    "lower_deg": -90.0,
+    "upper_deg": 90.0
+  },
+  "pid": {
+    "kp": 0.02,
+    "ki": 0.0,
+    "kd": 0.0,
+    "max_speed": 0.5,
+    "min_speed": 0.3,
+    "tolerance_deg": 1.0,
+    "settle_s": 0.5,
+    "timeout_s": 20.0,
+    "limit_margin_deg": 5.0
+  },
+  "motors": {
+    "a": 0,
+    "b": 1,
+    "invert_b": true
+  }
+}

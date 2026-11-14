@@ -230,13 +230,27 @@ class Teleop:
         return {self.a: to_pulse(sa, n_a, self.motor_edges.get("a")),
                 self.b: to_pulse(sb, n_b, self.motor_edges.get("b"))}
 
-    def drive(self, rate=50, csv_path=None):
+    def drive(self, rate=50, csv_path=None, use_encoders=True, ask=input):
+        """Manual differential drive. use_encoders=False: no encoder is read (no travel limit, no angles);
+        if an encoder does not answer at the start, asks whether to go on without encoders."""
         import termios
         import tty
 
         bench, ctrl = self.bench, TeleopController()
         limit = bench.safety.get("jog_max_travel_deg", 90)
-        encoders = {ch: wb.AS5600(bench.bus, bench.mux, ch) for ch in self.encoder_channels}
+        if use_encoders:
+            for ch in self.encoder_channels:
+                try:
+                    wb.AS5600(bench.bus, bench.mux, ch).read()
+                except OSError:
+                    bench.mux.select(None)
+                    if ask(f"✖ Ο encoder στο mux{ch} δεν απαντά. Συνέχεια ΧΩΡΙΣ encoders (χωρίς όριο διαδρομής); "
+                           "[y/N]: ").strip().lower() not in ("y", "yes", "ν", "ναι"):
+                        return
+                    use_encoders = False
+                    break
+        channels = self.encoder_channels if use_encoders else []
+        encoders = {ch: wb.AS5600(bench.bus, bench.mux, ch) for ch in channels}
         calibrated = (set(self.axes) == set(ctl.AXES)
                       and all(c.mux_channel in encoders for c in self.axes.values()))
         trackers = {ax: c.tracker() for ax, c in self.axes.items()} if calibrated else {}
@@ -246,7 +260,7 @@ class Teleop:
                 angle, _raw, status, _agc = e.read()
             except OSError:
                 bench.mux.select(None)
-                self.out(f"✖ ο encoder στο mux{ch} δεν απαντά: [1] σάρωση, ή [3] χωρίς αυτόν")
+                self.out(f"✖ ο encoder στο mux{ch} δεν απαντά: [1] σάρωση, ή [4] χωρίς encoders")
                 return
             start[ch] = angle
             if status == "OK":
@@ -677,7 +691,10 @@ class Teleop:
             elif choice == "3":
                 self.choose(ask)
             elif choice == "4":
-                self.drive(csv_path=measurement_path(ask(CSV_PROMPT)))
+                use = not self.encoder_channels or ask(
+                    f"Με encoders {self.encoder_channels} (όριο διαδρομής, γωνίες); [Y/n]: ").strip().lower() not in (
+                    "n", "no", "ο", "όχι")
+                self.drive(csv_path=measurement_path(ask(CSV_PROMPT)), use_encoders=use, ask=ask)
             elif choice == "5":
                 self.outputs_off()
             elif choice == "6":

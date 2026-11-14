@@ -115,3 +115,40 @@ def test_recordings_go_into_the_measurements_folder(tmp_path):
     again = t.measurement_path("run5", folder, now=lambda: (2026, 11, 14, 12, 30, 5, 0, 0, 0))
     assert again == str(folder / "run5_20261114_123005.csv")                          # never overwrite
     assert t.MEASUREMENTS.parts[-3:] == ("docs", "measurements", "base")
+
+
+
+def test_manual_drive_without_encoders(config, monkeypatch):
+    from test_wrist_bench import NoEncoderBus
+
+    _fake_terminal(monkeypatch, "wq")
+    bus = NoEncoderBus(devices_root=(), devices_per_channel={0: {0x40}})
+    lines = []
+    tele = t.Teleop(wb.Bench(config, bus), 0, 1, True, [2, 4], out=lines.append)
+    tele.drive(use_encoders=False)                     # never touches an encoder
+    assert any("ΧΩΡΙΣ ΟΡΙΟ" in l for l in lines)
+    assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
+
+
+def test_manual_drive_offers_to_go_on_when_an_encoder_is_missing(config, monkeypatch):
+    class OnlyPca(FakeBus):
+        def read_i2c_block_data(self, addr, reg, n):
+            raise OSError(5, "Input/output error")
+
+    lines = []
+    tele = t.Teleop(wb.Bench(config, OnlyPca(devices_root=(), devices_per_channel={0: {0x40}})), 0, 1, True, [2, 4],
+                    out=lines.append)
+    tele.drive(ask=lambda prompt: "")                  # Enter = no: does not move
+    assert not any("ΧΩΡΙΣ ΟΡΙΟ" in l for l in lines)
+    _fake_terminal(monkeypatch, "wq")
+    tele.drive(ask=lambda prompt: "y")                 # yes: goes on without encoders
+    assert any("ΧΩΡΙΣ ΟΡΙΟ" in l for l in lines)
+
+
+def test_menu_asks_about_encoders_for_manual_drive(config, monkeypatch):
+    calls = []
+    tele = t.Teleop(wb.Bench(config, base_bus()), 0, 1, True, [2, 4], out=lambda *_: None)
+    monkeypatch.setattr(tele, "drive", lambda **kw: calls.append(kw["use_encoders"]))
+    answers = iter(["4", "n", "", "4", "", "", "q"])
+    tele.menu(ask=lambda prompt: next(answers))
+    assert calls == [False, True]

@@ -219,3 +219,16 @@ def test_weak_magnet_asks_and_no_magnet_refuses(config, tmp_path):
     tele = t.Teleop(wb.Bench(config, NoMagnet()), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "c.json")
     tele.calibrate(ask=lambda prompt: pytest.fail("must not ask"), jog=lambda: None)
     assert any("Δεν βλέπει μαγνήτη" in l for l in lines)
+
+
+def test_identification_keeps_moving_a_slow_base_until_it_is_clear(config, tmp_path):
+    class SlowBase(SimBase):
+        SPEED = 12.0          # like the bench: ~1.4 deg in 0.4 s at speed 0.4
+
+    bus = SlowBase()
+    clock = FakeClock(bus)
+    lines = []
+    tele = t.Teleop(wb.Bench(config, bus), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "c.json")
+    mapping = tele.identify([2, 4], ask=lambda prompt: "", sleep=clock.sleep)
+    assert mapping == {"pitch": (4, 1), "roll": (2, -1)}
+    assert any(l.startswith("  pitch (W, 1.") or l.startswith("  pitch (W, 2.") for l in lines)   # needed more than one step

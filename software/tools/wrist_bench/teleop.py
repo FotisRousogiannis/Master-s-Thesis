@@ -277,19 +277,31 @@ class Teleop:
                              {"a": self.a, "b": self.b, "invert_b": self.invert_b})
         self.out(f"Αποθηκεύτηκε: {self.calibration_path}")
 
-    def identify(self, channels, ask=input, sleep=time.sleep, speed=0.4, duration=0.4):
-        """Move each axis a little forward and back; see which encoder changed and which way; ask to confirm.
+    def identify(self, channels, ask=input, sleep=time.sleep, speed=0.4, step_s=0.5, max_s=3.0, enough_deg=3.0):
+        """Move each axis forward in short steps until an encoder has moved `enough_deg` (at most `max_s`),
+        see which encoder changed and which way, move back as long, and ask to confirm.
         Returns {axis: (mux channel, sign)} or None."""
         mapping = {}
         for axis in ctl.AXES:
             before = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
-            self.pulse_axis(axis, speed, duration, sleep)
-            sleep(0.3)
-            after = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
-            self.pulse_axis(axis, -speed, duration, sleep)          # back to about where it was
+            moved, total = {ch: 0.0 for ch in channels}, 0.0
+            while total < max_s and max(abs(m) for m in moved.values()) < enough_deg:
+                self.pulse_axis(axis, speed, step_s, sleep)
+                total += step_s
+                sleep(0.3)
+                after = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+                moved = {ch: (after[ch] - before[ch] + 180) % 360 - 180 for ch in channels}
+            main = max(moved, key=lambda ch: abs(moved[ch]))         # back, watching that encoder
+            spent = 0.0
+            while spent < 2 * total + 1.0:
+                now = (self.raw_angles([main])[main][0] - before[main] + 180) % 360 - 180
+                if abs(now) <= 1.0 or now * moved[main] < 0:          # there, or just past it
+                    break
+                self.pulse_axis(axis, -speed, 0.1, sleep)
+                spent += 0.1
             self.bench.mux.select(None)
-            moves = "  ".join(f"mux{ch} {(after[ch] - before[ch] + 180) % 360 - 180:+.1f}°" for ch in channels)
-            self.out(f"  {axis} ({'W' if axis == 'pitch' else 'D'}): {moves}")
+            moves = "  ".join(f"mux{ch} {moved[ch]:+.1f}°" for ch in channels)
+            self.out(f"  {axis} ({'W' if axis == 'pitch' else 'D'}, {total:.1f} s): {moves}")
             try:
                 mapping[axis] = ctl.detect_axis(before, after)
             except ValueError as exc:

@@ -46,7 +46,14 @@
    ```bash
    python3 software/tools/wrist_bench/wrist_bench.py stop
    ```
-6. Έξοδος από το Pi: `exit`.
+6. **Στο Pi:** ανέβασμα μετρήσεων — **πρώτα commit, μετά pull, μετά push** (το `pull --rebase` θέλει καθαρό φάκελο):
+   ```bash
+   git add docs/measurements software/tools/wrist_bench/base_calibration.json && git commit -m "test(base): …"
+   ```
+   ```bash
+   git pull --rebase origin draft && git push origin draft
+   ```
+7. Έξοδος από το Pi: `exit`.
 
 Αν το `ssh` δεν συνδέεται: «Αν δεν συνδέεται» παρακάτω (συνήθως βοηθά επανεκκίνηση του Pi ή ξανά το καλώδιο στο Pi).
 Από το Arm Studio: πάνελ «Σύνδεση» (Host = η διεύθυνση του βήματος 2) → «Εύρεση και έλεγχος»· πάνελ «Εργαλεία».

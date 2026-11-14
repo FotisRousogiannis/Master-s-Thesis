@@ -298,11 +298,12 @@ def _fake_terminal(monkeypatch, text):
 
 def test_diffjog_drives_both_motors_through_the_mux_and_ends_off(config, monkeypatch):
     _fake_terminal(monkeypatch, "wq")                                # pitch, then quit
-    bus = FakeBus(devices_per_channel={4: {0x36}}, raw_angles={4: 100})
+    bus = FakeBus(devices_per_channel={2: {0x36}, 4: {0x36}}, raw_angles={2: 50, 4: 100})
     bench = wb.Bench(config, bus)
     wb.diffjog(bench, "base")
     pulses = {w[2]: w[3] for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0, wb.PCA_LED0 + 4)}
-    a, b = bench.pca.us_to_ticks(1600 + 150), bench.pca.us_to_ticks(1600 - 150)
+    start = config["safety"]["diffjog_start_offset_us"]
+    a, b = bench.pca.us_to_ticks(1600 + start), bench.pca.us_to_ticks(1600 - start)
     assert pulses[wb.PCA_LED0] == [0, 0, a & 0xFF, a >> 8]           # ch0 = base_a
     assert pulses[wb.PCA_LED0 + 4] == [0, 0, b & 0xFF, b >> 8]       # ch1 = base_b, mirrored
     assert ("byte", 0x70, 1) in bus.writes                           # PCA9685 reached through mux channel 0
@@ -325,5 +326,43 @@ def test_diffjog_names_an_encoder_that_does_not_answer(config, monkeypatch):
     _fake_terminal(monkeypatch, "q")
     with pytest.raises(SystemExit) as exc:
         wb.diffjog(wb.Bench(config, SilentEncoderBus()), "base")
-    assert "enc_ch4 (TCA9548A channel 4) does not answer" in str(exc.value)
+    assert "enc_ch2 (TCA9548A channel 2) does not answer" in str(exc.value)
     assert "--no-encoders" in str(exc.value)
+
+
+class WeakMagnetBus(FakeBus):
+    """Channel 2: magnet too weak (like the base on 2026-11-13); channel 4: fine."""
+
+    def read_byte_data(self, addr, reg):
+        if reg == wb.AS5600_STATUS:
+            return wb.AS5600_ML if self.channel == 2 else wb.AS5600_MD
+        return 128
+
+
+def test_diffjog_records_csv_and_limits_only_on_good_magnets(config, monkeypatch, tmp_path, capsys):
+    _fake_terminal(monkeypatch, "wq")
+    out = tmp_path / "base.csv"
+    bus = WeakMagnetBus(devices_per_channel={2: {0x36}, 4: {0x36}}, raw_angles={2: 50, 4: 100})
+    wb.diffjog(wb.Bench(config, bus), "base", csv_path=str(out))
+    text = capsys.readouterr().out
+    assert "enc_ch2 magnet NO_MAGNET" in text and "stops if enc_ch4 travels" in text
+    rows = out.read_text().splitlines()
+    assert rows[0].startswith("t_s,label,command_us,enc_ch2_deg,enc_ch4_deg")
+    assert "PITCH+" in rows[1] and "base_a" in rows[1]
+
+
+def test_diffjog_stops_when_an_encoder_disappears(config, monkeypatch, capsys):
+    class FlakyBus(FakeBus):
+        reads = 0
+
+        def read_i2c_block_data(self, addr, reg, n):
+            FlakyBus.reads += 1
+            if FlakyBus.reads > 2:              # both answer at the start, then one is lost
+                raise OSError(5, "Input/output error")
+            return super().read_i2c_block_data(addr, reg, n)
+
+    _fake_terminal(monkeypatch, "w")
+    bus = FlakyBus(devices_per_channel={2: {0x36}, 4: {0x36}}, raw_angles={2: 50, 4: 100})
+    wb.diffjog(wb.Bench(config, bus), "base")
+    assert "stopped answering" in capsys.readouterr().out
+    assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF

@@ -11,8 +11,8 @@ in pulse offset, duration and encoder travel, and always ends with the outputs o
     python3 wrist_bench.py deadband SERVO ENCODER [--span 60] [--step 5] [--dwell 1.0]
     python3 wrist_bench.py probe [--channels 0-15] [--offset US] [--duration 1.0]
     python3 wrist_bench.py jog (SERVO | --channel N)    keyboard: hold W/S to turn, A/D speed
-    python3 wrist_bench.py diffjog PAIR [--no-encoders]  differential pair (base, wrist): hold W/S pitch,
-                                                         A/D roll, +/- speed
+    python3 wrist_bench.py diffjog PAIR [--no-encoders] [--csv out.csv]
+                                         differential pair (base, wrist): hold W/S pitch, A/D roll, +/- speed
     python3 wrist_bench.py stop
 
 OFFSET_US is relative to the servo's neutral pulse (continuous-rotation servos:
@@ -368,8 +368,12 @@ def jog(bench, channel, neutral_us, label, rate=50, use_encoders=True):
         print("\noutputs off")
 
 
-def diffjog(bench, pair, rate=50, use_encoders=True):
-    """Keyboard teleop of a differential pair (both motors together, ADR-0021 bench)."""
+def diffjog(bench, pair, rate=50, use_encoders=True, csv_path=None):
+    """Keyboard teleop of a differential pair (both motors together, ADR-0021 bench).
+
+    Shows the pair's encoders live; the travel limit uses only those whose magnet is OK at the start.
+    csv_path: one row per loop (time, state, motor offsets, angles, travel) for later analysis.
+    An encoder that stops answering stops the motion: the travel limit can no longer be checked."""
     import termios
     import tty
 
@@ -381,23 +385,30 @@ def diffjog(bench, pair, rate=50, use_encoders=True):
     ctrl = DiffJogController(s["max_offset_us"], s.get("diffjog_start_offset_us", 150), s.get("diffjog_step_us", 30))
     limit = s.get("jog_max_travel_deg", 90)
     encoders = bench.pair_encoders(pair) if use_encoders else {}
-    start = {}
+    start, limited = {}, []
     for n, e in encoders.items():
         try:
-            start[n] = e.read()[0]
+            angle, _raw, status, _agc = e.read()
         except OSError:
             bench.mux.select(None)
             raise SystemExit(f"encoder {n} (TCA9548A channel {e.mux_channel}) does not answer: check its wiring "
                              f"and run `scan`; or run without the travel limit: diffjog {pair} --no-encoders")
+        start[n] = angle
+        if status == "OK":
+            limited.append(n)
+        else:
+            print(f"note: {n} magnet {status} - shown, but not used for the travel limit")
     print(f"diffjog {pair}: A={d['motor_a']} (ch{ch[d['motor_a']]})  B={d['motor_b']} (ch{ch[d['motor_b']]})  "
           f"b_sign={d.get('b_sign', 1)}\n"
           "  hold W / S : pitch + / - (motors together)     hold A / D : roll - / + (motors opposed)\n"
           "  + / - : faster / slower     SPACE : stop     Q : quit\n"
-          + (f"  stops if an encoder travels more than {limit} deg from the start\n" if encoders
-             else "  NO ENCODERS: no travel limit - motion stops only when you release the key\n"))
+          + (f"  stops if {', '.join(limited)} travels more than {limit} deg from the start\n" if limited
+             else "  NO TRAVEL LIMIT - motion stops only when you release the key\n"))
+    f, writer = open_csv(csv_path, list(encoders))
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     applied = None
+    t0 = time.monotonic()
     try:
         tty.setcbreak(fd)
         while not ctrl.quit:
@@ -417,16 +428,26 @@ def diffjog(bench, pair, rate=50, use_encoders=True):
                     else:
                         bench.pca.channel_off(ch[motor])
                 applied = offsets
-            readings = {n: e.read() for n, e in encoders.items()}
+            readings = {}
+            for n, e in encoders.items():
+                try:
+                    readings[n] = e.read()
+                except OSError:
+                    print(f"\nABORT: encoder {n} (TCA9548A channel {e.mux_channel}) stopped answering")
+                    return
             travel = {n: wrap_delta(readings[n][0], start[n]) for n in encoders}
             state = ("STOP" if not (pitch or roll) else "PITCH+" if pitch > 0 else "PITCH-" if pitch < 0
                      else "ROLL+" if roll > 0 else "ROLL-")
+            if writer:
+                writer.writerow([f"{now - t0:.4f}", state, json.dumps(offsets)]
+                                + [f"{readings[n][0]:.3f}" for n in encoders]
+                                + [f"{travel[n]:.3f}" for n in encoders])
             line = (f"\r[{state:6s}] speed {ctrl.offset_us:3d} us  "
                     + "  ".join(f"{m} {o:+4d}" for m, o in offsets.items()) + "  "
                     + "  ".join(f"{n} {readings[n][0]:6.1f}° ({travel[n]:+6.1f}) {readings[n][2]}" for n in encoders))
             sys.stdout.write(line + "   ")
             sys.stdout.flush()
-            over = [n for n in encoders if abs(travel[n]) > limit]
+            over = [n for n in limited if abs(travel[n]) > limit]
             if over:
                 print(f"\nABORT: travel limit {limit} deg exceeded on {over}")
                 break
@@ -434,6 +455,9 @@ def diffjog(bench, pair, rate=50, use_encoders=True):
     finally:
         bench.stop()
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        if f:
+            f.close()
+            print(f"\nrecorded: {csv_path}")
         print("\noutputs off")
 
 
@@ -500,6 +524,7 @@ def main(argv=None):
     p = sub.add_parser("diffjog")
     p.add_argument("pair", help="differential pair from the config: base or wrist")
     p.add_argument("--no-encoders", action="store_true", help="do not read the pair's encoders (no travel limit)")
+    p.add_argument("--csv", help="record time, command, motor offsets and encoder angles")
     args = ap.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text())
@@ -540,7 +565,7 @@ def dispatch(bench, args):
     if args.cmd == "diffjog":
         if args.pair not in bench.cfg.get("differentials", {}):
             raise SystemExit(f"unknown pair {args.pair!r}; config has: {', '.join(bench.cfg.get('differentials', {}))}")
-        diffjog(bench, args.pair, use_encoders=not args.no_encoders)
+        diffjog(bench, args.pair, use_encoders=not args.no_encoders, csv_path=args.csv)
         return 0
     if args.cmd == "probe":
         channels = parse_channels(args.channels)

@@ -15,6 +15,41 @@
 Με το καλώδιο ο υπολογιστής **μοιράζει το internet του** στο Pi, σαν μικρός router. Αν αλλάξεις WiFi στον
 υπολογιστή, το καλώδιο δεν επηρεάζεται.
 
+## Κάθε μέρα: γρήγορα βήματα (πάγκος με καλώδιο)
+Όλα στον **υπολογιστή**, σε τερματικό του Ubuntu (όχι στο Docker), εκτός αν γράφει «στο Pi».
+
+1. Καλώδιο Ethernet συνδεδεμένο, Pi αναμμένο. Ενεργοποίηση της σύνδεσης προς το Pi:
+   ```bash
+   nmcli connection up arm-pi-direct
+   ```
+2. Ποια διεύθυνση πήρε το Pi (συνήθως `10.42.0.116`, η γραμμή με `e4:5f:01:e0:f2:1f`):
+   ```bash
+   sudo sh -c 'cat /var/lib/NetworkManager/dnsmasq-*.leases'
+   ```
+3. Μπες στο Pi (χωρίς κωδικό, με το κλειδί του `.local/ssh/`· αν ζητήσει, ο κωδικός του `fotis`):
+   ```bash
+   ssh fotis@10.42.0.116
+   ```
+4. **Στο Pi:** ενημέρωση του repo:
+   ```bash
+   cd ~/Master-s-Thesis && git pull --ff-only
+   ```
+5. **Στο Pi:** δοκιμές του πάγκου (`software/tools/wrist_bench/README.md`):
+   ```bash
+   python3 software/tools/wrist_bench/wrist_bench.py scan
+   ```
+   ```bash
+   python3 software/tools/wrist_bench/wrist_bench.py diffjog base --no-encoders
+   ```
+   και πάντα στο τέλος:
+   ```bash
+   python3 software/tools/wrist_bench/wrist_bench.py stop
+   ```
+6. Έξοδος από το Pi: `exit`.
+
+Αν το `ssh` δεν συνδέεται: «Αν δεν συνδέεται» παρακάτω (συνήθως βοηθά επανεκκίνηση του Pi ή ξανά το καλώδιο στο Pi).
+Από το Arm Studio: πάνελ «Σύνδεση» (Host = η διεύθυνση του βήματος 2) → «Εύρεση και έλεγχος»· πάνελ «Εργαλεία».
+
 ## Βήμα 1 — Στο Pi (μία φορά, με οθόνη και πληκτρολόγιο, ή με SSH από το τωρινό σου δίκτυο)
 ```bash
 cat /etc/os-release | head -2

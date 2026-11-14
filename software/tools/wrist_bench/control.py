@@ -36,6 +36,7 @@ DEFAULT_PID = {
     "timeout_s": 60.0,    # give up if not there by then (base: ~4 deg/s at 0.5, 80 deg took >20 s)
     "limit_margin_deg": 5.0,  # stop if an axis goes this far past its limits
     "deadband_margin": 0.03,  # added to a measured deadband to get the smallest command used
+    "motor_compensation": 1.0,  # 1 = each motor starts at the edge of its own deadband ([10]); 0 = off
 }
 
 

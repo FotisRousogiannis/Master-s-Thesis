@@ -43,6 +43,28 @@ def speed_to_pulse(speed, neutral_us, min_us, max_us, max_offset_us):
     return max(neutral_us - max_offset_us, min(neutral_us + max_offset_us, pulse))
 
 
+def compensation_span(motors, min_us, max_us, max_offset_us):
+    """The pulse range above the deadband edge that every motor and direction still has:
+    motors = [(neutral_us, [down_us, up_us])]. One common span means the same command gives every
+    motor the same distance from its own edge, i.e. about the same speed (same servos)."""
+    spans = []
+    for neutral, (down, up) in motors:
+        spans.append(min(max_us, neutral + max_offset_us) - up)
+        spans.append(down - max(min_us, neutral - max_offset_us))
+    return max(0.0, min(spans))
+
+
+def compensated_pulse(speed, neutral_us, edges, span_us):
+    """Per-motor deadband compensation: speed 0 -> neutral (brake); otherwise start at the edge where
+    this motor was measured to move (edges = [down_us, up_us], teleop [10]) and add speed * span_us.
+    So a small command moves both motors of the differential, not only the one with the narrower deadband."""
+    if speed == 0:
+        return neutral_us
+    speed = max(-1.0, min(1.0, speed))
+    down, up = edges
+    return up + speed * span_us if speed > 0 else down + speed * span_us
+
+
 def parse_list(text, allowed):
     """'2,4' -> [2, 4]; empty -> []; raises ValueError outside `allowed`."""
     values = [int(x) for x in text.replace(" ", "").split(",") if x != ""]
@@ -78,12 +100,12 @@ class TeleopController(wb.JogController):
 
 
 class Teleop:
-    def __init__(self, bench, a=0, b=1, invert_b=True, encoders=(), out=print, calibration=ctl.DEFAULT_CALIBRATION):
+    def __init__(self, bench, a=0, b=1, invert_b=True, encoders=(), out=print, calibration=None):
         self.bench, self.out = bench, out
         self.a, self.b, self.invert_b = a, b, invert_b
         self.encoder_channels = list(encoders)
         self.found = None  # last scan
-        self.calibration_path = Path(calibration)
+        self.calibration_path = Path(calibration if calibration is not None else ctl.DEFAULT_CALIBRATION)
         self.axes, self.pid = ctl.load_calibration(self.calibration_path)
         saved = json.loads(self.calibration_path.read_text()).get("motors", {}) if self.calibration_path.exists() else {}
         # measured true neutral of each motor ([10]); None = the config default (1600 us)
@@ -173,9 +195,19 @@ class Teleop:
         # A motor at 0 while the other runs gets the neutral pulse, so its own controller brakes it.
         # Without a pulse it is free, and the running motor just turns it backwards through the
         # differential instead of moving the joint (seen on the base, 2026-11-14: roll stuck at 18.8 deg).
-        to_pulse = lambda sp, n: speed_to_pulse(  # noqa: E731
-            sp, n, pca.get("pulse_min_us", 500), pca.get("pulse_max_us", 2500), s["max_offset_us"])
-        return {self.a: to_pulse(sa, n_a), self.b: to_pulse(sb, n_b)}
+        lo_us, hi_us = pca.get("pulse_min_us", 500), pca.get("pulse_max_us", 2500)
+        edges = self.motor_edges
+        compensate = self.pid.get("motor_compensation", 1.0) and edges.get("a") and edges.get("b")
+        span = compensation_span([(n_a, edges["a"]), (n_b, edges["b"])], lo_us, hi_us, s["max_offset_us"]) \
+            if compensate else 0.0
+
+        def to_pulse(sp, n, motor_edges):
+            if compensate:
+                return compensated_pulse(sp, n, motor_edges, span)
+            return speed_to_pulse(sp, n, lo_us, hi_us, s["max_offset_us"])
+
+        return {self.a: to_pulse(sa, n_a, self.motor_edges.get("a")),
+                self.b: to_pulse(sb, n_b, self.motor_edges.get("b"))}
 
     def drive(self, rate=50, csv_path=None):
         import termios

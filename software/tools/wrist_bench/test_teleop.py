@@ -5,9 +5,16 @@ from pathlib import Path
 
 import pytest
 
+import control as ctl
 import teleop as t
 import wrist_bench as wb
 from test_wrist_bench import FakeBus, WeakMagnetBus, _fake_terminal
+
+
+@pytest.fixture(autouse=True)
+def no_bench_calibration(monkeypatch, tmp_path):
+    """Tests never read the bench's measured base_calibration.json."""
+    monkeypatch.setattr(ctl, "DEFAULT_CALIBRATION", tmp_path / "no_calibration.json")
 
 
 @pytest.fixture

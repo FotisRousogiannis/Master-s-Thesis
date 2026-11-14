@@ -11,6 +11,12 @@ import wrist_bench as wb
 from test_wrist_bench import FakeBus
 
 
+@pytest.fixture(autouse=True)
+def no_bench_calibration(monkeypatch, tmp_path):
+    """Tests never read the bench's measured base_calibration.json."""
+    monkeypatch.setattr(ctl, "DEFAULT_CALIBRATION", tmp_path / "no_calibration.json")
+
+
 @pytest.fixture
 def config():
     return json.loads(Path(wb.DEFAULT_CONFIG).read_text())
@@ -332,3 +338,45 @@ def test_motor_deadband_finds_the_true_neutral_and_uses_it(config, tmp_path):
     assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
     reloaded = t.Teleop(wb.Bench(config, OffCentreMotors()), calibration=tmp_path / "cal.json")
     assert reloaded.neutral == tele.neutral                             # kept for next time
+
+
+
+def test_compensated_pulse_starts_at_each_motors_edge():
+    edges_a, edges_b = [1420, 1840], [1510, 1700]          # measured on the base, 2026-11-14
+    span = t.compensation_span([(1630, edges_a), (1605, edges_b)], 500, 2500, 900)
+    assert span == 660                                     # A upwards: min(2500, 1630 + 900) - 1840
+    assert t.compensated_pulse(0.0, 1630, edges_a, span) == 1630          # brake at its own neutral
+    assert t.compensated_pulse(0.1, 1630, edges_a, span) == pytest.approx(1840 + 66)
+    assert t.compensated_pulse(-0.1, 1605, edges_b, span) == pytest.approx(1510 - 66)   # same distance
+    assert t.compensated_pulse(1.0, 1630, edges_a, span) == 2500
+
+
+class UnequalMotors(SimBase):
+    """Motor A needs much more than motor B to move (like the base: about +/-210 vs +/-95 us)."""
+
+    DEADBANDS = {0: 0.23, 1: 0.07}
+
+    def _motor(self, ch):
+        if self.pulse[ch] is None:
+            return 0.0
+        frac, db = (self.pulse[ch] - 1600) / 900, self.DEADBANDS[ch]
+        return 0.0 if abs(frac) <= db else self.SPEED * (frac - db * (1 if frac > 0 else -1))
+
+
+def test_compensation_removes_coupling_at_small_commands(config, tmp_path):
+    def roll_drift(compensate):
+        bus = UnequalMotors()
+        clock = FakeClock(bus)
+        tele = t.Teleop(wb.Bench(config, bus), 0, 1, True, [2, 4], out=lambda *_: None,
+                        calibration=tmp_path / f"c{compensate}.json")
+        tele.measure_motor_deadband(ask=lambda prompt: "y", sleep=clock.sleep)
+        tele.pid["motor_compensation"] = compensate
+        pitch0, roll0 = bus.pitch, bus.roll
+        tele.pulse_axis("pitch", 0.1, 2.0, clock.sleep)    # small pure pitch (motors together)
+        return bus.pitch - pitch0, bus.roll - roll0
+
+    pitch_off, roll_off = roll_drift(0.0)
+    pitch_on, roll_on = roll_drift(1.0)
+    assert abs(roll_off) > 1.0                 # without: only motor B moves -> roll moves too
+    assert abs(roll_on) < 0.15 * abs(roll_off)  # with: both motors move -> (almost) pure pitch
+    assert abs(pitch_on) > 1.0

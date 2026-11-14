@@ -302,3 +302,33 @@ def test_recalibration_keeps_labels_and_deadbands(config, tmp_path):
     answers = iter(["n", "0", "", "", "0", "", ""])          # no identification: same encoders
     tele.calibrate(ask=lambda prompt: next(answers), sleep=clock.sleep, jog=lambda: None)
     assert tele.axes["roll"].label == "ανύψωση (joint_2)" and tele.axes["roll"].deadband_pos == 0.33
+
+
+
+class OffCentreMotors(SimBase):
+    """Both servos stop around 1620 us, not 1600."""
+
+    def _motor(self, ch):
+        if self.pulse[ch] is None:
+            return 0.0
+        frac = (self.pulse[ch] - 1620) / 900
+        return 0.0 if abs(frac) <= self.DEADBAND else self.SPEED * (frac - self.DEADBAND * (1 if frac > 0 else -1))
+
+
+def test_motor_deadband_finds_the_true_neutral_and_uses_it(config, tmp_path):
+    bus = OffCentreMotors()
+    clock = FakeClock(bus)
+    lines = []
+    tele = t.Teleop(wb.Bench(config, bus), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "cal.json")
+    result = tele.measure_motor_deadband(ask=lambda prompt: "y", sleep=clock.sleep, csv_path=str(tmp_path / "sweep.csv"))
+    for name in ("a", "b"):
+        assert abs(result[name]["neutral_us"] - 1620) <= 5          # not the assumed 1600
+        assert 340 <= result[name]["width_us"] <= 440                # deadband 0.2 * 900 us each side
+    assert tele.neutral == {"a": result["a"]["neutral_us"], "b": result["b"]["neutral_us"]}
+    saved = json.loads((tmp_path / "cal.json").read_text())["motors"]
+    assert saved["neutral_a_us"] == result["a"]["neutral_us"] and "deadband_edges_us" in saved
+    assert tele.pulses(0.3, 0.3)[1] == result["b"]["neutral_us"]      # the braking motor gets its own neutral
+    assert (tmp_path / "sweep.csv").read_text().startswith("motor,channel,pulse_us,mux2_moved_deg,mux4_moved_deg")
+    assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
+    reloaded = t.Teleop(wb.Bench(config, OffCentreMotors()), calibration=tmp_path / "cal.json")
+    assert reloaded.neutral == tele.neutral                             # kept for next time

@@ -85,6 +85,10 @@ class Teleop:
         self.found = None  # last scan
         self.calibration_path = Path(calibration)
         self.axes, self.pid = ctl.load_calibration(self.calibration_path)
+        saved = json.loads(self.calibration_path.read_text()).get("motors", {}) if self.calibration_path.exists() else {}
+        # measured true neutral of each motor ([10]); None = the config default (1600 us)
+        self.neutral = {"a": saved.get("neutral_a_us"), "b": saved.get("neutral_b_us")}
+        self.motor_edges = saved.get("deadband_edges_us", {})
 
     # -- menu actions -----------------------------------------------------------------------
     def scan(self):
@@ -160,7 +164,8 @@ class Teleop:
     def pulses(self, pitch, roll):
         """{channel: pulse_us or None (off)} for speed fractions pitch/roll."""
         pca, s = self.bench.cfg["pca"], self.bench.safety
-        neutral = pca.get("default_neutral_us", 1600)
+        default = pca.get("default_neutral_us", 1600)
+        n_a, n_b = self.neutral.get("a") or default, self.neutral.get("b") or default
         sa = max(-1.0, min(1.0, pitch + roll))
         sb = max(-1.0, min(1.0, pitch - roll)) * (-1 if self.invert_b else 1)
         if sa == 0 and sb == 0:
@@ -168,9 +173,9 @@ class Teleop:
         # A motor at 0 while the other runs gets the neutral pulse, so its own controller brakes it.
         # Without a pulse it is free, and the running motor just turns it backwards through the
         # differential instead of moving the joint (seen on the base, 2026-11-14: roll stuck at 18.8 deg).
-        to_pulse = lambda sp: speed_to_pulse(  # noqa: E731
-            sp, neutral, pca.get("pulse_min_us", 500), pca.get("pulse_max_us", 2500), s["max_offset_us"])
-        return {self.a: to_pulse(sa), self.b: to_pulse(sb)}
+        to_pulse = lambda sp, n: speed_to_pulse(  # noqa: E731
+            sp, n, pca.get("pulse_min_us", 500), pca.get("pulse_max_us", 2500), s["max_offset_us"])
+        return {self.a: to_pulse(sa, n_a), self.b: to_pulse(sb, n_b)}
 
     def drive(self, rate=50, csv_path=None):
         import termios
@@ -290,8 +295,11 @@ class Teleop:
             self.bench.stop()
 
     def save(self):
-        ctl.save_calibration(self.calibration_path, self.axes, self.pid,
-                             {"a": self.a, "b": self.b, "invert_b": self.invert_b})
+        motors = {"a": self.a, "b": self.b, "invert_b": self.invert_b}
+        if self.neutral.get("a") or self.neutral.get("b"):
+            motors.update(neutral_a_us=self.neutral.get("a"), neutral_b_us=self.neutral.get("b"),
+                          deadband_edges_us=self.motor_edges)
+        ctl.save_calibration(self.calibration_path, self.axes, self.pid, motors)
         self.out(f"Αποθηκεύτηκε: {self.calibration_path}")
 
     def identify(self, channels, ask=input, sleep=time.sleep, speed=0.4, step_s=0.5, max_s=3.0, enough_deg=3.0):
@@ -506,6 +514,76 @@ class Teleop:
         self.save()
         return results
 
+    def measure_motor_deadband(self, ask=input, sleep=time.sleep, step_us=10, max_us=400, hold_s=0.5,
+                               min_move_deg=0.5, max_travel_deg=30.0, csv_path=None):
+        """Per motor, around 1600 us: pulse = 1600 +/- 10, 20, ... us (the other motor at 1600, braking) until an
+        encoder moves. Gives the edges of each motor's deadband, its true neutral (middle) and width."""
+        channels = self.encoder_channels
+        if not channels:
+            self.out("✖ Διάλεξε πρώτα (επιλογή 3) τους encoders.")
+            return None
+        if ask("Νεκρή ζώνη ανά μοτέρ: κάθε μοτέρ κινείται λίγο μόνο του, προς τις δύο φορές. "
+               "Ελεύθερος ο βραχίονας; [y/N]: ").strip().lower() not in ("y", "yes", "ν", "ναι"):
+            return None
+        base = self.bench.cfg["pca"].get("default_neutral_us", 1600)
+        f = open(csv_path, "w", newline="") if csv_path else None
+        writer = csv.writer(f) if f else None
+        if writer:
+            writer.writerow(["motor", "channel", "pulse_us"] + [f"mux{c}_moved_deg" for c in channels])
+        edges = {}
+        try:
+            start = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+            for name, ch, other in (("a", self.a, self.b), ("b", self.b, self.a)):
+                for direction in (1, -1):
+                    edge = None
+                    for off in range(step_us, max_us + 1, step_us):
+                        pulse = base + direction * off
+                        before = {c: a for c, (a, _s) in self.raw_angles(channels).items()}
+                        try:
+                            self.bench.pca.set_pulse(other, base)          # brake the other motor
+                            self.bench.pca.set_pulse(ch, pulse)
+                            sleep(hold_s)
+                        finally:
+                            self.bench.stop()
+                        sleep(0.2)
+                        after = {c: a for c, (a, _s) in self.raw_angles(channels).items()}
+                        moved = {c: (after[c] - before[c] + 180) % 360 - 180 for c in channels}
+                        if writer:
+                            writer.writerow([name, ch, pulse] + [f"{moved[c]:.3f}" for c in channels])
+                        total = max(abs((after[c] - start[c] + 180) % 360 - 180) for c in channels)
+                        if total > max_travel_deg:
+                            self.out(f"✖ κινήθηκε πάνω από {max_travel_deg}° συνολικά: σταματώ.")
+                            return None
+                        if max(abs(m) for m in moved.values()) >= min_move_deg:
+                            edge = pulse
+                            break
+                    edges[(name, direction)] = edge
+                    self.out(f"  μοτέρ {name.upper()} (ch{ch}) {'+' if direction > 0 else '-'}: "
+                             + (f"κινείται από {edge} µs" if edge else f"δεν κινήθηκε ως {base + direction * max_us} µs"))
+        except OSError:
+            self.out("✖ κάποιος encoder δεν απαντά.")
+            return None
+        finally:
+            self.bench.stop()
+            if f:
+                f.close()
+                self.out(f"καταγραφή: {csv_path}")
+        result = {}
+        for name in ("a", "b"):
+            up, down = edges.get((name, 1)), edges.get((name, -1))
+            if up and down:
+                center = round((up + down) / 2)
+                result[name] = {"down_us": down, "up_us": up, "neutral_us": center, "width_us": up - down}
+                self.out(f"  μοτέρ {name.upper()}: κινείται κάτω από {down} και πάνω από {up} µs → "
+                         f"πραγματικό νεκρό σημείο ≈ {center} µs, πλάτος ≈ {up - down} µs (βήμα {step_us} µs)")
+        if len(result) == 2 and ask("Να χρησιμοποιούνται αυτά τα νεκρά σημεία; [Y/n]: ").strip().lower() not in (
+                "n", "no", "ο", "όχι"):
+            self.neutral = {name: r["neutral_us"] for name, r in result.items()}
+            self.motor_edges = {name: [r["down_us"], r["up_us"]] for name, r in result.items()}
+            self.save()
+            self.out("Ξανακάνε τη [9] (νεκρή ζώνη ανά άξονα): άλλαξε το σημείο αναφοράς.")
+        return result
+
     def ask_move(self, ask=input):
         if any(ax not in self.axes for ax in ctl.AXES):
             self.out("✖ Πρώτα calibration (επιλογή 6).")
@@ -536,7 +614,9 @@ class Teleop:
                      "  [4] Κίνηση διαφορικού\n  [5] Έξοδοι off\n"
                      f"  [6] Calibration (κλειστός βρόχος)   {'✔ ' + ', '.join(self.axes) if self.axes else '✖ δεν έχει γίνει'}\n"
                      "  [7] Μετακίνηση σε γωνία (PID)\n  [8] Ρυθμίσεις PID\n"
-                     "  [9] Νεκρή ζώνη (αυτόματη μέτρηση)\n  [q] Έξοδος")
+                     "  [9] Νεκρή ζώνη ανά άξονα (αυτόματη μέτρηση)\n"
+                     f"  [10] Νεκρή ζώνη ανά μοτέρ, PWM γύρω από τα 1600 µs   νεκρό σημείο A/B: "
+                     f"{self.neutral.get('a') or '1600?'} / {self.neutral.get('b') or '1600?'} µs\n  [q] Έξοδος")
             choice = ask("> ").strip().lower()
             if choice == "1":
                 self.scan()
@@ -557,6 +637,9 @@ class Teleop:
                 self.edit_pid(ask)
             elif choice == "9":
                 self.measure_deadband(ask)
+            elif choice == "10":
+                path = ask("Αρχείο CSV για τη σάρωση (κενό = χωρίς): ").strip()
+                self.measure_motor_deadband(ask, csv_path=path or None)
             elif choice in ("q", ";"):
                 return
 

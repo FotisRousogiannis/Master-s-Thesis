@@ -7,8 +7,8 @@
     "lower_deg": -90.0,
     "upper_deg": 90.0,
     "label": "joint_1 (yaw)",
-    "deadband_pos": 0.09,
-    "deadband_neg": 0.13
+    "deadband_pos": 0.05,
+    "deadband_neg": 0.05
   },
   "roll": {
     "mux_channel": 1,
@@ -17,8 +17,8 @@
     "lower_deg": -90.0,
     "upper_deg": 90.0,
     "label": "joint_2 (roll)",
-    "deadband_pos": 0.13,
-    "deadband_neg": 0.11
+    "deadband_pos": 0.07,
+    "deadband_neg": 0.07
   },
   "pid": {
     "kp": 0.02,
@@ -30,7 +30,8 @@
     "settle_s": 0.5,
     "timeout_s": 60.0,
     "limit_margin_deg": 5.0,
-    "deadband_margin": 0.03
+    "deadband_margin": 0.03,
+    "motor_compensation": 1.0
   },
   "motors": {
     "a": 0,

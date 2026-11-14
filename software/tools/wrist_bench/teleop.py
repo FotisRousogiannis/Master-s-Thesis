@@ -321,9 +321,13 @@ class Teleop:
             self.bench.mux.select(None)
             self.out("✖ Κάποιος encoder δεν απαντά: σάρωση (1).")
             return
-        bad = [ch for ch, (_a, st) in status.items() if st != "OK"]
-        if bad:
-            self.out(f"✖ Μαγνήτης όχι OK στο {', '.join(f'mux{c}' for c in bad)}: πρώτα αυτό (επιλογή 2).")
+        missing = [ch for ch, (_a, st) in status.items() if st == "NO_MAGNET"]
+        if missing:
+            self.out(f"✖ Δεν βλέπει μαγνήτη ο {', '.join(f'mux{c}' for c in missing)}: πρώτα αυτό (επιλογή 2).")
+            return
+        weak = [f"mux{ch} {st}" for ch, (_a, st) in status.items() if st != "OK"]
+        if weak and ask(f"⚠ Μαγνήτης όχι OK ({', '.join(weak)}): η γωνία μπορεί να έχει θόρυβο ή μικρότερη ακρίβεια. "
+                        "Συνέχεια για δοκιμή; [y/N]: ").strip().lower() not in ("y", "yes", "ν", "ναι"):
             return
         mapping = {ax: (c.mux_channel, c.sign) for ax, c in self.axes.items()}
         if ask("Αυτόματη αναγνώριση: κινώ λίγο τον pitch (W/S) και τον roll (A/D) και βλέπω ποιος encoder "

@@ -197,3 +197,25 @@ def test_identification_moves_back_and_a_no_changes_nothing(config, tmp_path):
     assert any("roll (A/D) → encoder mux2" in l and "κατεβαίνει" in l for l in lines)
     assert "Ακυρώθηκε· τίποτα δεν άλλαξε." in lines and not (tmp_path / "cal.json").exists()
     assert abs(bus.pitch - pitch0) < 5 and abs(bus.roll - roll0) < 5   # went back near the start
+
+
+def test_weak_magnet_asks_and_no_magnet_refuses(config, tmp_path):
+    class WeakRoll(SimBase):
+        def read_byte_data(self, addr, reg):
+            if reg == wb.AS5600_STATUS:
+                return wb.AS5600_MD | (wb.AS5600_ML if self.channel == 2 else 0)
+            return 128
+
+    lines = []
+    tele = t.Teleop(wb.Bench(config, WeakRoll()), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "c.json")
+    asked = []
+    tele.calibrate(ask=lambda prompt: asked.append(prompt) or "", jog=lambda: None)   # Enter = no
+    assert "TOO_WEAK" in asked[0] and len(asked) == 1 and not (tmp_path / "c.json").exists()
+
+    class NoMagnet(SimBase):
+        def read_byte_data(self, addr, reg):
+            return 0 if reg == wb.AS5600_STATUS else 128
+
+    tele = t.Teleop(wb.Bench(config, NoMagnet()), 0, 1, True, [2, 4], out=lines.append, calibration=tmp_path / "c.json")
+    tele.calibrate(ask=lambda prompt: pytest.fail("must not ask"), jog=lambda: None)
+    assert any("Δεν βλέπει μαγνήτη" in l for l in lines)

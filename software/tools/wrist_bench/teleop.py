@@ -8,6 +8,11 @@ the TCA9548A, so nothing has to be selected by hand, and no Adafruit libraries o
     python3 teleop.py                       # menu
     python3 teleop.py --a 0 --b 1 --enc 2,4 # start with these channels
 
+Closed loop (control.py): [6] calibration finds which encoder measures each axis (pitch = W/S,
+roll = A/D) and its direction with a short automatic move, then the zero at a known angle;
+[7] moves both axes to target angles with one PID per axis; [8] PID settings. The calibration
+is saved to base_calibration.json (commit it: it is the bench's record).
+
 Kept from the old tool: speed as a fraction (-1..1) mapped to the pulse like its speed_to_pulse,
 start magnitude 0.4, +/- step 0.1, W/S pitch (motors together), A/D roll (motors opposed), motor B
 mirrored by default. Changed: the first key press is honoured for 0.6 s (the terminal starts its
@@ -24,6 +29,7 @@ import sys
 import time
 from pathlib import Path
 
+import control as ctl
 import wrist_bench as wb
 
 PCA_CHANNELS = range(16)
@@ -72,11 +78,13 @@ class TeleopController(wb.JogController):
 
 
 class Teleop:
-    def __init__(self, bench, a=0, b=1, invert_b=True, encoders=(), out=print):
+    def __init__(self, bench, a=0, b=1, invert_b=True, encoders=(), out=print, calibration=ctl.DEFAULT_CALIBRATION):
         self.bench, self.out = bench, out
         self.a, self.b, self.invert_b = a, b, invert_b
         self.encoder_channels = list(encoders)
         self.found = None  # last scan
+        self.calibration_path = Path(calibration)
+        self.axes, self.pid = ctl.load_calibration(self.calibration_path)
 
     # -- menu actions -----------------------------------------------------------------------
     def scan(self):
@@ -245,13 +253,207 @@ class Teleop:
                 self.out(f"\nκαταγραφή: {csv_path}")
             self.out("\nέξοδοι off")
 
+    # -- closed loop ----------------------------------------------------------------------------
+    def raw_angles(self, channels):
+        """{mux channel: (raw degrees, magnet status)}; raises OSError if one does not answer."""
+        out = {}
+        for ch in channels:
+            angle, _raw, status, _agc = wb.AS5600(self.bench.bus, self.bench.mux, ch).read()
+            out[ch] = (angle, status)
+        return out
+
+    def pulse_axis(self, axis, speed, duration, sleep=time.sleep):
+        """Short bounded move on one axis (calibration): speed fraction for `duration` s, then off."""
+        pitch, roll = (speed, 0.0) if axis == "pitch" else (0.0, speed)
+        try:
+            for ch, pulse in self.pulses(pitch, roll).items():
+                self.bench.pca.set_pulse(ch, pulse)
+            sleep(min(duration, self.bench.safety["max_duration_s"]))
+        finally:
+            self.bench.stop()
+
+    def save(self):
+        ctl.save_calibration(self.calibration_path, self.axes, self.pid,
+                             {"a": self.a, "b": self.b, "invert_b": self.invert_b})
+        self.out(f"Αποθηκεύτηκε: {self.calibration_path}")
+
+    def identify(self, channels, ask=input, sleep=time.sleep, speed=0.4, duration=0.4):
+        """Move each axis a little forward and back; see which encoder changed and which way; ask to confirm.
+        Returns {axis: (mux channel, sign)} or None."""
+        mapping = {}
+        for axis in ctl.AXES:
+            before = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+            self.pulse_axis(axis, speed, duration, sleep)
+            sleep(0.3)
+            after = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+            self.pulse_axis(axis, -speed, duration, sleep)          # back to about where it was
+            self.bench.mux.select(None)
+            moves = "  ".join(f"mux{ch} {(after[ch] - before[ch] + 180) % 360 - 180:+.1f}°" for ch in channels)
+            self.out(f"  {axis} ({'W' if axis == 'pitch' else 'D'}): {moves}")
+            try:
+                mapping[axis] = ctl.detect_axis(before, after)
+            except ValueError as exc:
+                self.out(f"✖ {axis}: {exc}")
+                return None
+        if mapping["pitch"][0] == mapping["roll"][0]:
+            self.out(f"✖ Και οι δύο κινήσεις άλλαξαν μόνο τον mux{mapping['pitch'][0]}: έλεγξε τον άλλον encoder.")
+            return None
+        self.out("Κατάλαβα:")
+        for axis, (ch, sign) in mapping.items():
+            keys = "W/S" if axis == "pitch" else "A/D"
+            self.out(f"  {axis} ({keys}) → encoder mux{ch}, η γωνία {'ανεβαίνει' if sign > 0 else 'κατεβαίνει'} "
+                     f"με {'W' if axis == 'pitch' else 'D'}")
+        if ask("Σωστό; [Y/n]: ").strip().lower() in ("n", "no", "ο", "όχι"):
+            self.out("Ακυρώθηκε· τίποτα δεν άλλαξε.")
+            return None
+        return mapping
+
+    def calibrate(self, ask=input, sleep=time.sleep, jog=None):
+        """Per axis: find its encoder and direction (short automatic move), then its zero at a known angle."""
+        jog = jog or self.drive
+        channels = self.encoder_channels
+        if len(channels) < 2:
+            self.out("✖ Διάλεξε πρώτα (επιλογή 3) τους δύο encoders του ζεύγους.")
+            return
+        try:
+            status = self.raw_angles(channels)
+        except OSError:
+            self.bench.mux.select(None)
+            self.out("✖ Κάποιος encoder δεν απαντά: σάρωση (1).")
+            return
+        bad = [ch for ch, (_a, st) in status.items() if st != "OK"]
+        if bad:
+            self.out(f"✖ Μαγνήτης όχι OK στο {', '.join(f'mux{c}' for c in bad)}: πρώτα αυτό (επιλογή 2).")
+            return
+        mapping = {ax: (c.mux_channel, c.sign) for ax, c in self.axes.items()}
+        if ask("Αυτόματη αναγνώριση: κινώ λίγο τον pitch (W/S) και τον roll (A/D) και βλέπω ποιος encoder "
+               "αλλάζει. Συνέχεια; [Y/n]: ").strip().lower() not in ("n", "no", "ο", "όχι"):
+            found = self.identify(channels, ask, sleep)
+            if found is None:
+                return
+            mapping = found
+        elif set(mapping) != set(ctl.AXES):
+            self.out("✖ Χωρίς αναγνώριση δεν ξέρω ποιος encoder μετρά κάθε κίνηση.")
+            return
+        for axis in ctl.AXES:
+            keys = "W/S" if axis == "pitch" else "A/D"
+            channel, sign = mapping[axis]
+            current = self.axes.get(axis)
+            self.out(f"\n--- μηδέν του {axis} (mux{channel}) ---")
+            self.out(f"Φέρε τον {axis} σε γνωστή γωνία με {keys} (π.χ. κάθετα με αλφάδι) και πάτα Q.")
+            jog()
+            angle = float(ask("Γωνία αυτής της θέσης σε μοίρες [0]: ").strip() or 0)
+            lower = float(ask(f"Κάτω όριο σε μοίρες [{current.lower_deg if current else -90}]: ").strip()
+                          or (current.lower_deg if current else -90))
+            upper = float(ask(f"Πάνω όριο σε μοίρες [{current.upper_deg if current else 90}]: ").strip()
+                          or (current.upper_deg if current else 90))
+            raw = self.raw_angles([channel])[channel][0]
+            self.bench.mux.select(None)
+            self.axes[axis] = ctl.AxisCalibration(channel, sign, ctl.zero_for(raw, sign, angle), lower, upper)
+            self.out(f"  {axis}: μηδέν {self.axes[axis].zero_deg}° (ένδειξη {raw:.2f}° = {angle}°), "
+                     f"όρια [{lower}, {upper}]")
+        self.save()
+
+    def move_to(self, targets, rate=50, csv_path=None, clock=time.monotonic, sleep=time.sleep, keys=None):
+        """Closed loop to {axis: degrees}; stops when there, on SPACE/Q, timeout, limit or encoder loss."""
+        try:
+            pair = ctl.PairController(self.axes, self.pid)
+        except ValueError as exc:
+            self.out(f"✖ {exc}")
+            return False
+        channels = sorted({c.mux_channel for c in self.axes.values()})
+        f = open(csv_path, "w", newline="") if csv_path else None
+        writer = csv.writer(f) if f else None
+        if writer:
+            writer.writerow(["t_s"] + [f"{ax}_{k}" for ax in ctl.AXES for k in ("target", "deg", "cmd")]
+                            + [f"ch{self.a}_us", f"ch{self.b}_us"])
+        keys = keys or _Keys()
+        t0 = last = clock()
+        settled_since, ok = None, False
+        try:
+            with keys:
+                raw = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+                angles = pair.angles(raw)
+                set_to = pair.set_targets({ax: targets.get(ax, angles[ax]) for ax in ctl.AXES})
+                self.out(f"Στόχος: " + "  ".join(f"{ax} {v:.1f}°" for ax, v in set_to.items())
+                         + "   (SPACE ή Q: στάση)")
+                while True:
+                    now = clock()
+                    if keys.stop_pressed():
+                        self.out("\nΣτάση από τον χρήστη.")
+                        break
+                    if now - t0 > self.pid["timeout_s"]:
+                        self.out(f"\nΣΤΟΠ: δεν έφτασε σε {self.pid['timeout_s']} s.")
+                        break
+                    raw = {ch: a for ch, (a, _s) in self.raw_angles(channels).items()}
+                    angles = pair.angles(raw)
+                    cmd, errors = pair.step(angles, max(now - last, 1e-3))
+                    last = now
+                    pulses = self.pulses(cmd["pitch"], cmd["roll"])
+                    for ch, pulse in pulses.items():
+                        if pulse is None:
+                            self.bench.pca.channel_off(ch)
+                        else:
+                            self.bench.pca.set_pulse(ch, pulse)
+                    if writer:
+                        writer.writerow([f"{now - t0:.4f}"]
+                                        + [v for ax in ctl.AXES for v in (f"{pair.targets[ax]:.2f}",
+                                           f"{angles[ax]:.3f}", f"{cmd[ax]:.3f}")]
+                                        + [f"{p:.0f}" if p else "off" for p in pulses.values()])
+                    sys.stdout.write("\r" + "  ".join(f"{ax} {angles[ax]:7.2f}° (σφάλμα {errors[ax]:+6.2f}, "
+                                                        f"εντολή {cmd[ax]:+.2f})" for ax in ctl.AXES) + "   ")
+                    sys.stdout.flush()
+                    if pair.there(errors):
+                        settled_since = settled_since if settled_since is not None else now
+                        if now - settled_since >= self.pid["settle_s"]:
+                            self.out("\n✔ Έφτασε.")
+                            ok = True
+                            break
+                    else:
+                        settled_since = None
+                    sleep(1.0 / rate)
+        except OSError:
+            self.out("\nΣΤΟΠ: κάποιος encoder σταμάτησε να απαντά.")
+        except ctl.EncoderJump as exc:
+            self.out(f"\nΣΤΟΠ: σφάλμα encoder ({exc}).")
+        except ctl.LimitError as exc:
+            self.out(f"\nΣΤΟΠ: {exc}")
+        finally:
+            self.bench.stop()
+            if f:
+                f.close()
+                self.out(f"καταγραφή: {csv_path}")
+        return ok
+
+    def ask_move(self, ask=input):
+        if any(ax not in self.axes for ax in ctl.AXES):
+            self.out("✖ Πρώτα calibration (επιλογή 6).")
+            return
+        targets = {}
+        for ax in ctl.AXES:
+            c = self.axes[ax]
+            text = ask(f"Στόχος {ax} σε μοίρες [{c.lower_deg} … {c.upper_deg}], Enter = μένει όπου είναι: ").strip()
+            if text:
+                targets[ax] = float(text)
+        path = ask("Αρχείο CSV για καταγραφή (κενό = χωρίς): ").strip()
+        self.move_to(targets, csv_path=path or None)
+
+    def edit_pid(self, ask=input):
+        for key, value in self.pid.items():
+            text = ask(f"{key} [{value}]: ").strip()
+            if text:
+                self.pid[key] = float(text)
+        self.save()
+
     # -- menu -----------------------------------------------------------------------------------
     def menu(self, ask=input):
         while True:
             self.out(f"\n=== Πάγκος βραχίονα ===  A=ch{self.a} B=ch{self.b} "
                      f"B {'ανεστρ.' if self.invert_b else 'κανον.'}  encoders={self.encoder_channels or '-'}\n"
                      "  [1] Σάρωση I²C\n  [2] Μαγνήτες encoders (5 αναγνώσεις)\n  [3] Επιλογή καναλιών\n"
-                     "  [4] Κίνηση διαφορικού\n  [5] Έξοδοι off\n  [q] Έξοδος")
+                     "  [4] Κίνηση διαφορικού\n  [5] Έξοδοι off\n"
+                     f"  [6] Calibration (κλειστός βρόχος)   {'✔ ' + ', '.join(self.axes) if self.axes else '✖ δεν έχει γίνει'}\n"
+                     "  [7] Μετακίνηση σε γωνία (PID)\n  [8] Ρυθμίσεις PID\n  [q] Έξοδος")
             choice = ask("> ").strip().lower()
             if choice == "1":
                 self.scan()
@@ -264,8 +466,41 @@ class Teleop:
                 self.drive(csv_path=path or None)
             elif choice == "5":
                 self.outputs_off()
+            elif choice == "6":
+                self.calibrate(ask)
+            elif choice == "7":
+                self.ask_move(ask)
+            elif choice == "8":
+                self.edit_pid(ask)
             elif choice in ("q", ";"):
                 return
+
+
+class _Keys:
+    """Non-blocking SPACE/Q check during a closed-loop move (terminal in cbreak mode)."""
+
+    def __enter__(self):
+        import termios
+        import tty
+
+        self.fd = sys.stdin.fileno()
+        self.termios = termios
+        self.old = termios.tcgetattr(self.fd)
+        tty.setcbreak(self.fd)
+        return self
+
+    def __exit__(self, *exc):
+        self.termios.tcsetattr(self.fd, self.termios.TCSADRAIN, self.old)
+        return False
+
+    def stop_pressed(self):
+        while select.select([self.fd], [], [], 0)[0]:
+            data = os.read(self.fd, 64).decode("utf-8", errors="ignore").lower()
+            if not data:
+                return False
+            if any(k in data for k in " q;"):
+                return True
+        return False
 
 
 def main(argv=None):
@@ -275,13 +510,19 @@ def main(argv=None):
     ap.add_argument("--b", type=int, default=1, help="PCA9685 channel of motor B")
     ap.add_argument("--no-invert-b", action="store_true", help="motor B is not mirrored")
     ap.add_argument("--enc", default="", help="TCA9548A channels of the encoders to show, e.g. 2,4")
+    ap.add_argument("--calibration", default=str(ctl.DEFAULT_CALIBRATION), help="closed-loop calibration file")
     args = ap.parse_args(argv)
     config = json.loads(Path(args.config).read_text())
     from smbus2 import SMBus  # imported here so the tests run without hardware
 
     with SMBus(config["i2c_bus"]) as bus:
         bench = wb.Bench(config, bus)
-        tele = Teleop(bench, args.a, args.b, not args.no_invert_b, parse_list(args.enc, MUX_CHANNELS))
+        tele = Teleop(bench, args.a, args.b, not args.no_invert_b, parse_list(args.enc, MUX_CHANNELS),
+                      calibration=args.calibration)
+        saved = json.loads(Path(args.calibration).read_text()).get("motors") if Path(args.calibration).exists() else None
+        if saved and argv is None and len(sys.argv) == 1:   # no channels given: use the calibrated ones
+            tele.a, tele.b, tele.invert_b = saved["a"], saved["b"], saved["invert_b"]
+            tele.encoder_channels = sorted({c.mux_channel for c in tele.axes.values()})
         try:
             tele.menu()
         except (KeyboardInterrupt, EOFError):

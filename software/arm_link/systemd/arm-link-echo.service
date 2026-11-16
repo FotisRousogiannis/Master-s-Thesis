@@ -1,0 +1,16 @@
+# Υπηρεσία systemd: ο EchoServer του arm_link τρέχει μόνος του στο Pi (θύρα UDP 9999).
+# Μην την αντιγράφεις με το χέρι: το install.sh βάζει τον χρήστη και τη διαδρομή στη θέση των @...@.
+[Unit]
+Description=arm_link EchoServer (ping και εύρεση του Pi, UDP 9999)
+After=network.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@
+# -u: τα print φτάνουν αμέσως στο journal (χωρίς buffer)
+ExecStart=/usr/bin/python3 -u -m arm_link.server
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

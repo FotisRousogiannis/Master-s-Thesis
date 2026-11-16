@@ -35,6 +35,7 @@
 | [0019](0019-joint-initialization-absolute-encoders.md) | Αρχικοποίηση αρθρώσεων: απόλυτοι encoders 1:1, μηδέν στη βαθμονόμηση, χωρίς homing | Αποδεκτή | 2026-11-09 |
 | [0020](0020-logbook-recording-calibration-features.md) | Ημερολόγιο σε SQLite, καταγραφή (REC) και calibration ανά άρθρωση ως λειτουργίες του UI | Αποδεκτή | 2026-11-09 |
 | [0021](0021-raspberry-pi-interim-controller.md) | Raspberry Pi 4 ως προσωρινός ελεγκτής του βραχίονα, με ενσύρματη σύνδεση | Αποδεκτή | 2026-11-09 |
+| [0022](0022-arm-link-udp-discovery.md) | Πακέτο `arm_link` για εύρεση του Pi και μέτρηση της σύνδεσης (UDP) | Αποδεκτή | 2026-11-16 |
 
 ## Πρότυπο
 

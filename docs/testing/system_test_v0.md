@@ -104,7 +104,7 @@ python3 wrist_bench.py stop
 ## Γνωστά προβλήματα που βρέθηκαν
 | # | Πρόβλημα | Αιτία / παράκαμψη |
 |---|---|---|
-| Π1 | Πάνελ «Σύνδεση»: «δεν βρέθηκε … ούτε στο 10.42.0.2 ούτε ως armpi.local» ενώ ψάχνει και το Host | το μήνυμα (`connection_panel.py`, `_show_checks`) δεν αναφέρει το Host που δοκιμάστηκε· η αναζήτηση είναι σωστή |
+| Π1 | Πάνελ «Σύνδεση»: «δεν βρέθηκε … ούτε στο 10.42.0.2 ούτε ως armpi.local» ενώ ψάχνει και το Host | **Διορθώθηκε (2026-11-16, ADR-0022, branch `feature/pi-communication`):** εύρεση με UDP broadcast, και το μήνυμα αναφέρει ό,τι δοκιμάστηκε· δεν έχει δοκιμαστεί ακόμα στο Arm Studio με το Pi |
 | Π2 | «Ρύθμιση κλειδιού SSH…» φτιάχνει το κλειδί αλλά δεν το περνά στο Pi (`Permission denied`) | ο κωδικός δεν φτάνει στο `ssh-copy-id` μέσω `SSH_ASKPASS` στο container· παράκαμψη: `software/launcher/pi_link.sh key fotis <IP>` από τερματικό |
 | Π3 | Μετά από επανεκκίνηση η θύρα Ethernet μπαίνει στο «Wired connection 1» αντί για το «arm-pi-direct» | `nmcli connection up arm-pi-direct`· μόνιμα με `connection.autoconnect-priority` (μόνο αν το καλώδιο είναι μόνο για το Pi) |
 | Π4 | Το Pi έπαψε να ζητά διεύθυνση όσο η θύρα ήταν σε λάθος σύνδεση | επανεκκίνηση του Pi ή ξανά το καλώδιο στο Pi |

@@ -317,3 +317,7 @@
   `arm-link-echo` για τον server στο Pi (`docs/setup/raspberry_pi.md`): εγκαταστάθηκε, και μετά από `sudo reboot`
   το discovery βρήκε το Pi χωρίς SSH (ο server ξεκινά μόνος του). Αυτά τα έγραψε η
   συνεδρία κατόπιν αιτήματος του Φώτη. Στο Docker image μπήκαν `python3-psutil` και `iproute2`.
+- **Arm Studio, πάνελ «Σύνδεση» με `arm_link`** (ADR-0022, γραμμένο από τη συνεδρία κατόπιν αιτήματος): εύρεση
+  του Pi με UDP broadcast (λύνει το Π1), γραμμή «Σύνδεση (UDP)» με 10 ping στην «Εύρεση και έλεγχος» και κουμπί
+  «Έλεγχος σύνδεσης» (100 ping). Το `arm_gui` βρίσκει το `arm_link` με `PYTHONPATH` στο `compose.yaml` (επιλογή
+  του Φώτη). Tests του `arm_gui` 39 ✅· στο Arm Studio με το αληθινό Pi δεν έχει δοκιμαστεί ακόμα.

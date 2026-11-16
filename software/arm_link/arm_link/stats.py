@@ -27,4 +27,13 @@ class LinkStats:
         if len(self.rtts_ns) == 0:
             return 0.0
         return (sum(self.rtts_ns)/len(self.rtts_ns))/10**6
-    
+    @property
+    def min_ms(self) -> float:
+        if len(self.rtts_ns) == 0:
+            return 0.0
+        return (min(self.rtts_ns))/10**6
+    @property
+    def max_ms(self) -> float:
+        if len(self.rtts_ns) == 0:
+            return 0.0
+        return (max(self.rtts_ns))/10**6

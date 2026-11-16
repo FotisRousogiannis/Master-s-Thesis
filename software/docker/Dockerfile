@@ -16,9 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-colcon-common-extensions \
         python3-pytest \
         python3-pip \
+        python3-psutil \
         git sudo bash-completion nano mesa-utils \
         wmctrl \
         openssh-client \
+        iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 # The noble base image already provides the "ubuntu" user (uid/gid 1000).

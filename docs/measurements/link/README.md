@@ -8,8 +8,8 @@ Jitter = μέσος όρος των απόλυτων διαφορών διαδο
 Πώς τρέχει:
 
     # Pi
-    cd ~/master-s-thesis/software/arm_link && python3 -m arm_link.server
-    # PC
+    cd ~/Master-s-Thesis/software/arm_link && python3 -m arm_link.server
+    # PC (Dev Container)
     cd ~/master-s-thesis/software/arm_link
     python3 -c "from arm_link.probe import LinkProbe; from arm_link.transport import UdpTransport; \
       t = UdpTransport(peer=('10.42.0.116', 9999)); s = LinkProbe(t).run(100, 0.5); \

@@ -106,7 +106,7 @@ software/launcher/pi_link.sh find
 (`python3 -m arm_link.discovery` στο PC). Ως υπηρεσία systemd ξεκινά μόνος του σε κάθε εκκίνηση του Pi και
 ξαναξεκινά αν σταματήσει. Στο Pi, με τον κώδικα στο branch που τον έχει (σήμερα `feature/pi-communication`):
 
-    cd ~/master-s-thesis && git pull
+    cd ~/Master-s-Thesis && git pull
     bash software/arm_link/systemd/install.sh
 
 Ζητά τον κωδικό του sudo και στο τέλος δείχνει `active (running)`. Μετά από κάθε `git pull` με αλλαγές στο

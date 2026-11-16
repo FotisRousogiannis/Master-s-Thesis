@@ -9,7 +9,7 @@ class LinkProbe:
     def run(self, count: int, timeout_s: float) -> LinkStats:
         LinkStat = LinkStats()
         for i in range(count):
-            now_ns = time.time_ns()
+            now_ns = time.monotonic_ns()
             ping = Ping(i, now_ns)
             self.transp.send(ping.to_bytes())
             LinkStat.sent(i)
@@ -20,6 +20,6 @@ class LinkProbe:
                 ping2 = Ping.from_bytes(data)
             except ValueError:
                 continue
-            now_ns2 = time.time_ns()
+            now_ns2 = time.monotonic_ns()
             LinkStat.received(ping2, now_ns2)
         return LinkStat

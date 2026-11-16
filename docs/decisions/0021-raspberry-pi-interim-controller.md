@@ -104,3 +104,8 @@ PC), (3) χωρίς ROS στο Pi, με δικό μας UDP (`arm_link`) και 
   Agent, και είναι σπάνιο σενάριο σε Linux· το πλεονέκτημά του (ο Agent δοκιμάζεται νωρίς) μεταφέρεται στο ESP32.
 - Στάδια: A ROS 2 στο Pi (Docker) → B node μόνο ανάγνωσης (`joint_states`, `/diagnostics`) → C εντολές με watchdog
   → D `hardware:=real` στο ros2_control. Ο κώδικας γράφεται από τον Φώτη με καθοδήγηση, branch `feature/pi-driver`.
+- **Θέση στο repo (Φώτης):** ό,τι τρέχει μόνο στο Pi είναι στο `software/pi/`: `docker/` (Dockerfile, compose.yaml)
+  και το πακέτο ROS 2 `arm_pi_driver/`. Στο Pi χτίζεται με
+  `colcon build --base-paths software/ros2_ws/src software/pi --packages-up-to arm_pi_driver` (χρειάζεται το
+  `arm_calibration`)· το PC δεν το χτίζει. Μέσα στο πακέτο: `hardware.py` (I²C) και `control.py` (PID, μίξη) χωρίς
+  ROS, με tests σε ψεύτικο υλικό· μόνο το `node.py` μιλά ROS.

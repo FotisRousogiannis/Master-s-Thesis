@@ -304,3 +304,11 @@
 - **Ορόσημο:** ο Φώτης κρίνει ότι το σύστημα του πάγκου δουλεύει· από εδώ γράφει ο ίδιος τον κώδικα (NOTES §9).
   Πρώτη άσκηση: εργαλείο σύνοψης καταγραφών CSV (`software/tools/analysis/`).
 
+## 2026-11-16
+- **Επικοινωνία PC ↔ Pi, πακέτο `software/arm_link`** (branch `feature/pi-communication`, κώδικας του Φώτη, η
+  συνεδρία εξηγεί και κάνει review): `Ping` (μήνυμα 12 bytes, `struct "!IQ"`), `LinkStats` (απώλειες, RTT
+  min/μέσος/max, jitter), `Transport` (interface: send / receive με timeout / close) με `FakeTransport` (για tests)
+  και `UdpTransport` (sockets), `LinkProbe` (PC) και `EchoServer` (Pi), με dependency injection του transport.
+  Η πρώτη άσκηση άλλαξε από την ανάλυση καταγραφών σε αυτό, με επιλογή του Φώτη.
+- **Πρώτη μέτρηση σύνδεσης** (`docs/measurements/link/`): Ethernet απευθείας, 100 πακέτα, 0 % απώλειες, RTT μέσος
+  0.174 ms, max 0.409 ms, jitter 0.024 ms. Επόμενο: ίδια μέτρηση σε WiFi, tests του πακέτου, πάνελ στο Arm Studio.

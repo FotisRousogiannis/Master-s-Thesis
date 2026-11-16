@@ -33,3 +33,4 @@ class Ping:
             raise ValueError(f"περίμενα {cls.SIZE} bytes, ήρθαν {len(data)}")
         seq, sent_ns = struct.unpack(cls.FORMAT, data)
         return cls(seq, sent_ns)
+    

@@ -116,11 +116,11 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   calibration, νεκρή ζώνη ανά μοτέρ/άξονα, αντιστάθμιση ανά μοτέρ, PID ανά άξονα· run5: yaw ±0.07°, roll ±0.58°
   (`docs/measurements/base/`). Γράφτηκε από τη συνεδρία κατόπιν αιτήματος· **από εδώ τον κώδικα τον γράφει ο Φώτης**
   (§9), ξεκινώντας από ανάλυση καταγραφών, μετά δοκιμή επαναληψιμότητας, μετά το node του Pi.
-- **Επικοινωνία PC ↔ Pi (2026-11-16):** πακέτο `software/arm_link` του Φώτη (branch `feature/pi-communication`):
+- **Επικοινωνία PC ↔ Pi (2026-11-16):** πακέτο `software/arm_link` του Φώτη (γράφτηκε στο branch `feature/pi-communication`):
   `Ping`, `LinkStats`, `Transport` (+ `FakeTransport`, `UdpTransport`), `LinkProbe`, `EchoServer`. Ethernet: 0 %
   απώλειες, RTT 0.17 ms (max 0.41)· `docs/measurements/link/`. Εύρεση του Pi με broadcast σε όλα τα δίκτυα του PC
   (`python3 -m arm_link.discovery`)· server ως υπηρεσία `arm-link-echo` στο Pi (ξεκινά μόνος του, επιβεβαιωμένο μετά από
-  reboot). Πάνελ «Σύνδεση» του Arm Studio: εύρεση UDP και μέτρηση της σύνδεσης (ADR-0022)· με το Pi 0 %, RTT 0.14 ms.
+  reboot). Πάνελ «Σύνδεση» του Arm Studio: εύρεση UDP και μέτρηση της σύνδεσης (ADR-0022)· με το Pi 0 %, RTT 0.14 ms. Ενώθηκαν στο `draft` (2026-11-16).
   Εκκρεμούν: WiFi, tests του `arm_link` (μόνο 1 τώρα).
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,

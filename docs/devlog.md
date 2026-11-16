@@ -332,3 +332,5 @@
   μπήκε κλείδωμα (μία εκκίνηση τη φορά). Το `psutil` πήγε σε ξεχωριστό στρώμα του Dockerfile, ώστε να μην
   ξανακατεβαίνουν ROS/Gazebo/MoveIt σε κάθε προσθήκη πακέτου.
 - Επιβεβαίωση από τον Φώτη: η εύρεση από το πάνελ με κενό Host δουλεύει, και η μπάρα του εικονιδίου εμφανίζεται.
+- **Merge `feature/pi-communication` → `draft`** (έγκριση του Φώτη, `--no-ff`). Tests μετά το merge: arm_link 1,
+  arm_gui 39, wrist_bench 61, arm_calibration 20, arm_logbook 5 ✅.

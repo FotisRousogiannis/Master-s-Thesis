@@ -336,3 +336,6 @@
   arm_gui 39, wrist_bench 61, arm_calibration 20, arm_logbook 5 ✅.
 - **`arm_pi_driver`: απόφαση του Φώτη** για ROS 2 σε Docker στο Pi με node σε Python και τα topics του ADR-0007
   (συμπλήρωμα ADR-0021· το micro-ROS στο Pi συζητήθηκε και απορρίφθηκε). Στάδια A–D, κώδικας από τον Φώτη.
+- **Στάδιο A (`arm_pi_driver`): ROS 2 στο Pi.** Docker 29.10 + Compose v5.7 στο Pi (get.docker.com, Debian trixie
+  arm64)· `ros:jazzy-ros-base` (arm64) στο Pi δημοσιεύει `/hello`, το container του Arm Studio στο PC το λαμβάνει:
+  DDS PC ↔ Pi στο καλώδιο δουλεύει χωρίς ρυθμίσεις. Κλειδί SSH και από το τερματικό του Ubuntu (`ssh-copy-id`).

@@ -100,6 +100,24 @@ software/launcher/pi_link.sh find
 
 Από τερματικό γίνονται τα ίδια με `software/launcher/pi_link.sh find` και `pi_link.sh key <χρήστης>`.
 
+## Υπηρεσία `arm-link-echo`: ping και εύρεση του Pi (μία φορά)
+
+Ο `EchoServer` του πακέτου `software/arm_link` (θύρα UDP 9999) απαντά στο ping και στην εύρεση
+(`python3 -m arm_link.discovery` στο PC). Ως υπηρεσία systemd ξεκινά μόνος του σε κάθε εκκίνηση του Pi και
+ξαναξεκινά αν σταματήσει. Στο Pi, με τον κώδικα στο branch που τον έχει (σήμερα `feature/pi-communication`):
+
+    cd ~/master-s-thesis && git pull
+    bash software/arm_link/systemd/install.sh
+
+Ζητά τον κωδικό του sudo και στο τέλος δείχνει `active (running)`. Μετά από κάθε `git pull` με αλλαγές στο
+`arm_link`, ξανατρέξε το `install.sh` (κάνει restart). Χρήσιμα:
+
+    systemctl status arm-link-echo          # τρέχει;
+    journalctl -u arm-link-echo -n 20       # τα τελευταία μηνύματά του
+    bash software/arm_link/systemd/install.sh --remove   # αφαίρεση
+
+Αν το discovery δεν βρίσκει το Pi ενώ το `ping 10.42.0.116` απαντά, η υπηρεσία δεν τρέχει.
+
 ## WiFi (εναλλακτικά)
 Πρόσθεση δικτύου στο Pi (καλύτερα **από το καλώδιο**, ώστε να μη χαθεί η σύνδεση αν κάτι πάει στραβά):
 ```bash

@@ -36,8 +36,12 @@ class UdpTransport(Transport):
     """Μεταφορά με UDP. Στο PC: δίνεις peer (το Pi). Στο Pi: δίνεις local_port και απαντά
     σε όποιον του έγραψε τελευταίος."""
 
-    def __init__(self, local_port: int = 0, peer: tuple[str, int] | None = None):
+    def __init__(self, local_port: int = 0, peer: tuple[str, int] | None = None,
+                 broadcast: bool = False):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if broadcast:
+            # το Linux απαγορεύει το broadcast αν δεν το ζητήσεις ρητά
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.bind(("0.0.0.0", local_port))
         self.peer = peer
 

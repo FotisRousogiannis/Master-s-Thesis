@@ -1,7 +1,7 @@
 """Το «ταχυδρομείο» του arm_link: μεταφέρει bytes, χωρίς να ξέρει τι σημαίνουν."""
 
 from abc import ABC, abstractmethod
-
+import socket
 
 class Transport(ABC):
     """Συμβόλαιο για κάθε τρόπο σύνδεσης με το Pi (UDP, serial, ψεύτικο για tests)."""
@@ -31,3 +31,29 @@ class FakeTransport(Transport):
             return self.inbox.pop(0)
     def close(self) -> None:
         self.closed = True
+
+class UdpTransport(Transport):
+    """Μεταφορά με UDP. Στο PC: δίνεις peer (το Pi). Στο Pi: δίνεις local_port και απαντά
+    σε όποιον του έγραψε τελευταίος."""
+
+    def __init__(self, local_port: int = 0, peer: tuple[str, int] | None = None):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("0.0.0.0", local_port))
+        self.peer = peer
+
+    def send(self, data: bytes) -> None:
+        if self.peer is None:
+            raise RuntimeError("δεν ξέρω σε ποιον να στείλω: δώσε peer ή λάβε πρώτα κάτι")
+        self.sock.sendto(data, self.peer)
+
+    def receive(self, timeout_s: float) -> bytes | None:
+        self.sock.settimeout(timeout_s)
+        try:
+            data, addr = self.sock.recvfrom(1024)
+        except TimeoutError:
+            return None
+        self.peer = addr
+        return data
+
+    def close(self) -> None:
+        self.sock.close()

@@ -398,17 +398,19 @@ def test_connection_panel_reports_each_step(window, monkeypatch):
     from arm_gui import link
     panel = window.connection
     panel._run_async = False
-    assert panel._host.text() == "10.42.0.2"  # the direct cable by default
+    assert panel._host.text() == ""  # found by "Εύρεση και έλεγχος" (UDP discovery)
     monkeypatch.setattr(link, "has_local_address", lambda ip: True)
     monkeypatch.setattr(link, "port_open", lambda ip, port=22, timeout=1.0: False)
     monkeypatch.setattr(link, "find_pi", lambda name="armpi": ("192.168.1.20", "δίκτυο (armpi.local)"))
     monkeypatch.setattr(link, "check_ssh", lambda host, user, d: (True, f"SSH χωρίς κωδικό προς {host}"))
+    monkeypatch.setattr(link, "measure_link", lambda host, count, timeout_s: (FakeStats([300_000] * count), ""))
     panel._user.setText("fotis")
     panel._on_edited()
     panel.check_all()
     assert panel._pills["cable"].property("state") == "ok"
     assert panel._pills["pi"].text() == "192.168.1.20" and panel._host.text() == "192.168.1.20"
     assert window.tools.pi.host == "192.168.1.20"  # the Tools panel follows
+    assert panel._pills["udp"].property("state") == "ok" and "0 % απώλειες" in panel._texts["udp"].text()
     assert panel._pills["ssh"].property("state") == "ok"
 
     monkeypatch.setattr(link, "find_pi", lambda name="armpi": (None, ""))
@@ -416,6 +418,7 @@ def test_connection_panel_reports_each_step(window, monkeypatch):
     panel._on_edited()
     panel.check_all()
     assert panel._pills["pi"].property("state") == "warn"
+    assert "εύρεση UDP" in panel._texts["pi"].text() and panel._pills["udp"].text() == "—"
 
     calls = []
     monkeypatch.setattr(link, "install_key", lambda h, u, p, d: calls.append((h, u, p)) or (True, "ok"))
@@ -429,3 +432,45 @@ def test_connection_panel_reports_each_step(window, monkeypatch):
 
     window._bridge.nodes_changed.emit(["/arm_pi_driver", "/arm_gui"])
     assert panel._pills["ros"].property("state") == "ok"
+
+
+class FakeStats:
+    """Stands in for arm_link.stats.LinkStats: rtts in ns, `lost` pings without an answer."""
+
+    def __init__(self, rtts_ns, lost=0):
+        self.rtts_ns = list(rtts_ns)
+        self.sent_count = len(self.rtts_ns) + lost
+        self.pending = set(range(lost))
+        self.loss_percent = 100.0 * lost / self.sent_count if self.sent_count else 0.0
+        ms = [r / 1e6 for r in self.rtts_ns] or [0.0]
+        self.avg_ms, self.max_ms, self.jitter_ms = sum(ms) / len(ms), max(ms), 0.0
+
+
+def test_connection_panel_measures_the_link(window, monkeypatch):
+    from arm_gui import link
+    panel = window.connection
+    panel._run_async = False
+    panel._host.setText("")
+    panel._on_edited()
+    panel.measure()
+    assert panel._pills["udp"].property("state") == "warn"  # no host yet
+
+    panel._host.setText("10.42.0.116")
+    panel._on_edited()
+    results = iter([
+        (FakeStats([170_000, 400_000]), ""),
+        (FakeStats([170_000], lost=1), ""),
+        (FakeStats([170_000, 25_000_000]), ""),
+        (FakeStats([], lost=5), ""),
+        (None, link.NO_ARM_LINK),
+    ])
+    monkeypatch.setattr(link, "measure_link", lambda host, count, timeout_s: next(results))
+    states = []
+    for _ in range(5):
+        panel.measure()
+        states.append((panel._pills["udp"].property("state"), panel._pills["udp"].text()))
+        assert panel._measure.isEnabled()
+    assert states == [("ok", "καλή"), ("warn", "ασταθής"), ("warn", "ασταθής"),
+                      ("warn", "δεν απαντά"), ("warn", "όχι")]
+    assert "arm_link" in panel._texts["udp"].text()
+

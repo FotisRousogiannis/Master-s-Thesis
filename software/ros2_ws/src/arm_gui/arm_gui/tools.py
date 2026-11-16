@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from .link import PI_DIRECT, ssh_options
+from .link import ssh_options
 
 CATALOG = Path(__file__).resolve().parent / "tools.yaml"
 WHERE = ("local", "pi")
@@ -25,7 +25,7 @@ class Tool:
 
 @dataclass(frozen=True)
 class PiTarget:
-    host: str = PI_DIRECT  # the Pi on the direct cable (ADR-0021)
+    host: str = ""  # filled in by the Connection panel (UDP discovery), or typed (ADR-0021)
     user: str = ""
     repo: str = "Master-s-Thesis"  # relative to the home directory on the Pi, or absolute
 

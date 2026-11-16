@@ -1,4 +1,4 @@
-"""Connection to the arm's Raspberry Pi (ADR-0021): find it, check SSH, install the key.
+"""Connection to the arm's Raspberry Pi (ADR-0021): find it, measure the link, check SSH, install the key.
 
 No Qt and no ROS (unit-tested). Arm Studio runs in Docker with the host network, so these see the
 computer's network as it is; changing it (NetworkManager, netplan) stays a one-time step outside the app.
@@ -10,7 +10,7 @@ import struct
 import subprocess
 from pathlib import Path
 
-PI_DIRECT = "10.42.0.2"   # the Pi on the direct cable
+PI_DIRECT = "10.42.0.2"   # old fixed address on the cable (setup_network.sh); NetworkManager now gives one by DHCP
 PC_DIRECT = "10.42.0.1"   # this computer on the direct cable (software/launcher/pi_link.sh setup-direct)
 PI_NAME = "armpi"         # mDNS name: armpi.local (software/pi/setup_network.sh base)
 MDNS = ("224.0.0.251", 5353)
@@ -97,8 +97,54 @@ def mdns_resolve(name: str, timeout: float = 1.5) -> str | None:
         return None
 
 
+# ---------------------------------------------------------------------- arm_link (software/arm_link, UDP 9999)
+# The Pi runs the arm_link EchoServer as the arm-link-echo service (docs/setup/raspberry_pi.md). arm_link is
+# found through PYTHONPATH (software/docker/compose.yaml); without it these report it instead of failing.
+NO_ARM_LINK = "το πακέτο arm_link δεν βρέθηκε (PYTHONPATH, software/docker/compose.yaml)"
+
+
+def discover_pi(timeout_s: float = 1.0) -> tuple[str | None, str]:
+    """(address, how) of the first Pi that answers a UDP broadcast on any network of this computer."""
+    try:
+        from arm_link.discovery import discover_all
+    except ImportError:
+        return None, NO_ARM_LINK
+    try:
+        found = discover_all(timeout_s=timeout_s)
+    except OSError as e:
+        return None, f"εύρεση UDP: {e}"
+    if not found:
+        return None, ""
+    ip, interface = next(iter(found.items()))
+    return ip, f"εύρεση UDP ({interface})"
+
+
+def measure_link(host: str, count: int = 20, timeout_s: float = 0.3):
+    """arm_link LinkStats of `count` pings to the Pi's EchoServer; (None, why) if it cannot run."""
+    try:
+        from arm_link.probe import LinkProbe
+        from arm_link.server import DEFAULT_PORT
+        from arm_link.transport import UdpTransport
+    except ImportError:
+        return None, NO_ARM_LINK
+    try:
+        transport = UdpTransport(peer=(host, DEFAULT_PORT))
+    except OSError as e:
+        return None, str(e)
+    try:
+        return LinkProbe(transport).run(count, timeout_s), ""
+    except OSError as e:          # e.g. network unreachable: the cable was pulled
+        return None, str(e)
+    finally:
+        transport.close()
+
+
 def find_pi(name: str = PI_NAME) -> tuple[str | None, str]:
-    """(address, how): the direct cable first, then <name>.local on any network."""
+    """(address, how): UDP discovery on every network first, then the old fixed cable address, then
+    <name>.local (mDNS)."""
+    ip, how = discover_pi()
+    if ip:
+        return ip, how
     if port_open(PI_DIRECT):
         return PI_DIRECT, "καλώδιο"
     ip = mdns_resolve(f"{name}.local")

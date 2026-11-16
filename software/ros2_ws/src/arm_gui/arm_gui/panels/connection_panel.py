@@ -1,6 +1,7 @@
 """Connection panel: where is the arm's Raspberry Pi, and does everything work (ADR-0021)?
 
-Checks, from the cable up: direct cable → Pi reachable → SSH without password → ROS 2 node of the Pi.
+Checks, from the cable up: direct cable → Pi found (arm_link UDP discovery) → link quality (arm_link ping) →
+SSH without password → ROS 2 node of the Pi.
 Network settings of the computer and the Pi are changed once, outside the app (shown here as commands).
 """
 
@@ -12,17 +13,22 @@ from ..qt import QtCore, QtWidgets, Signal
 from ..tools import PiTarget
 
 PI_NODE = "/arm_pi_driver"  # ADR-0021 (next step)
+QUICK_PINGS = 10      # with "Εύρεση και έλεγχος"
+FULL_PINGS = 100      # with "Έλεγχος σύνδεσης"
+PING_TIMEOUT_S = 0.3  # per ping: well above the 0.4 ms measured on the cable, room for WiFi
+SLOW_MS = 10.0        # max RTT above this (a 100 Hz control cycle is 10 ms) -> "ασταθής"
 ROWS = [
     ("cable", "Καλώδιο Ethernet"),
     ("pi", "Raspberry Pi"),
+    ("udp", "Σύνδεση (UDP)"),
     ("ssh", "SSH (Εργαλεία)"),
     ("ros", "ROS 2 στο Pi"),
 ]
 SETUP_HELP = (
     "<b>Μία φορά</b> (οδηγός: docs/setup/raspberry_pi.md)<br>"
-    "Στο Pi: <code>sudo software/pi/setup_network.sh base</code><br>"
     "Στον υπολογιστή (τερματικό Ubuntu, όχι Docker): <code>software/launcher/pi_link.sh setup-direct</code><br>"
-    "Νέο WiFi στο Pi (καλύτερα από το καλώδιο): <code>sudo software/pi/setup_network.sh add-wifi \"Όνομα\"</code>"
+    "Στο Pi, για την εύρεση και το ping: <code>bash software/arm_link/systemd/install.sh</code> "
+    "(υπηρεσία arm-link-echo, ξεκινά μόνη της)"
 )
 
 
@@ -41,7 +47,7 @@ class ConnectionPanel(QtWidgets.QWidget):
         target = QtWidgets.QGroupBox("Raspberry Pi")
         form = QtWidgets.QGridLayout(target)
         self._host = QtWidgets.QLineEdit(self._pi.host)
-        self._host.setPlaceholderText("10.42.0.2 (καλώδιο) ή διεύθυνση στο WiFi")
+        self._host.setPlaceholderText("κενό: το βρίσκει η «Εύρεση» · ή γράψε τη διεύθυνση")
         self._user = QtWidgets.QLineEdit()
         self._user.setPlaceholderText("χρήστης στο Pi")
         self._repo = QtWidgets.QLineEdit(self._pi.repo)
@@ -72,10 +78,14 @@ class ConnectionPanel(QtWidgets.QWidget):
         self._find = QtWidgets.QPushButton("Εύρεση και έλεγχος")
         self._find.setProperty("primary", True)
         self._find.clicked.connect(self.check_all)
+        self._measure = QtWidgets.QPushButton("Έλεγχος σύνδεσης")
+        self._measure.setToolTip(f"{FULL_PINGS} ping UDP προς το Pi: απώλειες, χρόνος πήγαινε-έλα, jitter")
+        self._measure.clicked.connect(self.measure)
         self._key = QtWidgets.QPushButton("Ρύθμιση κλειδιού SSH…")
         self._key.setToolTip("Μία φορά: ζητά τον κωδικό του χρήστη στο Pi και μετά δεν τον ξαναζητά")
         self._key.clicked.connect(self.setup_key)
         buttons.addWidget(self._find)
+        buttons.addWidget(self._measure)
         buttons.addWidget(self._key)
         buttons.addStretch(1)
         layout.addLayout(buttons)
@@ -118,10 +128,20 @@ class ConnectionPanel(QtWidgets.QWidget):
             cable = link.has_local_address(link.PC_DIRECT)
             reachable = link.port_open(host) if host else False
             found, how = (host, "όπως ορίστηκε") if reachable else link.find_pi()
+            quality = link.measure_link(found, QUICK_PINGS, PING_TIMEOUT_S) if found else (None, "")
             ssh = link.check_ssh(found, user, self._ssh_dir) if found and user else None
-            return cable, found, how, ssh
+            return cable, host, found, how, quality, ssh
 
         self._run(work, self._show_checks)
+
+    def measure(self):
+        host = self._pi.host
+        if not host:
+            self._set("udp", "warn", "λείπει", "πάτα πρώτα «Εύρεση και έλεγχος» ή γράψε τον host")
+            return
+        self._measure.setEnabled(False)
+        self._set("udp", "off", "…", f"{FULL_PINGS} ping προς {host}")
+        self._run(lambda: link.measure_link(host, FULL_PINGS, PING_TIMEOUT_S), self._show_measure)
 
     def setup_key(self):
         if not (self._pi.host and self._pi.user):
@@ -149,17 +169,23 @@ class ConnectionPanel(QtWidgets.QWidget):
         threading.Thread(target=lambda: self._done.emit(callback, work()), daemon=True).start()
 
     def _show_checks(self, result):
-        cable, found, how, ssh = result
+        cable, tried, found, how, quality, ssh = result
         self._find.setEnabled(True)
         if cable:
             self._set("cable", "ok", "ενεργό", f"αυτός ο υπολογιστής είναι {link.PC_DIRECT}")
         else:
             self._set("cable", "off", "όχι", "καλώδιο αποσυνδεδεμένο ή δεν έγινε το pi_link.sh setup-direct")
         if not found:
-            self._set("pi", "warn", "δεν βρέθηκε", f"ούτε στο {link.PI_DIRECT} ούτε ως {link.PI_NAME}.local")
+            where = f"{tried}, " if tried else ""
+            detail = f" ({how})" if how else ""
+            self._set("pi", "warn", "δεν βρέθηκε",
+                      f"δοκιμάστηκαν: {where}εύρεση UDP σε όλα τα δίκτυα, {link.PI_DIRECT}, "
+                      f"{link.PI_NAME}.local{detail}")
+            self._set("udp", "off", "—", "χωρίς Pi")
             self._set("ssh", "off", "—", "χωρίς Pi")
             return
         self._set("pi", "ok", found, how)
+        self._show_quality(quality)
         if found != self._pi.host:
             self._host.setText(found)
             self._on_edited()
@@ -168,6 +194,25 @@ class ConnectionPanel(QtWidgets.QWidget):
         else:
             ok, message = ssh
             self._set("ssh", "ok" if ok else "warn", "εντάξει" if ok else "όχι", message)
+
+    def _show_measure(self, result):
+        self._measure.setEnabled(True)
+        self._show_quality(result)
+
+    def _show_quality(self, result):
+        stats, why = result
+        if stats is None:
+            self._set("udp", "warn", "όχι", why)
+            return
+        received = len(stats.rtts_ns)
+        if received == 0:
+            self._set("udp", "warn", "δεν απαντά",
+                      f"0/{stats.sent_count} απαντήσεις: τρέχει η υπηρεσία arm-link-echo στο Pi;")
+            return
+        text = (f"{stats.loss_percent:.0f} % απώλειες ({received}/{stats.sent_count}) · "
+                f"RTT {stats.avg_ms:.2f} ms (max {stats.max_ms:.2f}) · jitter {stats.jitter_ms:.2f} ms")
+        good = stats.loss_percent == 0 and stats.max_ms < SLOW_MS
+        self._set("udp", "ok" if good else "warn", "καλή" if good else "ασταθής", text)
 
     def _show_key(self, result):
         ok, message = result

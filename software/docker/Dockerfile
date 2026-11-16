@@ -21,6 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Packages added later go in this small layer, NOT in the big one above: changing the big RUN makes Docker
+# download ROS, Gazebo and MoveIt again (30 min); changing this one only installs what is listed here.
+#   python3-psutil: network interfaces for arm_link discovery (ADR-0022) · iproute2: the `ip` command
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-psutil \
+        iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # The noble base image already provides the "ubuntu" user (uid/gid 1000).
 RUN echo "${USERNAME} ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}

@@ -64,6 +64,20 @@ fail() {
     exit 1
 }
 
+# One launcher at a time: a second click while Arm Studio is starting or open only says so (otherwise two
+# launchers race to recreate the same container and one fails with "Conflict").
+exec {LOCK_FD}>"$LOG_DIR/arm_studio.lock"
+if ! flock -n "$LOCK_FD"; then
+    echo "Ήδη σε εξέλιξη: δεύτερο κλικ, δεν κάνω τίποτα."
+    msg="Το Arm Studio ήδη ξεκινά ή είναι ανοιχτό."
+    if command -v zenity >/dev/null; then
+        zenity --info --title="Arm Studio" --text="$msg" --timeout=5 2>/dev/null
+    else
+        notify "$msg"
+    fi
+    exit 0
+fi
+
 command -v docker >/dev/null || fail "Δεν βρέθηκε το Docker."
 docker info >/dev/null 2>&1 || fail "Το Docker δεν τρέχει ή ο χρήστης δεν ανήκει στην ομάδα docker."
 

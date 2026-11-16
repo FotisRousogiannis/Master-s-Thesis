@@ -37,3 +37,11 @@ class LinkStats:
         if len(self.rtts_ns) == 0:
             return 0.0
         return (max(self.rtts_ns))/10**6
+    @property
+    def jitter_ms(self) -> float:
+        if len(self.rtts_ns) < 2:
+            return 0.0
+        diffs = []
+        for a, b in zip(self.rtts_ns, self.rtts_ns[1:]):
+            diffs.append(abs(b - a))
+        return sum(diffs) / len(diffs) / 10**6

@@ -24,6 +24,8 @@ services:
       - ARM_DATA_DIR=/home/ubuntu/master-s-thesis/.local
       # Calibration is saved straight into the repo file (ADR-0017), whatever the colcon install mode.
       - ARM_CALIBRATION_FILE=/home/ubuntu/master-s-thesis/software/ros2_ws/src/arm_calibration/config/calibration.yaml
+      # PC ↔ Pi communication package (ping, discovery) used by Arm Studio; plain Python, not a ROS package.
+      - PYTHONPATH=/home/ubuntu/master-s-thesis/software/arm_link
     volumes:
       - ../..:/home/ubuntu/master-s-thesis
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

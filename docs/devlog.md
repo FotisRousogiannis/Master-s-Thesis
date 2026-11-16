@@ -314,5 +314,6 @@
   0.174 ms, max 0.409 ms, jitter 0.024 ms. Επόμενο: ίδια μέτρηση σε WiFi, tests του πακέτου, πάνελ στο Arm Studio.
 - **Εύρεση του Pi (discovery)** με UDP broadcast σε κάθε δίκτυο του PC (`psutil`): βρήκε το Pi στο Ethernet
   (`10.42.0.116`, από `enp8s0`)· στο `255.255.255.255` όχι, γιατί το Linux το στέλνει από το WiFi. Υπηρεσία systemd
-  `arm-link-echo` για τον server στο Pi (`docs/setup/raspberry_pi.md`), όχι ακόμα εγκατεστημένη. Αυτά τα έγραψε η
+  `arm-link-echo` για τον server στο Pi (`docs/setup/raspberry_pi.md`): εγκαταστάθηκε, και μετά από `sudo reboot`
+  το discovery βρήκε το Pi χωρίς SSH (ο server ξεκινά μόνος του). Αυτά τα έγραψε η
   συνεδρία κατόπιν αιτήματος του Φώτη. Στο Docker image μπήκαν `python3-psutil` και `iproute2`.

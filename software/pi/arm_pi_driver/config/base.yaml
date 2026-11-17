@@ -36,6 +36,7 @@ control:                    # κοινά για ΟΛΕΣ τις αρθρώσει
 # Νόμος ελέγχου ανά άρθρωση: law: {type: pid, kp, ki, kd} ή {type: bang_bang, speed} (laws.py).
 groups:
   base:                     # διαφορικό
+    enabled: true
     joints:
       joint_1:              # yaw (στροφή της βάσης)
         mux_channel: 2      # κανάλι του TCA9548A όπου είναι ο ENCODER της άρθρωσης
@@ -55,26 +56,67 @@ groups:
         servo: base_b                     # κατοπτρικό (invert: true στο calibration.yaml)
         mix: {joint_1: 1, joint_2: -1}
 
-# Παράδειγμα (όταν συνδεθεί): joint_3 με δύο κατοπτρικά servo που κάνουν μία κίνηση.
-#  joint_3:
-#    joints:
-#      joint_3: {mux_channel: 3, lower_deg: -90.0, upper_deg: 90.0, law: {type: pid, kp: 0.02}}
-#    motors:
-#      a: {servo: joint3_a, mix: {joint_3: 1}}     # τα servo στο calibration.yaml (servos.joint3_a …)
-#      b: {servo: joint3_b, mix: {joint_3: 1}}     # το κατοπτρικό: invert: true εκεί
+# ---------------------------------------------------------------------------------------------
+# Τα υπόλοιπα κομμάτια: γραμμένα, αλλά ΑΠΕΝΕΡΓΟΠΟΙΗΜΕΝΑ (enabled: false) μέχρι να συνδεθούν. Ο driver
+# αγνοεί εντελώς μια ομάδα με enabled: false (ούτε encoders ούτε μοτέρ, ούτε έλεγχος βαθμονόμησης).
+# Για να ενεργοποιήσεις μία:
+#   1. συμπλήρωσε τα «;» παρακάτω (κανάλι mux του encoder) και έλεγξε τα όρια
+#   2. βάλε τα servo της στο calibration.yaml (servos.<όνομα>: channel, neutral_us, invert, note)
+#      και το μηδέν/φορά του encoder (encoders.<άρθρωση>), π.χ. από το Arm Studio
+#   3. enabled: true, και επανεκκίνηση του container (docker compose up -d --force-recreate)
+# Κάθε ομάδα ελέγχεται χωριστά: ενεργοποίησε μία, δοκίμασέ την, μετά την επόμενη.
 
-# Παράδειγμα (όταν συνδεθεί): η αρπάγη. Ένα servo, AS5600 στον άξονα, 2 × ZD10 μέσω ADS1115 στο
-# ΙΔΙΟ κανάλι του mux με τον AS5600 της (ADR-0021). Όρια κίνησης: 0° (κλειστή) έως gripper.open_deg
-# του calibration.yaml (0 = δεν ανοίγει, μέχρι να βαθμονομηθεί). Το κλείσιμο σταματά όταν κάποιο
-# δάχτυλο ξεπεράσει το gripper.contact_v του calibration.yaml (V στην είσοδο του ADS1115· χωρίς πίεση
-# ~0.94 V, μέγιστη ~2.5 V· χωρίς contact_v: καμία ανίχνευση επαφής).
-#  gripper:
-#    controller: gripper
-#    joints:
-#      gripper: {mux_channel: 7, law: {type: pid, kp: 0.02}}
-#    motors:
-#      a: {servo: gripper, mix: {gripper: 1}}      # servos.gripper στο calibration.yaml
-#    adc: {mux_channel: 7, address: 0x48, full_scale_v: 4.096, rate_sps: 860}
-#    force_sensors:
-#      finger_1: {input: 0}   # ADS1115 A0
-#      finger_2: {input: 1}   # ADS1115 A1
+  joint_3:                  # δύο κατοπτρικά servo, μία κίνηση (Φώτης, 2026-11-17)
+    enabled: false
+    joints:
+      joint_3:
+        mux_channel: null   # ; κανάλι του TCA9548A με τον encoder του joint_3
+        lower_deg: -90.0    # ±90° (Φώτης)
+        upper_deg: 90.0
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    motors:
+      a: {servo: joint3_a, mix: {joint_3: 1}}
+      b: {servo: joint3_b, mix: {joint_3: 1}}     # το κατοπτρικό: invert: true στο calibration.yaml
+
+  joint_4:                  # πιθανότατα δύο κατοπτρικά όπως το joint_3 (ΠΡΟΣ ΕΠΙΒΕΒΑΙΩΣΗ)
+    enabled: false
+    joints:
+      joint_4:
+        mux_channel: null   # ;
+        lower_deg: -90.0    # ; όρια προς επιβεβαίωση
+        upper_deg: 90.0
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    motors:
+      a: {servo: joint4_a, mix: {joint_4: 1}}
+      b: {servo: joint4_b, mix: {joint_4: 1}}
+
+  wrist:                    # διαφορικό joint_5 + joint_6, όπως η βάση
+    enabled: false
+    joints:
+      joint_5:
+        mux_channel: null   # ;
+        lower_deg: -90.0    # ; όρια προς επιβεβαίωση
+        upper_deg: 90.0
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+      joint_6:
+        mux_channel: null   # ;
+        lower_deg: -90.0    # ;
+        upper_deg: 90.0
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    motors:
+      a: {servo: wrist_diff_a, mix: {joint_5: 1, joint_6: 1}}    # ήδη στο calibration.yaml (πάγκος καρπού)
+      b: {servo: wrist_diff_b, mix: {joint_5: 1, joint_6: -1}}
+
+  gripper:                  # ένα servo, AS5600 στον άξονα, 2 × ZD10 μέσω ADS1115 (ADR-0020/0021)
+    enabled: false
+    controller: gripper
+    joints:
+      gripper:              # όρια: 0° (κλειστή) έως gripper.open_deg του calibration.yaml
+        mux_channel: null   # ; ο ADS1115 είναι στο ΙΔΙΟ κανάλι (ADR-0021)
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    motors:
+      a: {servo: gripper, mix: {gripper: 1}}
+    adc: {mux_channel: null, address: 0x48, full_scale_v: 4.096, rate_sps: 860}   # ; ίδιο κανάλι
+    force_sensors:          # όριο επαφής: gripper.contact_v στο calibration.yaml (χωρίς: μόνο θέση)
+      finger_1: {input: 0}  # ADS1115 A0
+      finger_2: {input: 1}  # ADS1115 A1

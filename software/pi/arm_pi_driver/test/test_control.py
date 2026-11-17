@@ -1,10 +1,11 @@
 import copy
 
-from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller, LAWS,
-                                   make_law, MixController, PID)
+from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller,
+                                   enabled_groups, LAWS, make_law, MixController, PID)
 from arm_pi_driver.driver import Driver
 from arm_pi_driver.hardware.fake import SimulatedArm
 import pytest
+import yaml
 
 DT = 0.02
 
@@ -107,3 +108,31 @@ def test_a_joint_without_a_motor_is_refused(arm):
     arm['groups']['tool']['motors']['a']['mix'] = {'tool': 0}
     with pytest.raises(ValueError):
         build_controllers(arm)
+
+
+def raw_config():
+    from conftest import PACKAGE
+    return yaml.safe_load((PACKAGE / 'config' / 'base.yaml').read_text(encoding='utf-8'))
+
+
+def test_only_enabled_groups_are_driven():
+    config, disabled = enabled_groups(raw_config())
+    assert list(config['groups']) == ['base']
+    assert set(disabled) == {'joint_3', 'joint_4', 'wrist', 'gripper'}
+
+
+def test_enabling_a_group_with_missing_wiring_is_refused():
+    config = raw_config()
+    config['groups']['joint_3']['enabled'] = True                # mux_channel: null ακόμα
+    with pytest.raises(ValueError, match='joint_3.mux_channel'):
+        enabled_groups(config)
+    config['groups']['joint_3']['joints']['joint_3']['mux_channel'] = 3
+    active, _ = enabled_groups(config)
+    assert list(active['groups']) == ['base', 'joint_3']
+
+
+def test_no_enabled_group_is_refused():
+    config = raw_config()
+    config['groups']['base']['enabled'] = False
+    with pytest.raises(ValueError):
+        enabled_groups(config)

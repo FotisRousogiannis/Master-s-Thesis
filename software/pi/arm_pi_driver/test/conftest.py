@@ -21,7 +21,9 @@ def bench_config() -> dict:
     import yaml
 
     from arm_pi_driver.calibration import apply_calibration, load_calibration
+    from arm_pi_driver.control import enabled_groups
     config = yaml.safe_load((PACKAGE / 'config' / 'base.yaml').read_text(encoding='utf-8'))
+    config, _ = enabled_groups(config)
     return apply_calibration(config, load_calibration(CALIBRATION))
 
 

@@ -21,7 +21,7 @@ import time
 
 from ament_index_python.packages import get_package_share_directory
 from arm_pi_driver.calibration import apply_calibration, load_calibration, parameter_change
-from arm_pi_driver.control import joint_configs
+from arm_pi_driver.control import enabled_groups, joint_configs
 from arm_pi_driver.driver import Driver, ERROR, IDLE, USABLE, WARNING
 from arm_pi_driver.hardware import ADS1115, AS5600, PCA9685, TCA9548A, ZD10
 from arm_pi_driver.hardware.fake import FakeForceSensor, SimulatedArm
@@ -101,7 +101,7 @@ class PiDriverNode(Node):
         fake = self.declare_parameter('fake', False).value
         rate_hz = self.declare_parameter('rate_hz', 50.0).value
         watchdog_s = self.declare_parameter('watchdog_s', 0.2).value
-        config = load_config(self.declare_parameter('config', '').value)
+        config, disabled = enabled_groups(load_config(self.declare_parameter('config', '').value))
         calibration = calibration_file(self.declare_parameter('calibration', '').value)
         self.calibration = load_calibration(calibration)            # οι τιμές που ισχύουν τώρα
         apply_calibration(config, self.calibration)                 # μηδέν, φορά, νεκρές ζώνες…
@@ -135,7 +135,7 @@ class PiDriverNode(Node):
             f"{'ΠΡΟΣΟΜΟΙΩΣΗ (fake)' if fake else 'υλικό I²C'} · {rate_hz:g} Hz · "
             f'/{self.segment}/joint_states, /{self.segment}/joint_commands · '
             f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)} · '
-            f'βαθμονόμηση {calibration}')
+            f'απενεργοποιημένες: {", ".join(disabled) or "καμία"} · βαθμονόμηση {calibration}')
 
     def on_command(self, msg: JointState) -> None:
         """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver."""

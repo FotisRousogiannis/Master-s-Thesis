@@ -104,6 +104,14 @@ def panel(window):
     return window.calibration
 
 
+def test_order_of_the_file_and_moved_joint_follows_the_choice(panel):
+    assert [panel.joints.item(r, 0).text() for r in range(3)] == ["joint_1", "joint_2", "joint_3"]
+    assert panel.joints.item(6, 0).text() == "gripper"
+    assert [panel.servos.item(r, 0).text() for r in (1, 9, 10)] == ["servo_2", "servo_10", "servo_11"]
+    panel.joint_choice.setCurrentText("joint_2")
+    assert panel.actual_choice.currentText() == "joint_2"
+
+
 def test_pages_show_the_file(panel):
     assert panel.servos.rowCount() == 11 and panel.joints.rowCount() == 7
     row = [panel.servos.item(0, c).text() for c in range(7)]

@@ -196,6 +196,8 @@ class CalibrationPanel(QtWidgets.QWidget):
         self.jog_button = QtWidgets.QPushButton("3 · Κίνηση άρθρωσης")
         self.jog_button.clicked.connect(self.do_jog)
         self.actual_choice = QtWidgets.QComboBox()
+        # «Κινήθηκε η» starts as the joint that was moved: the user changes it only if another moved
+        self.joint_choice.currentTextChanged.connect(self.actual_choice.setCurrentText)
         relabel = QtWidgets.QPushButton("Κινήθηκε αυτή")
         relabel.setToolTip("Αν κινήθηκε άλλη άρθρωση από αυτή που διάλεξες (π.χ. διαφορικό με ανάποδα ονόματα)")
         relabel.clicked.connect(lambda: self._answer(lambda: self.wizard.relabel(self.actual_choice.currentText())))

@@ -10,7 +10,17 @@ Nothing is written to arm.yaml here: proposals wait for the user's approval, and
 go to /arm_calibration as parameters, all at once (the node validates the whole file).
 """
 
+import re
+
 from arm_calibration import procedure
+
+
+def natural(name: str):
+    """joint_2 before joint_10, servo_2 before servo_10 (ROS gives parameters alphabetically)."""
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
+
+
+ORDER = {"joints": lambda n: (n == "gripper", natural(n))}      # the gripper last, as in arm.yaml
 
 
 def nest(values: dict) -> dict:
@@ -32,6 +42,9 @@ def nest(values: dict) -> dict:
     for joint in data["joints"].values():
         joint.setdefault("encoder", None)
         joint.setdefault("servos", {})
+    for section in ("servos", "encoders", "force_sensors", "joints"):
+        key = ORDER.get(section, natural)
+        data[section] = {name: data[section][name] for name in sorted(data[section], key=key)}
     return data
 
 

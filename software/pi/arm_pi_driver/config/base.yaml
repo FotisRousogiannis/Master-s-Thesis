@@ -1,0 +1,60 @@
+# Βάση του βραχίονα: διαφορικό joint_1 (yaw) + joint_2 (roll) στο Pi (ADR-0021).
+# Τιμές από software/tools/wrist_bench/base_calibration.json (μετρήσεις πάγκου, 2026-11-14).
+# Γωνίες σε μοίρες εδώ· στο ROS 2 (topics) σε ακτίνια.
+segment: base               # topics: /base/joint_states, /base/joint_commands (ADR-0007)
+i2c_bus: 1
+tca_address: 0x70
+
+pca:
+  address: 0x40
+  mux_channel: 0
+  freq_hz: 50
+  osc_hz: 25000000
+  pulse_min_us: 500         # προδιαγραφή του servo, δεν ξεπερνιέται ποτέ
+  pulse_max_us: 2500
+  max_offset_us: 900        # όριο ασφαλείας του πάγκου γύρω από το νεκρό σημείο
+
+# axis: together = τα δύο μοτέρ μαζί («pitch» του teleop, πλήκτρα W/S)
+#       opposed  = τα μοτέρ αντίθετα («roll» του teleop, πλήκτρα A/D)
+joints:
+  joint_1:                  # yaw (στροφή της βάσης)
+    axis: together
+    mux_channel: 2
+    sign: 1
+    zero_deg: 267.891
+    lower_deg: -30.0
+    upper_deg: 50.0
+    deadband_pos: 0.05      # μικρότερη εντολή που κινεί την άρθρωση, ανά φορά (teleop [9])
+    deadband_neg: 0.05
+  joint_2:                  # roll του διαφορικού: σηκώνει τον βραχίονα (pitch στο URDF)
+    axis: opposed
+    mux_channel: 1
+    sign: -1
+    zero_deg: 112.676
+    lower_deg: -90.0
+    upper_deg: 90.0
+    deadband_pos: 0.07
+    deadband_neg: 0.07
+
+motors:
+  a:
+    channel: 0
+    neutral_us: 1630                  # πραγματικό νεκρό σημείο (teleop [10])
+    deadband_edges_us: [1420, 1840]   # κάτω/πάνω όριο της νεκρής ζώνης
+    mirrored: false
+  b:
+    channel: 1
+    neutral_us: 1605
+    deadband_edges_us: [1510, 1700]
+    mirrored: true                    # κατοπτρικό: ίδια εντολή, αντίθετη φορά
+
+pid:                        # αρχικές τιμές του πάγκου, ΟΧΙ ρυθμισμένες
+  kp: 0.02                  # κλάσμα ταχύτητας ανά μοίρα σφάλματος
+  ki: 0.0
+  kd: 0.0
+  max_speed: 0.5
+  min_speed: 0.3            # όταν δεν υπάρχει μετρημένη νεκρή ζώνη
+  tolerance_deg: 1.0        # μέσα σε αυτό η άρθρωση «έφτασε»: έξοδος 0
+  limit_margin_deg: 5.0     # πέρα από τα όρια + αυτό: στάση
+  deadband_margin: 0.03     # προστίθεται στη μετρημένη νεκρή ζώνη
+  motor_compensation: true  # κάθε μοτέρ ξεκινά από την άκρη της δικής του νεκρής ζώνης

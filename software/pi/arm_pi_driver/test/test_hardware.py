@@ -1,10 +1,9 @@
 import math
 
-import pytest
-
 from arm_pi_driver.hardware import AS5600, Encoder, NO_RESPONSE, TCA9548A
 from arm_pi_driver.hardware.as5600 import AS5600_ADDRESS, RAW_ANGLE, STATUS
 from arm_pi_driver.hardware.fake import FakeBus, FakeEncoder
+import pytest
 
 
 def encoder_registers(raw: int, status: int) -> dict:

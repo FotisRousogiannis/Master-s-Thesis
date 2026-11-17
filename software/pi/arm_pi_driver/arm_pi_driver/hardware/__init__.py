@@ -5,12 +5,13 @@
 
     from arm_pi_driver.hardware import AS5600, Encoder, TCA9548A
 
-Κλάσεις υλοποίησης με το όνομα του chip (AS5600, TCA9548A)· interfaces με το όνομα του ρόλου
-(Encoder).
+Κλάσεις υλοποίησης με το όνομα του chip (AS5600, TCA9548A, PCA9685)· interfaces με το όνομα
+του ρόλου (Encoder, PwmOutput).
 """
 
 from arm_pi_driver.hardware.as5600 import AS5600
-from arm_pi_driver.hardware.interfaces import Encoder, NO_RESPONSE
+from arm_pi_driver.hardware.interfaces import Encoder, NO_RESPONSE, PwmOutput
+from arm_pi_driver.hardware.pca9685 import PCA9685
 from arm_pi_driver.hardware.tca9548a import TCA9548A
 
-__all__ = ['AS5600', 'Encoder', 'NO_RESPONSE', 'TCA9548A']
+__all__ = ['AS5600', 'Encoder', 'NO_RESPONSE', 'PCA9685', 'PwmOutput', 'TCA9548A']

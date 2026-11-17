@@ -16,3 +16,19 @@ class Encoder(ABC):
 
 
 NO_RESPONSE = 'NO_RESPONSE'     # το υλικό δεν απάντησε (δεν είναι συνδεδεμένο, χαλαρό καλώδιο)
+
+
+class PwmOutput(ABC):
+    """Οτιδήποτε βγάζει παλμούς servo (PCA9685 σήμερα, ESP32 ή ψεύτικο αύριο)."""
+
+    @abstractmethod
+    def set_pulse(self, channel: int, pulse_us: float) -> None:
+        """Παλμός `pulse_us` μικροδευτερολέπτων στο κανάλι (σκάει με OSError αν δεν απαντά)."""
+
+    @abstractmethod
+    def off(self, channel: int) -> None:
+        """Καθόλου παλμός στο κανάλι: το servo δεν οδηγείται."""
+
+    @abstractmethod
+    def all_off(self) -> None:
+        """Καθόλου παλμός σε κανένα κανάλι."""

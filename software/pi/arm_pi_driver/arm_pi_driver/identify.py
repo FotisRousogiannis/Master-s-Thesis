@@ -165,6 +165,8 @@ class Session:
         {'op': 'read'}                                     → ενδείξεις encoders (και «είμαι εδώ»)
         {'op': 'jog', 'servos': {'servo_1': 0.4, ...}, 'duration_s': 0.5, 'stop_deg': 3.0}
                                                            → ξεκινά· το αποτέλεσμα έρχεται αργότερα
+                                                             ('plain': true → χωρίς αντιστάθμιση
+                                                             νεκρής ζώνης, για να μετρηθεί)
         {'op': 'stop'}                                     → στάση της κίνησης
         {'op': 'exit'}                                     → πίσω στον κανονικό έλεγχο
 
@@ -191,7 +193,8 @@ class Session:
             elif op == 'read':
                 result = self.identifier.read()
             elif op == 'jog':
-                self.identifier.start_jog(self._servos(request.get('servos') or {}),
+                plain = bool(request.get('plain', False))
+                self.identifier.start_jog(self._servos(request.get('servos') or {}, plain),
                                           float(request.get('duration_s', 0.5)),
                                           float(request.get('stop_deg', 3.0)), now)
                 self._jog_id = request.get('id')
@@ -230,7 +233,7 @@ class Session:
         self.identifier.release()
         self.active = False
 
-    def _servos(self, speeds: dict) -> list:
+    def _servos(self, speeds: dict, plain: bool = False) -> list:
         servos = []
         for name, speed in speeds.items():
             servo = self.data['servos'].get(name)
@@ -238,6 +241,6 @@ class Session:
                 raise ValueError(f'άγνωστο servo {name!r}')
             if servo.get('channel') is None:
                 raise ValueError(f'το {name} δεν έχει κανάλι (βήμα 1: κανάλια servo)')
-            servos.append((servo['channel'], servo['neutral_us'], servo.get('deadband_us'),
-                           float(speed)))
+            edges = None if plain else servo.get('deadband_us')
+            servos.append((servo['channel'], servo['neutral_us'], edges, float(speed)))
         return servos

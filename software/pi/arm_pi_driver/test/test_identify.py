@@ -129,7 +129,7 @@ def test_session_scan_read_and_jog_by_servo_name(session):
     while not done:
         sim.step(DT)
         now += DT
-        done = s.tick(now)
+        done = [r for r in s.tick(now) if r['op'] != 'live']
     assert done[0]['id'] == 2 and done[0]['ok'] and list(done[0]['result']['moved']) == ['2']
 
 
@@ -147,7 +147,7 @@ def test_session_exits_on_request_and_on_silence(session):
     s.handle({'op': 'exit'}, 0.1)
     assert not s.active and sim.pwm.pulses[0] is None
     s.handle({'op': 'read'}, 1.0)
-    assert s.tick(5.9) == [] and s.active
+    assert [r for r in s.tick(5.9) if r['op'] != 'live'] == [] and s.active
     [notice] = s.tick(6.1)
     assert notice['op'] == 'exit' and not s.active
 

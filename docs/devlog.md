@@ -343,3 +343,6 @@
   `ros:jazzy-ros-base` + `python3-smbus2` + `i2c-tools` · compose: host network, `/dev/i2c-1`, το repo ως volume).
   Στο Pi: το container `arm-pi` τρέχει, το `i2cdetect -y 1` βλέπει το TCA9548A (0x70), και ένα topic από μέσα του
   φτάνει στο PC.
+- Image του Pi: οι εξαρτήσεις εγκαθίστανται από τα `package.xml` (`arm_pi_driver`, `arm_calibration`) με `rosdep`
+  (ιδέα του Φώτη: μία λίστα)· χτίστηκε στο Pi, το `i2cdetect` (από `i2c-tools` του `package.xml`) δουλεύει.
+  Σκελετός πακέτου `software/pi/arm_pi_driver` (B1).

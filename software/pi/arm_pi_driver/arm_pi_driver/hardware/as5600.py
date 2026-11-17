@@ -3,7 +3,7 @@
 import math
 
 from arm_pi_driver.hardware.interfaces import Encoder, NO_RESPONSE
-from arm_pi_driver.hardware.tca9548a import Mux
+from arm_pi_driver.hardware.tca9548a import TCA9548A
 
 AS5600_ADDRESS = 0x36
 RAW_ANGLE = 0x0C    # 2 bytes: 0x0C (hi) + 0x0D (lo), 12 bits γωνίας
@@ -16,7 +16,7 @@ MH = 0x08           # μαγνήτης πολύ δυνατός (κοντά)
 class AS5600(Encoder):
     """Ένας AS5600 πίσω από ένα κανάλι του mux."""
 
-    def __init__(self, bus, mux: Mux, channel: int):
+    def __init__(self, bus, mux: TCA9548A, channel: int):
         self.bus = bus
         self.mux = mux
         self.channel = channel

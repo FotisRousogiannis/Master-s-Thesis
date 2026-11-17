@@ -372,3 +372,6 @@
   του αρχείου (ADR-0019), ενώ το Pi στέλνει σήμερα μόνο joint_1/2· μέχρι τότε `ros2 param set` ανά άρθρωση.
 - **Merge `feature/pi-driver` → `draft`** (έγκριση του Φώτη, `--no-ff`). Tests μετά το merge: arm_pi_driver 44,
   arm_link 1, arm_gui 39, wrist_bench 61, arm_calibration 20, arm_logbook 5, setup_network 3 ✅.
+- Λίστα δοκιμής της βάσης με το `arm_pi_driver` (`docs/testing/pi_driver_base.md`) και σημεία ασφαλείας στο
+  ADR-0021: E-stop στο ρεύμα των servo, OE του PCA9685, και ανοιχτή απόφαση για τη στάση (κανένας παλμός vs νεκρό
+  σημείο) λόγω βαρύτητας στο joint_2.

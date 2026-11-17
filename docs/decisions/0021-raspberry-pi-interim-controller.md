@@ -109,3 +109,6 @@ PC), (3) χωρίς ROS στο Pi, με δικό μας UDP (`arm_link`) και 
   `colcon build --base-paths software/ros2_ws/src software/pi --packages-up-to arm_pi_driver` (χρειάζεται το
   `arm_calibration`)· το PC δεν το χτίζει. Μέσα στο πακέτο: `hardware.py` (I²C) και `control.py` (PID, μίξη) χωρίς
   ROS, με tests σε ψεύτικο υλικό· μόνο το `node.py` μιλά ROS.
+- **Servo ανά άρθρωση (Φώτης, 2026-11-17):** joint_1 + joint_2 διαφορικό (2 servo) · **joint_3: 2 servo
+  κατοπτρικά, μία κίνηση** · joint_4: πιθανότατα το ίδιο (**προς επιβεβαίωση**) · joint_5 + joint_6 διαφορικό
+  (2 servo) · gripper: **1** servo. Σύνολο 9, όπως η υπόθεση πιο πάνω.

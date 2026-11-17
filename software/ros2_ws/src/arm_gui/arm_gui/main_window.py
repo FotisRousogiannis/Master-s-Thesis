@@ -318,6 +318,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calibration.load_requested.connect(b.request_parameters)
         self.calibration.apply_requested.connect(b.set_parameters_atomically)
         self.calibration.identify_requested.connect(b.identify)
+        self.calibration.service_requested.connect(b.call_trigger)
+        b.service_result.connect(self.calibration.show_service_result)
         b.service_result.connect(self.parameters.show_service_result)
         b.service_result.connect(lambda srv, ok, msg: self.log.append("υπηρεσία", f"{srv}: {msg}"))
         b.service_result.connect(lambda srv, ok, msg: self.messages.add("info" if ok else "error", f"{srv}: {msg}"))

@@ -13,6 +13,8 @@ all at once, and the node validates the whole file. «Αποθήκευση» is 
 import time
 
 from ..calibration import Wizard, nest
+from arm_calibration import procedure
+
 from .. import theme
 from ..qt import QtCore, QtWidgets, Signal
 
@@ -123,6 +125,7 @@ class CalibrationPanel(QtWidgets.QWidget):
     load_requested = Signal(str)                  # node
     apply_requested = Signal(str, object)         # node, {parameter: value}: all at once
     identify_requested = Signal(object)           # request to the Pi (dict)
+    service_requested = Signal(str)               # Trigger service (save the file)
 
     def __init__(self, parent=None, confirm=None, clock=time.monotonic):
         super().__init__(parent)
@@ -171,7 +174,11 @@ class CalibrationPanel(QtWidgets.QWidget):
         self.apply_button.clicked.connect(self.apply_edits)
         reload_button = QtWidgets.QPushButton("Ανανέωση")
         reload_button.clicked.connect(lambda: self.load_requested.emit(CALIBRATION_NODE))
+        save_button = QtWidgets.QPushButton("Αποθήκευση στο αρχείο")
+        save_button.setToolTip("Γράφει τις τιμές που ισχύουν στο arm.yaml")
+        save_button.clicked.connect(self.save_file)
         buttons.addWidget(self.apply_button)
+        buttons.addWidget(save_button)
         buttons.addWidget(reload_button)
         buttons.addStretch(1)
         layout.addWidget(self.page_buttons)
@@ -340,6 +347,7 @@ class CalibrationPanel(QtWidgets.QWidget):
         foot.addWidget(self._button("Καθαρισμός", self._clear))
         self.apply_proposals_button = self._button("Εφαρμογή (0)", self.apply_proposals)
         foot.addWidget(self.apply_proposals_button)
+        foot.addWidget(self._button("Αποθήκευση στο αρχείο", self.save_file))
         foot.addWidget(self._button("Επόμενο ▶", lambda: self.go_step(self.step + 1), primary=True))
         v.addLayout(foot)
         self.step = 0
@@ -450,14 +458,33 @@ class CalibrationPanel(QtWidgets.QWidget):
             approved = sum(1 for _, ok in self.wizard.proposals if ok)
             self.apply_proposals_button.setText(f"Εφαρμογή ({approved})")
 
+    def note(self, level: str, text: str):
+        """A result the user must see: in the wizard's findings and the status line."""
+        self.wizard.findings.append(procedure.Finding(level, text))
+        self.status.setText(text)
+        self._refresh_wizard()
+
     def apply_proposals(self):
         values, manual = self.wizard.approved()
         if manual:
-            self.status.setText("Θέλουν αλλαγή στο αρχείο με το χέρι (αφαίρεση): " + ", ".join(manual))
+            self.note(procedure.WARNING, "Θέλουν αλλαγή στο αρχείο με το χέρι (αφαίρεση): " + ", ".join(manual))
         if values:
             self.apply_requested.emit(CALIBRATION_NODE, values)
+            self.note(procedure.INFO, f"Στάλθηκαν {len(values)} αλλαγές στο /arm_calibration…")
         elif not manual:
-            self.status.setText("Καμία εγκεκριμένη πρόταση.")
+            if not self.wizard.proposals:
+                self.note(procedure.WARNING, "Δεν υπάρχουν προτάσεις για εφαρμογή.")
+            else:
+                self.note(procedure.WARNING, "Δεν τσέκαρες καμία πρόταση: τσέκαρε στη στήλη «Έγκριση» όσες θέλεις.")
+                self.go_step(3)
+
+    def save_file(self):
+        self.service_requested.emit(f"{CALIBRATION_NODE}/save")
+        self.note(procedure.INFO, "Αποθήκευση στο arm.yaml…")
+
+    def show_service_result(self, service, ok, message):
+        if service.startswith(CALIBRATION_NODE):
+            self.note(procedure.INFO if ok else procedure.ERROR, ("✓ " if ok else "") + message)
 
     def _refresh_wizard(self):
         self.mode.setText("Pi: αναγνώριση" + (" · κίνηση…" if self.wizard.busy else "") if self.wizard.active
@@ -580,11 +607,11 @@ class CalibrationPanel(QtWidgets.QWidget):
             return
         rejected = sorted({reason for _, ok, reason in results if not ok})
         if rejected:
-            self.status.setText("Απορρίφθηκαν (καμία δεν εφαρμόστηκε):\n" + "\n".join(rejected))
+            self.note(procedure.ERROR, "Απορρίφθηκαν (καμία δεν εφαρμόστηκε): " + "; ".join(rejected))
             return
         self.wizard.applied({name for name, ok, _ in results if ok})
-        self.status.setText(f"Εφαρμόστηκαν {len(results)}. «Αποθήκευση στο αρχείο» από το πάνελ «Παράμετροι».")
-        self._refresh_wizard()
+        self.note(procedure.INFO, f"✓ Εφαρμόστηκαν {len(results)} αλλαγές (ισχύουν τώρα). Για να μείνουν: "
+                                  "«Αποθήκευση στο αρχείο».")
         self.load_requested.emit(CALIBRATION_NODE)
 
     # ---------------------------------------------------------------- live values

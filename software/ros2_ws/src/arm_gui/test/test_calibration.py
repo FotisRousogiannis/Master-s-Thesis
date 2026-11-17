@@ -7,6 +7,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 arm_config = pytest.importorskip("arm_calibration.arm_config")
 from arm_gui.calibration import Wizard, nest  # noqa: E402
+from arm_calibration import procedure  # noqa: E402
 import test_gui_smoke as smoke  # noqa: E402
 
 app = smoke.app          # the same fixtures (window with a fake ROS bridge) as the smoke tests
@@ -246,3 +247,23 @@ def test_speed_and_duration_of_the_jog(panel, window):
     assert jog["servos"] == {"servo_1": 0.6, "servo_2": -0.6} and jog["duration_s"] == 1.5
     panel.go_step(6)
     assert not panel.speed.isVisibleTo(panel)
+
+
+def test_apply_without_approval_says_so_and_results_are_visible(panel, window):
+    b = window._bridge
+    panel.wizard.add([procedure.Proposal("encoders.enc_1.channel", 2, 5, "δοκιμή")])
+    panel.go_step(0)
+    panel.apply_proposals()
+    assert panel.step == 3 and "Δεν τσέκαρες" in panel.findings.item(panel.findings.count() - 1).text()
+    assert not b.atomic_sets
+    panel.wizard.proposals[0][1] = True
+    panel.apply_proposals()
+    assert b.atomic_sets[-1] == ("/arm_calibration", {"encoders.enc_1.channel": 5})
+    b.parameters_set.emit("/arm_calibration", [("encoders.enc_1.channel", False, "κανάλι encoder 5: το έχουν x")])
+    assert "Απορρίφθηκαν" in panel.findings.item(panel.findings.count() - 1).text()
+    b.parameters_set.emit("/arm_calibration", [("encoders.enc_1.channel", True, "")])
+    assert "Εφαρμόστηκαν 1" in panel.findings.item(panel.findings.count() - 1).text()
+    panel.save_file()
+    assert b.triggers[-1] == "/arm_calibration/save"
+    b.service_result.emit("/arm_calibration/save", True, "Αποθηκεύτηκε στο arm.yaml")
+    assert "Αποθηκεύτηκε" in panel.findings.item(panel.findings.count() - 1).text()

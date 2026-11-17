@@ -258,7 +258,21 @@ class CalibrationPanel(QtWidgets.QWidget):
         self.joint_choice = QtWidgets.QComboBox()
         self.servo_choice = QtWidgets.QComboBox()
         self.joint_label, self.servo_label = QtWidgets.QLabel("Άρθρωση:"), QtWidgets.QLabel("Servo:")
-        for w in (self.joint_label, self.joint_choice, self.servo_label, self.servo_choice):
+        # A real arm may need more than the defaults (bench: 0.4 for 0.5 s moved the base < 1.5°)
+        self.speed = QtWidgets.QDoubleSpinBox()
+        self.speed.setRange(0.05, 1.0)
+        self.speed.setSingleStep(0.05)
+        self.speed.setValue(0.4)
+        self.speed.setToolTip("Ταχύτητα της κίνησης (κλάσμα του μέγιστου)")
+        self.duration = QtWidgets.QDoubleSpinBox()
+        self.duration.setRange(0.1, 3.0)
+        self.duration.setSingleStep(0.1)
+        self.duration.setValue(0.5)
+        self.duration.setSuffix(" s")
+        self.duration.setToolTip("Το πολύ τόσο· σταματά νωρίτερα με την πρώτη αλλαγή 3° σε encoder (όριο Pi: 3 s)")
+        self.motion_label, self.duration_label = QtWidgets.QLabel("Ταχύτητα:"), QtWidgets.QLabel("Διάρκεια έως:")
+        for w in (self.joint_label, self.joint_choice, self.servo_label, self.servo_choice,
+                  self.motion_label, self.speed, self.duration_label, self.duration):
             choices.addWidget(w)
         choices.addStretch(1)
         v.addLayout(choices)
@@ -347,6 +361,8 @@ class CalibrationPanel(QtWidgets.QWidget):
             w.setVisible(joint)
         for w in (self.servo_label, self.servo_choice):
             w.setVisible(servo)
+        for w in (self.motion_label, self.speed, self.duration_label, self.duration):
+            w.setVisible(self.step in (2, 4))          # mapping and direction move a joint
         for i, button in enumerate(self.step_buttons):
             button.setProperty("step", "current" if i == self.step else ("done" if i < self.step else ""))
             theme.repolish(button)
@@ -386,7 +402,8 @@ class CalibrationPanel(QtWidgets.QWidget):
         self._send(self.wizard.exit())
 
     def do_jog(self):
-        self._move(self.wizard.jog_joint, self.joint_choice.currentText())
+        speed, duration = self.speed.value(), self.duration.value()
+        self._move(lambda joint: self.wizard.jog_joint(joint, speed, duration), self.joint_choice.currentText())
 
     def _move(self, make_request, name):
         if not name or not self._ready():

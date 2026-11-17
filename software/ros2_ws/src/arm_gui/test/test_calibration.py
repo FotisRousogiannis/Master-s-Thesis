@@ -223,6 +223,7 @@ def test_read_writes_the_readings_into_the_findings_once(wizard):
     wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
     texts = [f.text for f in wizard.findings]
     assert any("κανάλι 1 (joint_2): 165.3° · μαγνήτης OK" in t for t in texts)
+    assert texts[0].startswith("Ανάγνωση · ") and ":" in texts[0][11:19]   # with the time
     weak = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
     assert weak.level == "warning" and "πιο κοντά" in weak.text
     assert not any("κανάλι 5" in t for t in texts)                      # nothing there
@@ -232,3 +233,16 @@ def test_read_writes_the_readings_into_the_findings_once(wizard):
     keep = wizard.keepalive()
     wizard.handle({"id": keep["id"], "op": "read", "ok": True, "result": {"1": {"raw_deg": 1.0, "status": "OK"}}})
     assert wizard.readings == {1: {"raw_deg": 1.0, "status": "OK"}} and len(wizard.findings) == 2
+
+
+def test_speed_and_duration_of_the_jog(panel, window):
+    panel.go_step(2)
+    assert panel.speed.isVisibleTo(panel)
+    panel.speed.setValue(0.6)
+    panel.duration.setValue(1.5)
+    panel.joint_choice.setCurrentText("joint_1")
+    panel.do_jog()
+    jog = window._bridge.identify_requests[-1]
+    assert jog["servos"] == {"servo_1": 0.6, "servo_2": -0.6} and jog["duration_s"] == 1.5
+    panel.go_step(6)
+    assert not panel.speed.isVisibleTo(panel)

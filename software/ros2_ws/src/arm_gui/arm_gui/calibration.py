@@ -11,6 +11,7 @@ go to /arm_calibration as parameters, all at once (the node validates the whole 
 """
 
 import re
+import time
 
 from arm_calibration import procedure
 
@@ -95,9 +96,10 @@ class Wizard:
             return None
         return self._request("keepalive", {"op": "read"})
 
-    def jog_joint(self, joint: str) -> dict:
+    def jog_joint(self, joint: str, speed: float = procedure.JOG_SPEED,
+                  duration_s: float = procedure.JOG_DURATION_S) -> dict:
         self.mapping = None
-        return self._request("joint", procedure.joint_jog(self.data, joint), joint)
+        return self._request("joint", procedure.joint_jog(self.data, joint, speed, duration_s), joint)
 
     def servo_deadband(self, servo: str) -> dict:
         self.sweep = procedure.ServoDeadbandSweep(self.data, servo)
@@ -181,7 +183,8 @@ class Wizard:
             level = procedure.INFO if status == "OK" else (procedure.WARNING if status in procedure.USABLE
                                                            else procedure.ERROR)
             whose = owner.get(channel, "χωρίς άρθρωση")
-            text = f"{READ_PREFIX}κανάλι {channel} ({whose}): {raw} · μαγνήτης {status}{note}"
+            now = time.strftime("%H:%M:%S")
+            text = f"{READ_PREFIX}{now} · κανάλι {channel} ({whose}): {raw} · μαγνήτης {status}{note}"
             result.append(procedure.Finding(level, text))
         if not result:
             result.append(procedure.Finding(procedure.ERROR, f"{READ_PREFIX}κανένας encoder δεν απαντά"))

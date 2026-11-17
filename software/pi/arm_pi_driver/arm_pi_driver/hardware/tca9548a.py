@@ -24,3 +24,18 @@ class TCA9548A:
             self.current = None     # άγνωστο τι είναι ανοιχτό τώρα: την επόμενη φορά ξαναστέλνουμε
             raise
         self.current = channel
+
+    def probe(self, channel: int, addresses) -> list[int]:
+        """Ποιες από τις `addresses` απαντούν (ACK) στο κανάλι `channel`, όπως το i2cdetect.
+
+        OSError αν δεν απαντά ο ίδιος ο TCA9548A.
+        """
+        self.select(channel)
+        found = []
+        for address in addresses:
+            try:
+                self.bus.read_byte(address)
+            except OSError:
+                continue
+            found.append(address)
+        return found

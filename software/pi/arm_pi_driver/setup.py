@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'driver = arm_pi_driver.node:main',
+            'identify = arm_pi_driver.identify_cli:main',
         ],
     },
 )

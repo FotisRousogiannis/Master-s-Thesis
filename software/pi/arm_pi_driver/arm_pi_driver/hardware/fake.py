@@ -28,6 +28,12 @@ class FakeBus:
         self._ack(address)
         self.writes.append((address, value))
 
+    def read_byte(self, address: int) -> int:
+        """Όπως το smbus2: ένα byte χωρίς καταχωρητή (το i2cdetect το χρησιμοποιεί για ACK)."""
+        self.calls.append(('read_byte', address))
+        self._ack(address)
+        return 0
+
     def read_byte_data(self, address: int, register: int) -> int:
         """Όπως το smbus2: ένα byte από έναν καταχωρητή."""
         self.calls.append(('read_byte_data', address, register))

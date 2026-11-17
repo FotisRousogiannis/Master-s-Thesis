@@ -5,6 +5,11 @@
                                              watchdog_s τα μοτέρ σταματούν
     /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, pi_driver/<segment>, force/…, 1 Hz
     /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
+    ~/identify/request         (ακούει)      αναγνώριση (ADR-0023): JSON {'id', 'op', ...}
+    ~/identify/reply           (δημοσιεύει)  οι απαντήσεις, JSON (identify.Session)
+
+Αναγνώριση: με το πρώτο αίτημα ο κανονικός έλεγχος σταματά (φρένο) και μόνο η αναγνώριση γράφει στα
+servo· πίσω με {'op': 'exit'} ή μόνο του αν δεν έρθει αίτημα για 5 s.
 
 Ρύθμιση: το ΕΝΑ αρχείο arm.yaml (ADR-0023), αντίγραφο του repo στο Pi. Μόλις απαντήσει το
 /arm_calibration του PC, παίρνει τις τιμές ΤΟΥ (ίσως νεότερες από το αρχείο του Pi) και μετά κάθε
@@ -16,6 +21,7 @@
     ros2 run arm_pi_driver driver --ros-args -p fake:=true
 """
 
+import json
 import math
 from pathlib import Path
 import time
@@ -26,13 +32,15 @@ from arm_pi_driver import arm_file
 from arm_pi_driver.control import joint_configs
 from arm_pi_driver.driver import Driver, ERROR, IDLE, USABLE, WARNING
 from arm_pi_driver.hardware import ADS1115, AS5600, PCA9685, TCA9548A, ZD10
-from arm_pi_driver.hardware.fake import FakeForceSensor, SimulatedArm
+from arm_pi_driver.hardware.fake import FakeEncoder, FakeForceSensor, SimulatedArm
+from arm_pi_driver.identify import DEVICES, Identifier, Session, TCA_CHANNELS
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from rcl_interfaces.msg import ParameterEvent, ParameterType
 from rcl_interfaces.srv import GetParameters, ListParameters
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
+from std_msgs.msg import String
 
 LEVELS = {IDLE: DiagnosticStatus.OK, WARNING: DiagnosticStatus.WARN, ERROR: DiagnosticStatus.ERROR}
 CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το arm.yaml
@@ -62,7 +70,7 @@ def parameter_value(value):
 
 
 def real_hardware(config: dict):
-    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm, force_sensors)."""
+    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm, force_sensors, mux)."""
     from smbus2 import SMBus     # μόνο εδώ: με fake:=true δεν χρειάζεται καθόλου
 
     bus = SMBus(config['i2c_bus'])
@@ -80,7 +88,27 @@ def real_hardware(config: dict):
                           adc_cfg.get('full_scale_v', 4.096), adc_cfg.get('rate_sps', 860))
             for name, sensor in group['force_sensors'].items():
                 force_sensors[name] = ZD10(adc, sensor['input'])
-    return encoders, pwm, force_sensors
+    return encoders, pwm, force_sensors, mux
+
+
+def real_identifier(config: dict, data: dict, pwm, mux) -> Identifier:
+    """Αναγνώριση στο αληθινό I²C: ένας AS5600 σε ΚΑΘΕ κανάλι (ίδιος mux με τον driver)."""
+    encoders = {ch: AS5600(mux.bus, mux, ch) for ch in TCA_CHANNELS}
+    return Identifier(encoders, pwm, lambda ch: mux.probe(ch, DEVICES), config['pca'],
+                      data['controller']['bench'])
+
+
+def fake_identifier(config: dict, data: dict, sim: SimulatedArm) -> Identifier:
+    """Αναγνώριση στην προσομοίωση: encoders όπου έχει η προσομοίωση, αλλού «δεν απαντά»."""
+    by_channel = {joint['mux_channel']: sim.encoders[name] for name, joint in sim.joints.items()}
+    missing = FakeEncoder(math.nan, 'NO_RESPONSE')
+    encoders = {ch: by_channel.get(ch, missing) for ch in TCA_CHANNELS}
+
+    def probe(channel):
+        found = [0x40] if channel == config['pca']['mux_channel'] else []
+        return found + ([0x36] if channel in by_channel else [])
+
+    return Identifier(encoders, sim.pwm, probe, config['pca'], data['controller']['bench'])
 
 
 def fake_force_sensors(config: dict) -> dict:
@@ -106,9 +134,13 @@ class PiDriverNode(Node):
         if fake:
             self.sim = SimulatedArm(config)
             encoders, pwm, sensors = self.sim.encoders, self.sim.pwm, fake_force_sensors(config)
+            identifier = fake_identifier(config, self.arm, self.sim)
         else:
             self.sim = None
-            encoders, pwm, sensors = real_hardware(config)
+            encoders, pwm, sensors, mux = real_hardware(config)
+            identifier = real_identifier(config, self.arm, pwm, mux)
+        # self.arm είναι ζωντανό: κανάλια που δίνει τώρα το UI ισχύουν και στην αναγνώριση
+        self.session = Session(identifier, self.arm)
         joints = joint_configs(config)
         self.channels = {name: joint['mux_channel'] for name, joint in joints.items()}
         self.driver = Driver(config, encoders, pwm, watchdog_s, force_sensors=sensors)
@@ -119,6 +151,8 @@ class PiDriverNode(Node):
         self.create_subscription(JointState, f'/{self.segment}/joint_commands',
                                  self.on_command, 10)
         self.create_subscription(ParameterEvent, '/parameter_events', self.on_parameters, 10)
+        self.identify_reply = self.create_publisher(String, '~/identify/reply', 10)
+        self.create_subscription(String, '~/identify/request', self.on_identify, 10)
         self.list_client = self.create_client(ListParameters,
                                               f'{CALIBRATION_NODE}/list_parameters')
         self.get_client = self.create_client(GetParameters, f'{CALIBRATION_NODE}/get_parameters')
@@ -133,8 +167,38 @@ class PiDriverNode(Node):
             f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)} · '
             f'ανενεργές: {", ".join(disabled) or "καμία"} · {path}')
 
+    def on_identify(self, msg: String) -> None:
+        """Ένα αίτημα αναγνώρισης (JSON)· η πρώτη φορά σταματά τον κανονικό έλεγχο."""
+        try:
+            request = json.loads(msg.data)
+        except ValueError:
+            request = {'op': None}
+        if not isinstance(request, dict):
+            request = {'op': None}
+        was_active = self.session.active
+        if not was_active and request.get('op') != 'exit':
+            self.driver.last_command = None               # ο driver σταματά: φρένο, χωρίς στόχους
+            for controller in self.driver.controllers:
+                controller.clear_targets()
+            self.driver.tick(time.monotonic())
+            self.get_logger().warning('αναγνώριση: ο κανονικός έλεγχος σταμάτησε')
+        self.send_identify(self.session.handle(request, time.monotonic()))
+        if was_active and not self.session.active:
+            self.leave_identify()
+
+    def send_identify(self, reply: dict) -> None:
+        """Μία απάντηση της αναγνώρισης στο ~/identify/reply."""
+        self.identify_reply.publish(String(data=json.dumps(reply, ensure_ascii=False)))
+
+    def leave_identify(self) -> None:
+        """Πίσω στον κανονικό έλεγχο: ο driver ξαναγράφει τους παλμούς του (φρένο)."""
+        self.driver.written = {}
+        self.get_logger().info('αναγνώριση: τέλος, κανονικός έλεγχος')
+
     def on_command(self, msg: JointState) -> None:
-        """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver."""
+        """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver (όχι σε αναγνώριση)."""
+        if self.session.active:
+            return
         targets = {name: math.degrees(p) for name, p in zip(msg.name, msg.position)}
         self.driver.command(targets, time.monotonic())
 
@@ -200,9 +264,15 @@ class PiDriverNode(Node):
             logger.info(text)
 
     def tick(self) -> None:
-        """Ένας κύκλος του Driver και δημοσίευση των θέσεων."""
+        """Ένας κύκλος του Driver (ή της αναγνώρισης) και δημοσίευση των θέσεων."""
         if self.sim:
             self.sim.step(self.period)
+        if self.session.active:
+            for reply in self.session.tick(time.monotonic()):
+                self.send_identify(reply)
+            if not self.session.active:
+                self.leave_identify()
+            return
         self.report = self.driver.tick(time.monotonic())
         for level, text in self.report.events:
             self.log(level, text)
@@ -241,7 +311,7 @@ class PiDriverNode(Node):
         outputs.name = f'pi_driver/{self.segment}'
         outputs.hardware_id = 'PCA9685'
         outputs.level = LEVELS[self.report.level]
-        outputs.message = self.report.reason
+        outputs.message = 'αναγνώριση' if self.session.active else self.report.reason
         array.status.append(outputs)
         for name, level, message, values in self.report.extra:     # π.χ. αισθητήρες αρπάγης
             status = DiagnosticStatus()

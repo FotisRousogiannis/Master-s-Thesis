@@ -100,6 +100,9 @@ QPushButton#section_button {{ text-align: left; padding: 10px 12px; border-radiu
                               background: transparent; color: {t.fg}; }}
 QPushButton#section_button:hover {{ background: {t.bg}; }}
 QPushButton#section_button:checked {{ background: {t.raised}; border: 1px solid {t.accent}; color: {t.fg}; font-weight: 600; }}
+QPushButton#arrow {{ font-size: 20px; font-weight: 700; background: {t.raised}; border: 1px solid {t.border};
+                     border-radius: 8px; }}
+QPushButton#arrow:pressed {{ background: {t.accent}; color: {t.accent_fg}; }}
 QLabel#step_title {{ font-size: 18px; font-weight: 700; }}
 QLabel#step_number {{ color: {t.muted}; font-weight: 600; }}
 QPushButton[step="current"] {{ border: 1px solid {t.accent}; color: {t.accent}; font-weight: 700; }}

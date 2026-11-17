@@ -1,19 +1,19 @@
-"""The calibration wizard of ADR-0023 without Qt: what to ask the Pi, and the proposals it collects.
+"""The calibration bench of ADR-0023 without Qt, the way teleop.py works on the bench.
 
-The Pi's identification mode (arm_pi_driver/identify.py) answers JSON requests; the steps
-themselves are arm_calibration.procedure. This class only keeps the state between them:
+The Pi's identification mode (arm_pi_driver/identify.py) runs the teleop procedures ([6], [10],
+[9]) and streams the encoders 5 times a second; the arm moves while an arrow is held (drive). This
+class keeps what the Pi said and turns each finished procedure into the parameters to save; the
+user confirms once («Σωστό · αποθήκευση») and they go to /arm_calibration all at once, then to
+arm.yaml.
 
-    request = wizard.scan()            -> the GUI publishes it
-    follow_ups = wizard.handle(reply)  -> the GUI publishes these too (deadband sweeps)
-
-Nothing is written to arm.yaml here: proposals wait for the user's approval, and approved ones
-go to /arm_calibration as parameters, all at once (the node validates the whole file).
+    request = bench.identify(group)        -> the GUI publishes it
+    follow_ups = bench.handle(reply)       -> the GUI publishes these too (next joint, next servo)
+    bench.changes                          -> {parameter: value} waiting for «Σωστό»
 """
 
 import re
-import time
 
-from arm_calibration import procedure
+from arm_calibration import arm_config
 
 
 def natural(name: str):
@@ -21,13 +21,15 @@ def natural(name: str):
     return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
 
 
-READ_PREFIX = "Ανάγνωση · "
 MAGNET_NOTES = {   # what the AS5600 status means for the user (AS5600 datasheet: AGC out of range)
-    "TOO_WEAK": " (μαγνήτης μακριά ή μικρός: η γωνία μετρά, με θόρυβο· φέρ' τον πιο κοντά, ~0.5–3 mm)",
-    "TOO_STRONG": " (μαγνήτης πολύ κοντά: η γωνία μετρά, με θόρυβο· απομάκρυνέ τον λίγο)",
-    "NO_MAGNET": " (δεν βλέπει μαγνήτη: η γωνία δεν ισχύει)",
+    "TOO_WEAK": "μαγνήτης μακριά ή μικρός: η γωνία μετρά, με θόρυβο· φέρ' τον πιο κοντά (~0.5–3 mm)",
+    "TOO_STRONG": "μαγνήτης πολύ κοντά: η γωνία μετρά, με θόρυβο· απομάκρυνέ τον λίγο",
+    "NO_MAGNET": "δεν βλέπει μαγνήτη: η γωνία δεν ισχύει",
 }
+USABLE = ("OK", "TOO_WEAK", "TOO_STRONG")
 ORDER = {"joints": lambda n: (n == "gripper", natural(n))}      # the gripper last, as in arm.yaml
+MIN_MOVE_DEG = 2.0       # teleop detect_axis: less than this is not a joint moving
+COUPLING = 0.5           # a second encoder moving more than half the first: two joints moved
 
 
 def nest(values: dict) -> dict:
@@ -55,216 +57,279 @@ def nest(values: dict) -> dict:
     return data
 
 
-def _show(value) -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, bool):
-        return "ναι" if value else "όχι"
-    return f"{value:g}" if isinstance(value, float) else str(value)
+def wrap(delta: float) -> float:
+    return (delta + 180.0) % 360.0 - 180.0
 
 
-class Wizard:
-    """State of the calibration procedure between requests to the Pi."""
+def zero_for(raw_deg: float, invert: bool, angle_deg: float) -> float:
+    """Zero such that the joint reads `angle_deg` at the encoder reading `raw_deg` (teleop)."""
+    return round((raw_deg - (-1 if invert else 1) * angle_deg) % 360.0, 3)
+
+
+class Bench:
+    """What the Pi said, and what a finished procedure would save."""
 
     def __init__(self):
         self.data = None
-        self.active = False                 # the Pi is (we asked it to be) in identification mode
-        self.findings = []                  # [procedure.Finding]
-        self.proposals = []                 # [[procedure.Proposal, approved]]
-        self.readings = {}                  # {channel: {'raw_deg', 'status'}} of the last read
-        self.mapping = None                 # procedure.JointMapping of the last joint jog
-        self.sweep = None                   # running deadband sweep
-        self.busy = False                   # a jog is running on the Pi
+        self.active = False              # the Pi is (we asked it to be) in identification mode
+        self.live = {}                   # {channel: {'raw_deg', 'status'}} from the Pi, 5 Hz
+        self.log = []                    # [(level, text)] for the user
+        self.running = None              # name of the procedure running on the Pi
+        self.changes = {}                # {parameter: value} waiting for «Σωστό · αποθήκευση»
+        self.summary = []                # what the last procedure found, line by line
+        self.identified = {}             # {joint: (channel, moved deg)} of the last [6]
+        self._queue, self._current = [], None
         self._next_id = 1
-        self._pending = {}                  # {id: (kind, argument)}
+        self._results = {}
+
+    # ---------------------------------------------------------------- the file
+    def channel_of(self, joint: str):
+        encoder = self.data["joints"][joint].get("encoder")
+        return self.data["encoders"].get(encoder, {}).get("channel") if encoder else None
+
+    def owner_of(self, channel: int):
+        return next((j for j in self.data["joints"] if self.channel_of(j) == channel), None)
+
+    def position(self, joint: str):
+        """The joint angle now (zero and direction of the file), from the live reading."""
+        reading = self.live.get(self.channel_of(joint))
+        if not reading or reading.get("raw_deg") is None or reading.get("status") not in USABLE:
+            return None
+        j = self.data["joints"][joint]
+        return round((-1 if j.get("invert") else 1) * wrap(reading["raw_deg"] - j.get("zero_deg", 0.0)), 2)
+
+    def groups(self) -> list:
+        """Groups whose servos all have a channel (only those can move)."""
+        result = []
+        for g in arm_config.groups(self.data):
+            if all(self.data["servos"][s].get("channel") is not None for s in g.servos):
+                result.append(g)
+        return result
 
     # ---------------------------------------------------------------- requests
-    def _request(self, kind: str, request: dict, argument=None) -> dict:
+    def _request(self, request: dict) -> dict:
         request = {"id": self._next_id, **request}
-        self._pending[self._next_id] = (kind, argument)
         self._next_id += 1
         if request["op"] != "exit":
             self.active = True
-        if request["op"] == "jog":
-            self.busy = True
         return request
 
     def scan(self) -> dict:
-        return self._request("scan", {"op": "scan"})
+        return self._request({"op": "scan"})
 
-    def read(self) -> dict:
-        return self._request("read", {"op": "read"})
+    def ping(self) -> dict | None:
+        """Every few seconds: keeps the Pi in identification mode (it leaves after 5 s of silence)."""
+        return self._request({"op": "ping"}) if self.active else None
 
-    def keepalive(self) -> dict | None:
-        """A read every few seconds keeps the Pi in identification mode (it leaves after 5 s).
-
-        Its readings refresh the pages quietly; only «Ανάγνωση» writes them into the findings.
-        """
-        if not self.active or self.busy:
-            return None
-        return self._request("keepalive", {"op": "read"})
-
-    def jog_joint(self, joint: str, speed: float = procedure.JOG_SPEED,
-                  duration_s: float = procedure.JOG_DURATION_S) -> dict:
-        self.mapping = None
-        return self._request("joint", procedure.joint_jog(self.data, joint, speed, duration_s), joint)
-
-    def servo_deadband(self, servo: str) -> dict:
-        self.sweep = procedure.ServoDeadbandSweep(self.data, servo)
-        return self._request("sweep", self.sweep.next_request())
-
-    def joint_deadband(self, joint: str) -> dict:
-        self.sweep = procedure.JointDeadbandSweep(self.data, joint)
-        return self._request("sweep", self.sweep.next_request())
+    def drive(self, speeds: dict) -> dict:
+        """{joint: speed −1..1} → the servos with the signs of the file (sent while held)."""
+        servos = {}
+        for joint, speed in speeds.items():
+            for servo, sign in self.data["joints"][joint]["servos"].items():
+                servos[servo] = max(-1.0, min(1.0, servos.get(servo, 0.0) + sign * speed))
+        return self._request({"op": "drive", "servos": servos})
 
     def stop(self) -> dict:
-        self.sweep = None
-        return self._request("stop", {"op": "stop"})
+        self._queue, self._current, self.running = [], None, None
+        return self._request({"op": "stop"})
 
     def exit(self) -> dict:
-        self.sweep, self.busy, self.active = None, False, False
-        return self._request("exit", {"op": "exit"})
+        self._queue, self._current, self.running, self.active = [], None, None, False
+        return self._request({"op": "exit"})
+
+    def _start(self, name: str, steps: list) -> dict:
+        """Run the routines one after the other: steps = [(label, request)]."""
+        self.changes, self.summary, self._results = {}, [], {}
+        self.running, self._queue = name, list(steps)
+        return self._pop()
+
+    def _pop(self) -> dict | None:
+        if not self._queue:
+            self._current = None
+            return None
+        label, request = self._queue.pop(0)
+        self._current = label
+        self.log.append(("info", f"{self.running}: {label}…"))
+        return self._request({"op": "routine", **request})
+
+    def identify(self, group) -> dict:
+        """[6] for every joint of the group: which encoder, which way."""
+        self.identified = {}
+        return self._start("Αναγνώριση", [
+            (j, {"name": "identify", "servos": self.data["joints"][j]["servos"]}) for j in group.joints])
+
+    def servo_deadbands(self, group) -> dict:
+        """[10] for every servo of the group, the others braking."""
+        return self._start("Νεκρή ζώνη servo", [
+            (s, {"name": "servo_deadband", "servo": s, "brake": [o for o in group.servos if o != s]})
+            for s in group.servos])
+
+    def joint_deadbands(self, group) -> dict:
+        """[9] for every joint of the group."""
+        steps = []
+        for j in group.joints:
+            joint = self.data["joints"][j]
+            steps.append((j, {"name": "joint_deadband", "servos": joint["servos"],
+                              "channel": self.channel_of(j), "invert": joint["invert"]}))
+        return self._start("Νεκρή ζώνη άρθρωσης", steps)
 
     # ---------------------------------------------------------------- replies
     def handle(self, reply: dict) -> list:
-        """One reply of the Pi -> follow-up requests (deadband sweeps), and new findings/proposals."""
-        kind, argument = self._pending.get(reply.get("id"), (None, None))
-        if reply.get("op") == "exit" and reply.get("id") is None:          # the Pi left on its own
-            self.active, self.busy, self.sweep = False, False, None
-            self.findings.append(procedure.Finding(procedure.WARNING, reply.get("result", "")))
+        """One reply of the Pi → follow-up requests (the next routine of a procedure)."""
+        op = reply.get("op")
+        if op == "live":
+            self.live = {int(ch): r for ch, r in reply["result"].items()}
             return []
-        if kind is None:
+        if op == "exit" and reply.get("id") is None:          # the Pi left on its own
+            self.active, self.running, self._queue = False, None, []
+            self.log.append(("warning", reply.get("result", "")))
+            return []
+        if op == "progress":
+            self.log.append(("info", f"  {self._current}: {reply['result']}"))
             return []
         if not reply.get("ok"):
-            self._pending.pop(reply["id"], None)
-            self.busy, self.sweep = False, None
-            self.findings.append(procedure.Finding(procedure.ERROR, reply.get("error", "σφάλμα")))
+            self.log.append(("error", reply.get("error", "σφάλμα")))
+            if op in ("routine", "drive"):
+                self._queue, self._current, self.running = [], None, None
             return []
-        result = reply.get("result")
-        if reply.get("op") == "jog" and isinstance(result, str):            # "started": wait
-            return []
-        self._pending.pop(reply["id"], None)
-        if reply.get("op") == "jog":
-            self.busy = False
-        if kind == "scan":
-            self.readings = {int(ch): v["encoder"] for ch, v in result.items() if v.get("encoder")}
-            self.findings = procedure.check_scan(self.data, result)
-        elif kind == "keepalive":
-            self.readings = {int(ch): v for ch, v in result.items()}
-        elif kind == "read":
-            self.readings = {int(ch): v for ch, v in result.items()}
-            self.findings = [f for f in self.findings if not f.text.startswith(READ_PREFIX)]
-            self.findings += self.reading_findings()
-        elif kind == "joint":
-            self.mapping = procedure.analyze_jog(self.data, argument, result)
-            self.findings += self.mapping.findings
-            self.add(self.mapping.proposals)
-            moved = ", ".join(f"κανάλι {ch}: {d:+.1f}°" for ch, d in result.get("moved", {}).items())
-            self.findings.append(procedure.Finding(procedure.INFO, f"{argument}: {moved or 'καμία κίνηση'}"
-                                                   f" ({result.get('reason')})"))
-        elif kind == "sweep" and self.sweep is not None:
-            self.sweep.record(result)
-            request = self.sweep.next_request()
-            if request is not None:
-                return [self._request("sweep", request)]
-            proposals = self.sweep.proposals(self.data)
-            self.add(proposals)
-            text = "νεκρή ζώνη: " + ("βρέθηκε" if proposals else "καμία αλλαγή ή δεν βρέθηκε κίνηση")
-            self.findings.append(procedure.Finding(procedure.INFO, text))
-            self.sweep = None
+        if op == "scan":
+            self._scan(reply["result"])
+        if op == "routine":
+            self._results[self._current] = reply["result"]
+            follow = self._pop()
+            if follow is not None:
+                return [follow]
+            self._finish()
         return []
 
-    def reading_findings(self) -> list:
-        """One finding per channel that has an encoder: angle, magnet, and whose it is in the file."""
-        owner = {}
-        for joint, j in (self.data or {}).get("joints", {}).items():
-            channel = self.data["encoders"].get(j.get("encoder"), {}).get("channel") if j.get("encoder") else None
-            if channel is not None:
-                owner[channel] = joint
-        result = []
-        for channel, r in sorted(self.readings.items()):
-            if r.get("status") == "NO_RESPONSE":
-                if channel in owner:       # the file says an encoder is here: say it is silent
-                    text = (f"{READ_PREFIX}{time.strftime('%H:%M:%S')} · κανάλι {channel} ({owner[channel]}): "
-                            "δεν απαντά στο I²C (καλώδιο, επαφή ή λάθος κανάλι)")
-                    result.append(procedure.Finding(procedure.ERROR, text))
+    def _scan(self, result: dict) -> None:
+        for ch, entry in sorted(result.items(), key=lambda kv: int(kv[0])):
+            devices = ", ".join(entry["devices"]) or "τίποτα"
+            reading = entry.get("encoder")
+            owner = self.owner_of(int(ch))
+            text = f"κανάλι {ch}: {devices}" + (f" · {owner}" if owner else "")
+            level = "info"
+            if reading:
+                text += f" · {reading['raw_deg']}° · μαγνήτης {reading['status']}"
+                if reading["status"] != "OK":
+                    text += f" ({MAGNET_NOTES.get(reading['status'], '')})"
+                    level = "warning" if reading["status"] in USABLE else "error"
+            self.log.append((level, text))
+
+    def _finish(self) -> None:
+        name, self.running = self.running, None
+        {"Αναγνώριση": self._identified, "Νεκρή ζώνη servo": self._servo_bands,
+         "Νεκρή ζώνη άρθρωσης": self._joint_bands}[name]()
+        self.log += [("info", line) for line in self.summary]
+        if self.changes:
+            self.log.append(("info", "Αν είναι σωστά: «Σωστό · αποθήκευση»."))
+
+    def _identified(self) -> None:
+        """teleop detect_axis: the encoder that moved most is the joint's; two joints, two encoders."""
+        problems = []
+        for joint, result in self._results.items():
+            moved = {int(ch): deg for ch, deg in result["moved"].items()}
+            ranked = sorted(moved, key=lambda ch: -abs(moved[ch]))
+            best = ranked[0]
+            if abs(moved[best]) < MIN_MOVE_DEG:
+                problems.append(f"{joint}: κανένας encoder δεν κινήθηκε πάνω από {MIN_MOVE_DEG:g}° "
+                                f"(μεγάλωσε την ταχύτητα)")
                 continue
-            raw = "—" if r.get("raw_deg") is None else f"{r['raw_deg']:.1f}°"
-            status = r.get("status", "?")
-            note = MAGNET_NOTES.get(status, "")
-            level = procedure.INFO if status == "OK" else (procedure.WARNING if status in procedure.USABLE
-                                                           else procedure.ERROR)
-            whose = owner.get(channel, "χωρίς άρθρωση")
-            now = time.strftime("%H:%M:%S")
-            text = f"{READ_PREFIX}{now} · κανάλι {channel} ({whose}): {raw} · μαγνήτης {status}{note}"
-            result.append(procedure.Finding(level, text))
-        if not result:
-            result.append(procedure.Finding(procedure.ERROR, f"{READ_PREFIX}κανένας encoder δεν απαντά"))
-        return result
+            if len(ranked) > 1 and abs(moved[ranked[1]]) > COUPLING * abs(moved[best]):
+                problems.append(f"{joint}: κινήθηκαν δύο encoders ({moved}): λάθος πρόσημο servo;")
+                continue
+            self.identified[joint] = (best, moved[best])
+        channels = [ch for ch, _ in self.identified.values()]
+        if len(set(channels)) < len(channels):
+            problems.append("δύο αρθρώσεις κίνησαν τον ίδιο encoder: έλεγξε τα πρόσημα των servo")
+        if problems:
+            self.summary = ["✖ " + p for p in problems]
+            self.identified = {}
+            return
+        self._identify_changes()
 
-    # ---------------------------------------------------------------- user answers
-    def add(self, proposals: list) -> None:
-        """New proposals replace older ones for the same parameter (not approved yet)."""
-        names = {p.name for p in proposals}
-        self.proposals = [row for row in self.proposals if row[0].name not in names]
-        self.proposals += [[p, False] for p in proposals]
-        for p in proposals:                 # seen at once, whatever step the user is on
-            self.findings.append(procedure.Finding(
-                procedure.INFO, f"Πρόταση: {p.name}  {_show(p.old)} → {_show(p.new)} · τσέκαρέ την στο «4 · Έλεγχος»"))
-        if not proposals:
-            self.findings.append(procedure.Finding(procedure.INFO, "Καμία αλλαγή: το αρχείο έχει ήδη αυτή την τιμή."))
+    def _identify_changes(self) -> None:
+        self.changes, self.summary = {}, ["Κατάλαβα:"]
+        for joint, (channel, moved) in self.identified.items():
+            owner = next((e for e, v in self.data["encoders"].items() if v.get("channel") == channel), None)
+            encoder = self.data["joints"][joint].get("encoder")
+            if owner is not None and owner != encoder:
+                self.changes[f"joints.{joint}.encoder"] = owner
+            elif owner is None and encoder:
+                self.changes[f"encoders.{encoder}.channel"] = channel
+            self.changes[f"joints.{joint}.invert"] = moved < 0
+            self.summary.append(f"  {joint} → encoder στο κανάλι {channel}, η γωνία "
+                                f"{'ανεβαίνει' if moved > 0 else 'κατεβαίνει'} με θετική εντολή "
+                                f"({moved:+.1f}°)")
+        self.changes = {k: v for k, v in self.changes.items() if self._differs(k, v)}
 
-    def relabel(self, actual: str) -> None:
-        """The last jog moved what the user calls `actual`."""
-        if self.mapping is not None:
-            self.add(procedure.relabel_proposals(self.data, self.mapping.joint, actual))
+    def swap_names(self) -> None:
+        """A differential named the other way round: the two joints exchange what [6] found."""
+        if len(self.identified) == 2:
+            a, b = list(self.identified)
+            self.identified = {a: self.identified[b], b: self.identified[a]}
+            self._identify_changes()
+            self.log += [("info", line) for line in self.summary]
 
-    def direction(self, positive: bool) -> None:
-        """The user saw the last jog and says whether it was in the positive direction."""
-        if self.mapping is not None and self.mapping.channel is not None:
-            self.add(procedure.direction_proposals(self.data, self.mapping.joint, self.mapping.delta, positive))
+    def flip(self, joint: str) -> None:
+        """The «positive» move of this joint was the wrong way: every servo sign flips (teleop W/S)."""
+        if joint not in self.identified:
+            return
+        for servo, sign in self.data["joints"][joint]["servos"].items():
+            self.changes[f"joints.{joint}.servos.{servo}"] = -sign
+        channel, moved = self.identified[joint]
+        self.identified[joint] = (channel, -moved)
+        self.changes[f"joints.{joint}.invert"] = -moved < 0
+        self.log.append(("info", f"{joint}: αντίθετη φορά (πρόσημα servo και encoder)"))
 
-    def _raw(self, joint: str):
-        encoder = self.data["joints"][joint].get("encoder")
-        channel = self.data["encoders"].get(encoder, {}).get("channel") if encoder else None
-        reading = self.readings.get(channel) if channel is not None else None
-        if not reading or reading.get("raw_deg") is None or reading.get("status") not in procedure.USABLE:
-            return None
-        return reading["raw_deg"]
+    def _servo_bands(self) -> None:
+        self.changes, self.summary = {}, []
+        for servo, r in self._results.items():
+            if r["down_us"] is None or r["up_us"] is None:
+                self.summary.append(f"✖ {servo}: δεν κινήθηκε προς τη μία φορά ({r})")
+                continue
+            neutral = round((r["down_us"] + r["up_us"]) / 2)
+            self.changes[f"servos.{servo}.deadband_us"] = [r["down_us"], r["up_us"]]
+            self.changes[f"servos.{servo}.neutral_us"] = neutral
+            self.summary.append(f"  {servo}: κινείται κάτω από {r['down_us']} και πάνω από {r['up_us']} µs → "
+                                f"νεκρό σημείο ≈ {neutral} µs")
 
-    def zero(self, joint: str) -> bool:
-        """Step 7 from the last read; False if the joint's encoder has no usable reading."""
-        raw = self._raw(joint)
-        if raw is not None:
-            self.add(procedure.zero_proposals(self.data, {joint: raw}))
-        return raw is not None
+    def _joint_bands(self) -> None:
+        self.changes, self.summary = {}, []
+        for joint, r in self._results.items():
+            if r["pos"] is None or r["neg"] is None:
+                self.summary.append(f"✖ {joint}: δεν κινήθηκε προς τη μία φορά ({r})")
+                continue
+            self.changes[f"joints.{joint}.deadband"] = [r["pos"], r["neg"]]
+            self.summary.append(f"  {joint}: κινείται από {r['pos']} (+) / {r['neg']} (−)")
 
-    def gripper(self, joint: str, closed: bool) -> bool:
-        """Step 8a: remember the reading fully closed / fully open; both known -> proposals."""
-        raw = self._raw(joint)
-        if raw is None:
+    def zero(self, joint: str, angle: float, lower: float, upper: float) -> bool:
+        """teleop [6], second part: the joint is at `angle`; its encoder reading becomes that angle."""
+        reading = self.live.get(self.channel_of(joint))
+        if not reading or reading.get("raw_deg") is None or reading.get("status") not in USABLE:
+            self.log.append(("error", f"{joint}: ο encoder δεν μετρά τώρα"))
             return False
-        self._gripper = {**getattr(self, "_gripper", {}), closed: raw}
-        if len(self._gripper) == 2:
-            proposals, findings = procedure.gripper_limit_proposals(
-                self.data, joint, self._gripper[True], self._gripper[False])
-            self.add(proposals)
-            self.findings += findings
-            self._gripper = {}
+        zero = zero_for(reading["raw_deg"], self.data["joints"][joint].get("invert", False), angle)
+        self.changes = {f"joints.{joint}.zero_deg": zero, f"joints.{joint}.limits_deg": [float(lower), float(upper)]}
+        self.summary = [f"  {joint}: μηδέν {zero}° (ένδειξη {reading['raw_deg']}° = {angle:g}°), "
+                        f"όρια [{lower:g}, {upper:g}]"]
+        self.log += [("info", line) for line in self.summary]
         return True
 
-    def approved(self) -> tuple[dict, list]:
-        """({parameter: value} of the approved proposals, [names that cannot be sent as parameters])."""
-        values, manual = {}, []
-        for proposal, ok in self.proposals:
-            if not ok:
-                continue
-            if proposal.new is None:
-                manual.append(proposal.name)     # removing an entry: only by editing the file
-            else:
-                values[proposal.name] = proposal.new
-        return values, manual
+    def gripper(self, closed_raw: float, open_raw: float) -> None:
+        """8α: zero = closed; limits [0, opening] (invert so that opening counts positive)."""
+        travel = wrap(open_raw - closed_raw)
+        self.changes = {"joints.gripper.zero_deg": round(closed_raw % 360.0, 3),
+                        "joints.gripper.invert": travel < 0,
+                        "joints.gripper.limits_deg": [0.0, round(abs(travel), 2)]}
+        self.summary = [f"  αρπάγη: κλειστή {closed_raw}°, ανοιχτή {open_raw}° → διαδρομή {abs(travel):.1f}°"]
+        self.log += [("info", line) for line in self.summary]
 
-    def applied(self, names: set) -> None:
-        """These parameters were accepted by /arm_calibration: their proposals are done."""
-        self.proposals = [row for row in self.proposals if row[0].name not in names]
+    def _differs(self, name: str, value) -> bool:
+        try:
+            return arm_config.get_value(self.data, name) != value
+        except KeyError:
+            return True
+
+    def saved(self) -> None:
+        self.changes, self.summary = {}, []

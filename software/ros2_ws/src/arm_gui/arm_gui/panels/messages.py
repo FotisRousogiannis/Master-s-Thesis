@@ -23,6 +23,7 @@ class MessagesStrip(QtWidgets.QWidget):
         layout.addWidget(title)
         self.list = QtWidgets.QListWidget()
         self.list.setMaximumHeight(96)
+        self.setMaximumHeight(130)
         layout.addWidget(self.list)
         self._levels = {}  # diagnostic name -> last level (0 ok, 1 warn, 2 error, 3 stale)
 

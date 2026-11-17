@@ -1,4 +1,4 @@
-"""The calibration wizard (no Qt) and the «Βαθμονόμηση» panel, with the arm.yaml of the repo."""
+"""The calibration bench (no Qt) and the «Βαθμονόμηση» panel, with the arm.yaml of the repo."""
 
 import os
 
@@ -6,8 +6,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 arm_config = pytest.importorskip("arm_calibration.arm_config")
-from arm_gui.calibration import Wizard, nest  # noqa: E402
-from arm_calibration import procedure  # noqa: E402
+from arm_gui.calibration import Bench, nest, zero_for  # noqa: E402
 import test_gui_smoke as smoke  # noqa: E402
 
 app = smoke.app          # the same fixtures (window with a fake ROS bridge) as the smoke tests
@@ -21,10 +20,10 @@ def params():
 
 
 @pytest.fixture
-def wizard():
-    w = Wizard()
-    w.data = nest({p["name"]: p["value"] for p in params()})
-    return w
+def bench():
+    b = Bench()
+    b.data = nest({p["name"]: p["value"] for p in params()})
+    return b
 
 
 SCAN = {"0": {"devices": ["PCA9685"], "encoder": None},
@@ -32,71 +31,95 @@ SCAN = {"0": {"devices": ["PCA9685"], "encoder": None},
         "2": {"devices": ["AS5600"], "encoder": {"raw_deg": 267.9, "status": "OK"}}}
 
 
-def test_nest_gives_back_the_file(wizard):
+def test_nest_gives_back_the_file(bench):
     data = arm_config.load()
-    assert wizard.data["joints"]["joint_1"] == data["joints"]["joint_1"]
-    assert wizard.data["encoders"]["enc_3"] == {"channel": None}          # null: no parameter
-    assert arm_config.validate(wizard.data) == []
+    assert bench.data["joints"]["joint_1"] == data["joints"]["joint_1"]
+    assert bench.data["encoders"]["enc_3"] == {"channel": None}          # -1 → null
+    assert arm_config.validate(bench.data) == []
 
 
-def test_scan_reply_gives_findings_and_readings(wizard):
-    request = wizard.scan()
-    assert wizard.active and request["op"] == "scan"
-    wizard.handle({"id": request["id"], "op": "scan", "ok": True, "result": SCAN})
-    assert wizard.readings[2]["raw_deg"] == 267.9
-    assert any("joint_1: encoder OK" in f.text for f in wizard.findings)
+def routine_done(bench, request, result):
+    return bench.handle({"id": request["id"], "op": "routine", "ok": True, "result": result})
 
 
-def test_jog_then_relabel_direction_and_approval(wizard):
-    request = wizard.jog_joint("joint_1")
-    assert request["servos"] == {"servo_1": 0.4, "servo_2": -0.4} and wizard.busy
-    assert wizard.keepalive() is None                                     # not during a motion
-    wizard.handle({"id": request["id"], "op": "jog", "ok": True, "result": "ξεκίνησε"})
-    assert wizard.busy
-    wizard.handle({"id": request["id"], "op": "jog", "ok": True,
-                   "result": {"moved": {"5": 3.1}, "reason": "κινήθηκε"}})
-    assert not wizard.busy and wizard.mapping.channel == 5
-    assert [p.name for p, _ in wizard.proposals] == ["encoders.enc_1.channel"]
-    wizard.direction(False)
-    names = {p.name for p, _ in wizard.proposals}
-    assert {"joints.joint_1.servos.servo_1", "joints.joint_1.servos.servo_2"} <= names
-    assert wizard.approved() == ({}, [])                                  # nothing approved yet
-    wizard.proposals[0][1] = True
-    assert wizard.approved()[0] == {"encoders.enc_1.channel": 5}
-    wizard.applied({"encoders.enc_1.channel"})
-    assert "encoders.enc_1.channel" not in {p.name for p, _ in wizard.proposals}
+def test_identify_runs_every_joint_of_the_group_then_says_what_it_found(bench):
+    group = bench.groups()[0]
+    assert group.joints == ("joint_1", "joint_2")
+    first = bench.identify(group)
+    assert first["name"] == "identify" and first["servos"] == {"servo_1": 1, "servo_2": -1}
+    bench.handle({"id": first["id"], "op": "progress", "ok": True, "result": "0.5 s: κανάλι 2 +3.2°"})
+    [second] = routine_done(bench, first, {"moved": {"1": 0.2, "2": 3.4}, "main": 2})
+    assert second["servos"] == {"servo_1": 1, "servo_2": 1}
+    assert routine_done(bench, second, {"moved": {"1": -3.1, "2": 0.3}, "main": 1}) == []
+    assert bench.changes == {}                                             # the file is right already
+    assert any("joint_2 → encoder στο κανάλι 1, η γωνία κατεβαίνει" in line for line in bench.summary)
 
 
-def test_deadband_sweep_asks_until_it_finds_motion(wizard):
-    request = wizard.servo_deadband("servo_1")
-    follow = []
-    for _ in range(3):                                                    # no motion at 10, 20, 30 µs
-        follow = wizard.handle({"id": request["id"], "op": "jog", "ok": True, "result": {"moved": {}}})
-        request = follow[0]
-    assert request["plain"] and request["servos"]["servo_1"] > 0
-    follow = wizard.handle({"id": request["id"], "op": "jog", "ok": True, "result": {"moved": {"2": 1.0}}})
-    assert follow[0]["servos"]["servo_1"] < 0                             # now the other direction
+def test_identify_finds_swapped_encoders_and_fixes_the_names(bench):
+    group = bench.groups()[0]
+    first = bench.identify(group)
+    [second] = routine_done(bench, first, {"moved": {"1": 3.3, "2": 0.1}, "main": 1})
+    routine_done(bench, second, {"moved": {"1": 0.0, "2": -3.0}, "main": 2})
+    assert bench.changes["joints.joint_1.encoder"] == "enc_2" and bench.changes["joints.joint_2.encoder"] == "enc_1"
+    bench.swap_names()                                                     # «Ανάποδα ονόματα»
+    assert "joints.joint_1.encoder" not in bench.changes
 
 
-def test_errors_and_the_pi_leaving_on_its_own(wizard):
-    request = wizard.jog_joint("joint_3")
-    wizard.handle({"id": request["id"], "op": "jog", "ok": False, "error": "το servo_3 δεν έχει κανάλι"})
-    assert not wizard.busy and wizard.findings[-1].level == "error"
-    wizard.handle({"id": None, "op": "exit", "ok": True, "result": "καμία εντολή για > 5 s"})
-    assert not wizard.active and wizard.keepalive() is None
+def test_identify_refuses_too_little_or_two_encoders(bench):
+    group = bench.groups()[0]
+    first = bench.identify(group)
+    [second] = routine_done(bench, first, {"moved": {"1": 0.4, "2": 0.9}, "main": 2})
+    routine_done(bench, second, {"moved": {"1": 3.0, "2": 2.5}, "main": 1})
+    assert bench.changes == {} and len([s for s in bench.summary if s.startswith("✖")]) == 2
 
 
-def test_zero_and_gripper_from_a_read(wizard):
-    assert not wizard.zero("joint_1")                                     # no reading yet
-    request = wizard.read()
-    wizard.handle({"id": request["id"], "op": "read", "ok": True,
-                   "result": {"2": {"raw_deg": 270.0, "status": "OK"}}})
-    assert wizard.zero("joint_1")
-    assert ("joints.joint_1.zero_deg", 270.0) in [(p.name, p.new) for p, _ in wizard.proposals]
-    assert "Πρόταση: joints.joint_1.zero_deg  267.891 → 270" in wizard.findings[-1].text    # seen at once
+def test_flip_reverses_the_signs_of_a_joint(bench):
+    group = bench.groups()[0]
+    first = bench.identify(group)
+    [second] = routine_done(bench, first, {"moved": {"2": 3.0}, "main": 2})
+    routine_done(bench, second, {"moved": {"1": -3.0}, "main": 1})
+    bench.flip("joint_1")
+    assert bench.changes["joints.joint_1.servos.servo_1"] == -1 and bench.changes["joints.joint_1.invert"] is True
 
 
-# ---------------------------------------------------------------------------------------------- panel
+def test_servo_and_joint_deadbands(bench):
+    group = bench.groups()[0]
+    first = bench.servo_deadbands(group)
+    assert first["servo"] == "servo_1" and first["brake"] == ["servo_2"]
+    [second] = routine_done(bench, first, {"down_us": 1410, "up_us": 1850})
+    routine_done(bench, second, {"down_us": 1500, "up_us": 1710})
+    assert bench.changes["servos.servo_1.deadband_us"] == [1410, 1850]
+    assert bench.changes["servos.servo_1.neutral_us"] == 1630
+    first = bench.joint_deadbands(group)
+    assert first["channel"] == 2 and first["invert"] is False
+    [second] = routine_done(bench, first, {"pos": 0.07, "neg": 0.09})
+    routine_done(bench, second, {"pos": None, "neg": 0.1})
+    assert bench.changes == {"joints.joint_1.deadband": [0.07, 0.09]}
+    assert any(s.startswith("✖ joint_2") for s in bench.summary)
+
+
+def test_live_position_and_zero(bench):
+    bench.handle({"op": "live", "ok": True, "result": {"2": {"raw_deg": 277.891, "status": "TOO_WEAK"}}})
+    assert bench.position("joint_1") == 10.0
+    assert bench.zero("joint_1", 90.0, -30, 50)
+    assert bench.changes == {"joints.joint_1.zero_deg": zero_for(277.891, False, 90.0),
+                             "joints.joint_1.limits_deg": [-30.0, 50.0]}
+    assert not bench.zero("joint_2", 0.0, -90, 90)                        # no reading of channel 1
+
+
+def test_drive_mixes_the_joints_with_the_signs_of_the_file(bench):
+    request = bench.drive({"joint_1": 0.4, "joint_2": 0.0})
+    assert request["servos"] == {"servo_1": 0.4, "servo_2": -0.4}
+    request = bench.drive({"joint_1": 0.4, "joint_2": 0.4})
+    assert request["servos"] == {"servo_1": 0.8, "servo_2": 0.0}
+
+
+def test_errors_and_the_pi_leaving_on_its_own(bench):
+    first = bench.identify(bench.groups()[0])
+    bench.handle({"id": first["id"], "op": "routine", "ok": False, "error": "κανάλι 2: σταμάτησε να μετρά"})
+    assert bench.running is None and bench.log[-1][0] == "error"
+    bench.handle({"id": None, "op": "exit", "ok": True, "result": "καμία εντολή για > 5 s"})
+    assert not bench.active and bench.ping() is None
 
 
 @pytest.fixture
@@ -104,14 +127,6 @@ def panel(window):
     window.calibration._confirm = lambda text: True
     window._bridge.parameters_loaded.emit("/arm_calibration", params())
     return window.calibration
-
-
-def test_order_of_the_file_and_moved_joint_follows_the_choice(panel):
-    assert [panel.joints.item(r, 0).text() for r in range(3)] == ["joint_1", "joint_2", "joint_3"]
-    assert panel.joints.item(6, 0).text() == "gripper"
-    assert [panel.servos.item(r, 0).text() for r in (1, 9, 10)] == ["servo_2", "servo_10", "servo_11"]
-    panel.joint_choice.setCurrentText("joint_2")
-    assert panel.actual_choice.currentText() == "joint_2"
 
 
 def test_pages_show_the_file(panel):
@@ -133,27 +148,6 @@ def test_edits_are_sent_all_at_once(panel, window):
     panel.servos.item(0, 1).setText("κάτι")
     panel.apply_edits()
     assert "Δεν στάλθηκαν" in panel.status.text() and len(window._bridge.atomic_sets) == 1
-
-
-def test_wizard_from_the_panel(panel, window):
-    b = window._bridge
-    panel.do_scan()
-    scan = b.identify_requests[-1]
-    b.identify_reply.emit({"id": scan["id"], "op": "scan", "ok": True, "result": SCAN})
-    assert panel.findings.count() > 0 and panel.mode.text() == "Pi: αναγνώριση"
-    panel.joint_choice.setCurrentText("joint_1")
-    panel.do_jog()
-    jog = b.identify_requests[-1]
-    assert jog["op"] == "jog"
-    b.identify_reply.emit({"id": jog["id"], "op": "jog", "ok": True, "result": {"moved": {"5": 3.0}}})
-    assert panel.proposals.rowCount() == 1
-    panel.proposals.item(0, 0).setCheckState(2)                           # Qt.Checked
-    panel.apply_proposals()
-    assert b.atomic_sets[-1] == ("/arm_calibration", {"encoders.enc_1.channel": 5})
-    b.parameters_set.emit("/arm_calibration", [("encoders.enc_1.channel", True, "")])
-    assert panel.proposals.rowCount() == 0 and b.param_requests[-1] == "/arm_calibration"
-    panel.do_exit()
-    assert b.identify_requests[-1]["op"] == "exit" and panel.mode.text() == "Pi: κανονικός έλεγχος"
 
 
 def test_rejected_changes_are_shown(panel, window):
@@ -186,90 +180,64 @@ def test_values_are_asked_again_while_none_came(window):
     assert b.param_requests.count("/arm_calibration") == asked + 1         # loaded: no more
 
 
-def test_wizard_shows_one_step_at_a_time(panel):
-    assert panel.tabs.tabText(0) == "Οδηγός" and panel.step == 0
-    assert not panel.joint_choice.isVisibleTo(panel) and "σβηστό" in panel.power.text()
-    panel.go_step(2)                                                      # mapping: moves the arm
-    assert panel.step_pages.currentIndex() == 2 and "ΑΝΑΜΜΕΝΟ" in panel.power.text()
-    assert panel.joint_choice.isVisibleTo(panel) and not panel.servo_choice.isVisibleTo(panel)
-    panel.go_step(5)
-    assert panel.servo_choice.isVisibleTo(panel)
-    panel.go_step(99)
-    assert panel.step == 7
-    panel.go_step(-1)
-    assert panel.step == 0
-
-
 def test_joints_page_hides_the_details_until_asked(panel):
     assert panel.joints.isColumnHidden(5) and not panel.joints.isColumnHidden(11)
     panel.details.setChecked(True)
     assert not panel.joints.isColumnHidden(5)
 
 
-def test_apply_button_counts_the_approved(panel, window):
+def test_arrows_move_while_held_and_keys_do_the_same(panel, window):
     b = window._bridge
-    panel.do_scan()
-    panel.joint_choice.setCurrentText("joint_1")
-    panel.do_jog()
-    jog = b.identify_requests[-1]
-    b.identify_reply.emit({"id": jog["id"], "op": "jog", "ok": True, "result": {"moved": {"5": 3.0}}})
-    assert panel.step_buttons[3].text() == "4 · Έλεγχος (1)"
-    panel.proposals.item(0, 0).setCheckState(2)
-    assert panel.apply_proposals_button.text() == "Εφαρμογή (1)"
+    assert panel.up_label.text().endswith("joint_2") and panel.side_label.text().endswith("joint_1")
+    panel.hold("up", 1)
+    assert b.identify_requests[-1] == {**b.identify_requests[-1], "op": "drive",
+                                       "servos": {"servo_1": 0.4, "servo_2": 0.4}}
+    assert panel._drive_timer.isActive()
+    panel.release("up")
+    assert not panel._drive_timer.isActive()
+    from arm_gui.qt import QtCore, QtGui
+    key = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_D, QtCore.Qt.NoModifier)
+    panel.keyPressEvent(key)
+    assert b.identify_requests[-1]["servos"] == {"servo_1": 0.4, "servo_2": -0.4}
+    panel.keyReleaseEvent(QtGui.QKeyEvent(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_D, QtCore.Qt.NoModifier))
+    assert not panel._drive_timer.isActive()
 
 
-def test_read_writes_the_readings_into_the_findings_once(wizard):
-    request = wizard.read()
-    result = {"1": {"raw_deg": 165.3, "status": "OK"}, "2": {"raw_deg": 117.4, "status": "TOO_WEAK"},
-              "5": {"raw_deg": None, "status": "NO_RESPONSE"}}
-    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
-    texts = [f.text for f in wizard.findings]
-    assert any("κανάλι 1 (joint_2): 165.3° · μαγνήτης OK" in t for t in texts)
-    assert texts[0].startswith("Ανάγνωση · ") and ":" in texts[0][11:19]   # with the time
-    weak = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
-    assert weak.level == "warning" and "πιο κοντά" in weak.text
-    assert not any("κανάλι 5" in t for t in texts)                      # nothing there, nothing expected
-    silent = {**result, "2": {"raw_deg": None, "status": "NO_RESPONSE"}}
-    request = wizard.read()
-    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": silent})
-    lost = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
-    assert lost.level == "error" and "δεν απαντά" in lost.text
-    request = wizard.read()
-    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
-    assert len([t for t in (f.text for f in wizard.findings) if "κανάλι 1 (" in t]) == 1   # replaced
-    keep = wizard.keepalive()
-    wizard.handle({"id": keep["id"], "op": "read", "ok": True, "result": {"1": {"raw_deg": 1.0, "status": "OK"}}})
-    assert wizard.readings == {1: {"raw_deg": 1.0, "status": "OK"}} and len(wizard.findings) == 2
+def test_identify_then_save_from_the_panel(panel, window):
+    b = window._bridge
+    panel.go_step(1)
+    panel.do_identify()
+    first = b.identify_requests[-1]
+    assert first["op"] == "routine" and "Αναγνώριση" in panel.mode.text()
+    b.identify_reply.emit({"id": first["id"], "op": "routine", "ok": True, "result": {"moved": {"1": 3.3}}})
+    second = b.identify_requests[-1]
+    b.identify_reply.emit({"id": second["id"], "op": "routine", "ok": True, "result": {"moved": {"2": 3.0}}})
+    assert panel.save_button.isEnabled()
+    panel.save_changes()
+    node, values = b.atomic_sets[-1]
+    assert values["joints.joint_1.encoder"] == "enc_2"
+    b.parameters_set.emit(node, [(n, True, "") for n in values])
+    assert b.triggers[-1] == "/arm_calibration/save" and not panel.save_button.isEnabled()
 
 
-def test_speed_and_duration_of_the_jog(panel, window):
+def test_live_table_and_zero_from_the_panel(panel, window):
+    b = window._bridge
+    b.identify_reply.emit({"id": None, "op": "live", "ok": True,
+                           "result": {"1": {"raw_deg": 112.676, "status": "OK"},
+                                      "2": {"raw_deg": 277.891, "status": "TOO_WEAK"}}})
+    rows = {panel.live_table.item(r, 0).text(): panel.live_table.item(r, 3).text()
+            for r in range(panel.live_table.rowCount())}
+    assert rows == {"joint_1": "+10.0", "joint_2": "-0.0"} or rows["joint_1"] == "+10.0"
     panel.go_step(2)
-    assert panel.speed.isVisibleTo(panel)
-    panel.speed.setValue(0.6)
-    panel.duration.setValue(1.5)
-    panel.joint_choice.setCurrentText("joint_1")
-    panel.do_jog()
-    jog = window._bridge.identify_requests[-1]
-    assert jog["servos"] == {"servo_1": 0.6, "servo_2": -0.6} and jog["duration_s"] == 1.5
-    panel.go_step(6)
-    assert not panel.speed.isVisibleTo(panel)
+    panel.zero_joint.setCurrentText("joint_1")
+    panel.zero_angle.setValue(0.0)
+    panel.do_zero()
+    assert panel.bench.changes["joints.joint_1.zero_deg"] == 277.891
 
 
-def test_apply_without_approval_says_so_and_results_are_visible(panel, window):
-    b = window._bridge
-    panel.wizard.add([procedure.Proposal("encoders.enc_1.channel", 2, 5, "δοκιμή")])
-    panel.go_step(0)
-    panel.apply_proposals()
-    assert panel.step == 3 and "Δεν τσέκαρες" in panel.findings.item(panel.findings.count() - 1).text()
-    assert not b.atomic_sets
-    panel.wizard.proposals[0][1] = True
-    panel.apply_proposals()
-    assert b.atomic_sets[-1] == ("/arm_calibration", {"encoders.enc_1.channel": 5})
-    b.parameters_set.emit("/arm_calibration", [("encoders.enc_1.channel", False, "κανάλι encoder 5: το έχουν x")])
-    assert "Απορρίφθηκαν" in panel.findings.item(panel.findings.count() - 1).text()
-    b.parameters_set.emit("/arm_calibration", [("encoders.enc_1.channel", True, "")])
-    assert "Εφαρμόστηκαν 1" in panel.findings.item(panel.findings.count() - 1).text()
-    panel.save_file()
-    assert b.triggers[-1] == "/arm_calibration/save"
-    b.service_result.emit("/arm_calibration/save", True, "Αποθηκεύτηκε στο arm.yaml")
-    assert "Αποθηκεύτηκε" in panel.findings.item(panel.findings.count() - 1).text()
+def test_wizard_steps_and_power(panel):
+    assert panel.tabs.tabText(0) == "Οδηγός" and panel.step == 0 and "σβηστό" in panel.power.text()
+    panel.go_step(1)
+    assert "ΑΝΑΜΜΕΝΟ" in panel.power.text()
+    panel.go_step(99)
+    assert panel.step == len(panel.STEPS) - 1

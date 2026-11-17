@@ -339,3 +339,7 @@
 - **Στάδιο A (`arm_pi_driver`): ROS 2 στο Pi.** Docker 29.10 + Compose v5.7 στο Pi (get.docker.com, Debian trixie
   arm64)· `ros:jazzy-ros-base` (arm64) στο Pi δημοσιεύει `/hello`, το container του Arm Studio στο PC το λαμβάνει:
   DDS PC ↔ Pi στο καλώδιο δουλεύει χωρίς ρυθμίσεις. Κλειδί SSH και από το τερματικό του Ubuntu (`ssh-copy-id`).
+- **Στάδιο A ολοκληρώθηκε** (`feature/pi-driver`, κώδικας του Φώτη): `software/pi/docker/` (Dockerfile:
+  `ros:jazzy-ros-base` + `python3-smbus2` + `i2c-tools` · compose: host network, `/dev/i2c-1`, το repo ως volume).
+  Στο Pi: το container `arm-pi` τρέχει, το `i2cdetect -y 1` βλέπει το TCA9548A (0x70), και ένα topic από μέσα του
+  φτάνει στο PC.

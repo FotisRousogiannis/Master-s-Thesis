@@ -497,3 +497,29 @@ def test_connection_panel_measures_the_link(window, monkeypatch):
                       ("warn", "δεν απαντά"), ("warn", "όχι")]
     assert "arm_link" in panel._texts["udp"].text()
 
+
+
+def test_five_sections_in_the_side_bar(window):
+    assert window.section == "run"
+    assert window.nav.count() == 5
+    window.show_section("cal")
+    assert window.stack.currentWidget() is window.calibration
+    window.show_section("adv")
+    titles = [window.advanced.tabText(i) for i in range(window.advanced.count())]
+    assert titles == ["Παράμετροι", "ROS 2", "Εργαλεία", "Log", "Αισθητήρες (raw)"]
+    window.save_layout("x")
+    window.show_section("run")
+    window.load_layout("x")
+    assert window.section == "adv"                                       # the section is part of a layout
+
+
+def test_messages_show_only_changes_of_devices(window):
+    b, strip = window._bridge, window.messages
+    status = {"name": "encoder/joint_1", "level": 2, "message": "NO_MAGNET", "hardware_id": "", "values": {}}
+    b.diagnostics.emit([status])
+    b.diagnostics.emit([status])                                          # same state again: no new message
+    assert sum("encoder/joint_1: NO_MAGNET" in t for t in strip.texts()) == 1
+    assert window._warn_pill.text() == "1 προειδοποίηση"
+    b.diagnostics.emit([{**status, "level": 0, "message": "OK"}])
+    assert "encoder/joint_1: εντάξει" in strip.texts()[-1]
+    assert window._warn_pill.text() == "Καμία προειδοποίηση"

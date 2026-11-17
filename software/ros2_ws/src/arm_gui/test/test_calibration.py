@@ -182,3 +182,35 @@ def test_values_are_asked_again_while_none_came(window):
     now[0] += 7.0
     panel.set_nodes(["/arm_calibration"])
     assert b.param_requests.count("/arm_calibration") == asked + 1         # loaded: no more
+
+
+def test_wizard_shows_one_step_at_a_time(panel):
+    assert panel.tabs.tabText(0) == "Οδηγός" and panel.step == 0
+    assert not panel.joint_choice.isVisibleTo(panel) and "σβηστό" in panel.power.text()
+    panel.go_step(2)                                                      # mapping: moves the arm
+    assert panel.step_pages.currentIndex() == 2 and "ΑΝΑΜΜΕΝΟ" in panel.power.text()
+    assert panel.joint_choice.isVisibleTo(panel) and not panel.servo_choice.isVisibleTo(panel)
+    panel.go_step(5)
+    assert panel.servo_choice.isVisibleTo(panel)
+    panel.go_step(99)
+    assert panel.step == 7
+    panel.go_step(-1)
+    assert panel.step == 0
+
+
+def test_joints_page_hides_the_details_until_asked(panel):
+    assert panel.joints.isColumnHidden(5) and not panel.joints.isColumnHidden(11)
+    panel.details.setChecked(True)
+    assert not panel.joints.isColumnHidden(5)
+
+
+def test_apply_button_counts_the_approved(panel, window):
+    b = window._bridge
+    panel.do_scan()
+    panel.joint_choice.setCurrentText("joint_1")
+    panel.do_jog()
+    jog = b.identify_requests[-1]
+    b.identify_reply.emit({"id": jog["id"], "op": "jog", "ok": True, "result": {"moved": {"5": 3.0}}})
+    assert panel.step_buttons[3].text() == "4 · Έλεγχος (1)"
+    panel.proposals.item(0, 0).setCheckState(2)
+    assert panel.apply_proposals_button.text() == "Εφαρμογή (1)"

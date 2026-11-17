@@ -130,6 +130,10 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   στόχους μετά από στάση. Βαθμονόμηση μόνο από το `calibration.yaml` (και ζωντανά). Topics `/base/joint_states`,
   `/base/joint_commands`, `/diagnostics`. Προσομοίωση στο Pi: 50 Hz. **Με υλικό: δεν έχει δοκιμαστεί.** Εκκρεμούν:
   E-stop/OE, δοκιμή βάσης στο εργαστήριο, υπόλοιπες αρθρώσεις, όριο επαφής αρπάγης, στάδιο D (`hardware:=real`).
+- **Σχέδιο βαθμονόμησης (ADR-0023, του Φώτη, αποδεκτό):** ΕΝΑ αρχείο (λίστες servo, encoders, αισθητήρων πίεσης +
+  αρθρώσεις που τα αναφέρουν, με πρόσημα, μηδέν/φορά/όρια, enabled), ορατό στο UI σε τρεις σελίδες (Servo /
+  Αισθητήρες / Αρθρώσεις). Διαδικασία: κανάλια servo από τον χρήστη → ανίχνευση I²C → κίνηση ανά άρθρωση
+  (όπως [6]) → έλεγχος έναντι αρχείου → θετική φορά → νεκρές ζώνες → μηδέν, με επιβεβαίωση. Υλοποίηση 1–6.
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

@@ -184,13 +184,28 @@ class PiDriverNode(Node):
         self.get_logger().info(f'βαθμονόμηση από το {CALIBRATION_NODE} του PC: {len(names)} '
                                f'τιμές, {changed} διαφορετικές από το αρχείο του Pi')
 
+    def log(self, level: str, text: str) -> None:
+        """Ένα γεγονός του Driver στο log του ROS 2.
+
+        Μία γραμμή κώδικα ανά επίπεδο: ο logger του rclpy θυμάται το επίπεδο ΑΝΑ ΣΗΜΕΙΟ κλήσης
+        και σκάει («Logger severity cannot be changed between calls») αν η ίδια γραμμή γράψει
+        μία φορά info και μετά warning.
+        """
+        logger = self.get_logger()
+        if level == ERROR:
+            logger.error(text)
+        elif level == WARNING:
+            logger.warning(text)
+        else:
+            logger.info(text)
+
     def tick(self) -> None:
         """Ένας κύκλος του Driver και δημοσίευση των θέσεων."""
         if self.sim:
             self.sim.step(self.period)
         self.report = self.driver.tick(time.monotonic())
         for level, text in self.report.events:
-            getattr(self.get_logger(), level)(text)
+            self.log(level, text)
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         for name, joint in self.report.joints.items():

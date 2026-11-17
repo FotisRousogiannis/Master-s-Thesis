@@ -130,6 +130,8 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   στόχους μετά από στάση. Βαθμονόμηση μόνο από το `calibration.yaml` (και ζωντανά). Topics `/base/joint_states`,
   `/base/joint_commands`, `/diagnostics`. Προσομοίωση στο Pi: 50 Hz. **Με υλικό: δεν έχει δοκιμαστεί.** Εκκρεμούν:
   E-stop/OE, δοκιμή βάσης στο εργαστήριο, υπόλοιπες αρθρώσεις, όριο επαφής αρπάγης, στάδιο D (`hardware:=real`).
+- **Σχέδιο βαθμονόμησης (ADR-0023, προτεινόμενο):** σύνδεση «όπως να 'ναι» → διαδικασία στο Arm Studio που βρίσκει κανάλια,
+  ρόλους, φορές, νεκρές ζώνες, μηδέν· προτείνει και ο Φώτης επιβεβαιώνει· όλα στο κοινό `calibration.yaml`. Κομμάτια A–E.
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

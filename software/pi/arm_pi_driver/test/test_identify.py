@@ -8,7 +8,7 @@ SERVO_1 = (0, 1630, [1420, 1840])          # (κανάλι PCA, νεκρό ση�
 SERVO_2 = (1, 1605, [1510, 1700])
 
 
-def setup(config):
+def make_bench(config):
     """Η προσομοίωση της βάσης, με encoders σε ΟΛΑ τα κανάλια (όσα δεν υπάρχουν: NO_RESPONSE)."""
     sim = SimulatedArm(config)
     by_channel = {joint['mux_channel']: sim.encoders[name] for name, joint in sim.joints.items()}
@@ -39,7 +39,7 @@ def test_wrap():
 
 
 def test_scan_finds_the_bench(config):
-    _, ident = setup(config)
+    _, ident = make_bench(config)
     scan = ident.scan()
     assert scan[0]['devices'] == ['PCA9685'] and scan[0]['encoder'] is None
     assert scan[1]['devices'] == ['AS5600'] and scan[1]['encoder']['status'] == 'OK'
@@ -49,7 +49,7 @@ def test_scan_finds_the_bench(config):
 
 
 def test_one_servo_of_a_differential_moves_both_encoders(config):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     result = jog(sim, ident, [(SERVO_1, 0.4)])
     assert result.reason == DONE and result.channels == [0]
     assert set(result.moved) == {1, 2}                          # joint_2 (κανάλι 1), joint_1 (2)
@@ -58,13 +58,13 @@ def test_one_servo_of_a_differential_moves_both_encoders(config):
 
 def test_signs_of_one_joint_move_only_its_encoder(config):
     """joint_1 = {servo_1: +1, servo_2: −1}: μόνο ο encoder του joint_1 (κανάλι 2) κινείται."""
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     result = jog(sim, ident, [(SERVO_1, 0.4), (SERVO_2, -0.4)])
     assert result.reason == DONE and list(result.moved) == [2] and result.moved[2] >= 3.0
 
 
 def test_stops_at_the_first_change_and_brakes(config):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     jog(sim, ident, [(SERVO_1, 0.4)], stop_deg=3.0)
     assert sim.pwm.pulses == {0: 1630}                          # φρένο στο νεκρό σημείο
     assert abs(sim.angles['joint_1']) < 6.0                     # σταμάτησε νωρίς
@@ -73,14 +73,14 @@ def test_stops_at_the_first_change_and_brakes(config):
 
 
 def test_inside_the_deadband_nothing_moves_until_timeout(config):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     result = jog(sim, ident, [((0, 1630, None), 0.1)], duration_s=0.3)   # 1630 + 87 µs < 1840
     assert result.reason == TIMEOUT and result.moved == {}
     assert result.duration_s == pytest.approx(0.3, abs=DT)
 
 
 def test_a_lost_encoder_stops_at_once(config):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     ident.start_jog([(0, 1630, None, 0.4)], 1.0, 3.0, 0.0)
     ident.encoders[1].status = 'NO_RESPONSE'
     assert ident.tick(DT).reason == LOST and sim.pwm.pulses[0] == 1630
@@ -91,14 +91,14 @@ UNSAFE = [(5.0, 3.0, 0.4), (0.5, 45.0, 0.4), (0.5, 3.0, 1.5), (0.0, 3.0, 0.4)]
 
 @pytest.mark.parametrize('duration_s, stop_deg, speed', UNSAFE)
 def test_unsafe_requests_are_refused(config, duration_s, stop_deg, speed):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     with pytest.raises(ValueError):
         ident.start_jog([(0, 1630, None, speed)], duration_s, stop_deg, 0.0)
     assert sim.pwm.pulses == {}                                 # τίποτα δεν γράφτηκε
 
 
 def test_one_jog_at_a_time(config):
-    _, ident = setup(config)
+    _, ident = make_bench(config)
     ident.start_jog([(0, 1630, None, 0.4)], 0.5, 3.0, 0.0)
     with pytest.raises(ValueError):
         ident.start_jog([(1, 1605, None, 0.4)], 0.5, 3.0, 0.0)
@@ -107,7 +107,7 @@ def test_one_jog_at_a_time(config):
 
 
 def test_pulse_stays_inside_the_safety_offset(config):
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     ident.start_jog([(0, 1630, None, 1.0)], 0.5, 3.0, 0.0)
     assert sim.pwm.pulses[0] <= 1630 + config['pca']['max_offset_us']
 
@@ -115,7 +115,7 @@ def test_pulse_stays_inside_the_safety_offset(config):
 @pytest.fixture
 def session(config, data):
     from arm_pi_driver.identify import Session
-    sim, ident = setup(config)
+    sim, ident = make_bench(config)
     return sim, Session(ident, data, timeout_s=5.0)
 
 

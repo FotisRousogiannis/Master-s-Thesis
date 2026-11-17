@@ -1,5 +1,4 @@
 import math
-from pathlib import Path
 
 from arm_pi_driver.control import build_controllers
 from arm_pi_driver.control.pulses import compensated_pulse, compensation_span
@@ -7,15 +6,8 @@ from arm_pi_driver.driver import Driver
 from arm_pi_driver.hardware import AS5600, NO_RESPONSE, PCA9685, TCA9548A
 from arm_pi_driver.hardware.fake import FakeBus, SimulatedArm
 import pytest
-import yaml
 
-CONFIG = Path(__file__).resolve().parents[1] / 'config' / 'base.yaml'
 DT = 0.02
-
-
-@pytest.fixture
-def config():
-    return yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
 
 
 def base(config):

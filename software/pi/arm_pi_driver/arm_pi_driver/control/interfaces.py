@@ -58,3 +58,7 @@ class Controller(ABC):
     @abstractmethod
     def step(self, angles: dict, dt: float) -> dict:
         """Γωνίες (μοίρες) → {κανάλι: παλμός µs ή None}· LimitError εκτός ορίων."""
+
+    def diagnostics(self) -> list:
+        """[(όνομα, επίπεδο info/warning/error, μήνυμα, {κλειδί: τιμή})]· προαιρετικό."""
+        return []

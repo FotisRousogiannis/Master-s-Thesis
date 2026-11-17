@@ -3,9 +3,11 @@
     /<segment>/joint_states    (δημοσιεύει)  θέσεις των αρθρώσεων, σε ακτίνια
     /<segment>/joint_commands  (ακούει)      στόχοι θέσης, σε ακτίνια· χωρίς νέα εντολή για
                                              watchdog_s τα μοτέρ σταματούν
-    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση> και pi_driver/<segment>, 1 Hz
+    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, pi_driver/<segment>, force/…, 1 Hz
+    /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
 
-Παράμετροι: fake (χωρίς υλικό: προσομοίωση), rate_hz, watchdog_s, config (αρχείο YAML).
+Παράμετροι: fake (χωρίς υλικό: προσομοίωση), rate_hz, watchdog_s, config (αρχείο YAML),
+calibration (calibration.yaml· κενό → του πακέτου arm_calibration).
     ros2 run arm_pi_driver driver --ros-args -p fake:=true
 """
 
@@ -14,17 +16,20 @@ from pathlib import Path
 import time
 
 from ament_index_python.packages import get_package_share_directory
+from arm_pi_driver.calibration import apply_calibration, load_calibration, parameter_change
 from arm_pi_driver.control import joint_configs
 from arm_pi_driver.driver import Driver, ERROR, IDLE, USABLE, WARNING
-from arm_pi_driver.hardware import AS5600, PCA9685, TCA9548A
-from arm_pi_driver.hardware.fake import SimulatedArm
+from arm_pi_driver.hardware import ADS1115, AS5600, PCA9685, TCA9548A, ZD10
+from arm_pi_driver.hardware.fake import FakeForceSensor, SimulatedArm
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
+from rcl_interfaces.msg import ParameterEvent, ParameterType
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 import yaml
 
 LEVELS = {IDLE: DiagnosticStatus.OK, WARNING: DiagnosticStatus.WARN, ERROR: DiagnosticStatus.ERROR}
+CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το calibration.yaml
 
 
 def load_config(path: str) -> dict:
@@ -34,8 +39,27 @@ def load_config(path: str) -> dict:
     return yaml.safe_load(Path(path).read_text(encoding='utf-8'))
 
 
+def calibration_file(path: str) -> str:
+    """Το calibration.yaml· κενό → αυτό που εγκατέστησε το colcon από το repo (arm_calibration)."""
+    if path:
+        return path
+    share = Path(get_package_share_directory('arm_calibration'))
+    return str(share / 'config' / 'calibration.yaml')
+
+
+def parameter_value(value):
+    """Η τιμή ενός rcl_interfaces/ParameterValue (μόνο όσοι τύποι μας αφορούν)."""
+    if value.type == ParameterType.PARAMETER_DOUBLE:
+        return value.double_value
+    if value.type == ParameterType.PARAMETER_BOOL:
+        return value.bool_value
+    if value.type == ParameterType.PARAMETER_INTEGER:
+        return value.integer_value
+    return None
+
+
 def real_hardware(config: dict):
-    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm)."""
+    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm, force_sensors)."""
     from smbus2 import SMBus     # μόνο εδώ: με fake:=true δεν χρειάζεται καθόλου
 
     bus = SMBus(config['i2c_bus'])
@@ -45,7 +69,21 @@ def real_hardware(config: dict):
     pca = config['pca']
     pwm = PCA9685(bus, mux, pca['mux_channel'], pca['address'], pca['freq_hz'], pca['osc_hz'],
                   pca['pulse_min_us'], pca['pulse_max_us'])
-    return encoders, pwm
+    force_sensors = {}
+    for group in config['groups'].values():
+        if 'force_sensors' in group:
+            adc_cfg = group['adc']
+            adc = ADS1115(bus, mux, adc_cfg['mux_channel'], adc_cfg.get('address', 0x48),
+                          adc_cfg.get('full_scale_v', 4.096), adc_cfg.get('rate_sps', 860))
+            for name, sensor in group['force_sensors'].items():
+                force_sensors[name] = ZD10(adc, sensor['input'])
+    return encoders, pwm, force_sensors
+
+
+def fake_force_sensors(config: dict) -> dict:
+    """Ψεύτικοι αισθητήρες πίεσης (χωρίς πίεση) για την προσομοίωση."""
+    return {name: FakeForceSensor() for group in config['groups'].values()
+            for name in group.get('force_sensors', {})}
 
 
 class PiDriverNode(Node):
@@ -57,31 +95,48 @@ class PiDriverNode(Node):
         rate_hz = self.declare_parameter('rate_hz', 50.0).value
         watchdog_s = self.declare_parameter('watchdog_s', 0.2).value
         config = load_config(self.declare_parameter('config', '').value)
+        calibration = calibration_file(self.declare_parameter('calibration', '').value)
+        apply_calibration(config, load_calibration(calibration))    # μηδέν, φορά, άνοιγμα αρπάγης
         self.segment = config['segment']
 
-        self.sim = SimulatedArm(config) if fake else None
-        encoders, pwm = (self.sim.encoders, self.sim.pwm) if fake else real_hardware(config)
+        if fake:
+            self.sim = SimulatedArm(config)
+            encoders, pwm, sensors = self.sim.encoders, self.sim.pwm, fake_force_sensors(config)
+        else:
+            self.sim = None
+            encoders, pwm, sensors = real_hardware(config)
         joints = joint_configs(config)
         self.channels = {name: joint['mux_channel'] for name, joint in joints.items()}
-        self.driver = Driver(config, encoders, pwm, watchdog_s)
+        self.driver = Driver(config, encoders, pwm, watchdog_s, force_sensors=sensors)
         self.report = None
 
         self.states = self.create_publisher(JointState, f'/{self.segment}/joint_states', 10)
         self.diagnostics = self.create_publisher(DiagnosticArray, '/diagnostics', 10)
         self.create_subscription(JointState, f'/{self.segment}/joint_commands',
                                  self.on_command, 10)
+        self.create_subscription(ParameterEvent, '/parameter_events', self.on_parameters, 10)
         self.period = 1.0 / rate_hz
         self.create_timer(self.period, self.tick)
         self.create_timer(1.0, self.publish_diagnostics)
         self.get_logger().info(
             f"{'ΠΡΟΣΟΜΟΙΩΣΗ (fake)' if fake else 'υλικό I²C'} · {rate_hz:g} Hz · "
             f'/{self.segment}/joint_states, /{self.segment}/joint_commands · '
-            f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)}')
+            f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)} · '
+            f'βαθμονόμηση {calibration}')
 
     def on_command(self, msg: JointState) -> None:
         """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver."""
         targets = {name: math.degrees(p) for name, p in zip(msg.name, msg.position)}
         self.driver.command(targets, time.monotonic())
+
+    def on_parameters(self, event: ParameterEvent) -> None:
+        """Αλλαγή βαθμονόμησης στο PC (π.χ. «Μηδέν = τρέχουσα θέση») → αμέσως στον Driver."""
+        if event.node != CALIBRATION_NODE:
+            return
+        for parameter in list(event.new_parameters) + list(event.changed_parameters):
+            change = parameter_change(parameter.name, parameter_value(parameter.value))
+            if change:
+                self.driver.update_joint(*change)
 
     def tick(self) -> None:
         """Ένας κύκλος του Driver και δημοσίευση των θέσεων."""
@@ -127,6 +182,11 @@ class PiDriverNode(Node):
         outputs.level = LEVELS[self.report.level]
         outputs.message = self.report.reason
         array.status.append(outputs)
+        for name, level, message, values in self.report.extra:     # π.χ. αισθητήρες αρπάγης
+            status = DiagnosticStatus()
+            status.name, status.level, status.message = name, LEVELS[level], message
+            status.values = [KeyValue(key=k, value=str(v)) for k, v in values.items()]
+            array.status.append(status)
         self.diagnostics.publish(array)
 
 

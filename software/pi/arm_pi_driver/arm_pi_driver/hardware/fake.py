@@ -1,6 +1,8 @@
 """Ψεύτικο υλικό για tests: τρέχει χωρίς Pi και χωρίς smbus2."""
 
-from arm_pi_driver.hardware.interfaces import Encoder, PwmOutput
+import copy
+
+from arm_pi_driver.hardware.interfaces import Encoder, ForceSensor, PwmOutput
 
 
 class FakeBus:
@@ -64,6 +66,17 @@ class FakeEncoder(Encoder):
         return self.angle % 360.0, self.status
 
 
+class FakeForceSensor(ForceSensor):
+    """Αισθητήρας πίεσης χωρίς υλικό: όποια τιμή του ορίσεις (ZD10: 0.94 V = χωρίς πίεση)."""
+
+    def __init__(self, value: float = 0.94, status: str = 'OK'):
+        self.value, self.status = value, status
+
+    def read(self) -> tuple[float, str]:
+        """(τιμή, κατάσταση) όπως ορίστηκαν."""
+        return self.value, self.status
+
+
 class FakePwm(PwmOutput):
     """Έξοδος servo χωρίς υλικό: θυμάται τον παλμό κάθε καναλιού (None = καθόλου παλμός)."""
 
@@ -93,7 +106,8 @@ class SimulatedArm:
     """
 
     def __init__(self, config: dict, deg_per_s: float = 40.0, span_us: float = 400.0):
-        self.groups = config['groups']
+        # Δικό της αντίγραφο: ο «φυσικός» βραχίονας δεν αλλάζει με τη βαθμονόμηση του driver.
+        self.groups = copy.deepcopy(config['groups'])
         self.deg_per_s, self.span_us = deg_per_s, span_us
         self.joints = {name: joint for group in self.groups.values()
                        for name, joint in group['joints'].items()}

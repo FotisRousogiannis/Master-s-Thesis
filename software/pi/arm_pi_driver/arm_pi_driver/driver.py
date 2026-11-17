@@ -46,17 +46,20 @@ class Report:
     reason: str                     # MOVING, AT_TARGET, ή γιατί δεν κινείται
     level: str                      # IDLE, WARNING ή ERROR για το reason
     events: list                    # [(επίπεδο, κείμενο)] μόνο για όσα άλλαξαν
+    extra: list                     # διαγνωστικά των controllers (π.χ. αισθητήρες της αρπάγης)
 
 
 class Driver:
     """Όλες οι ομάδες αρθρώσεων ενός ελεγκτή: encoders, PwmOutput, controllers και ασφάλεια."""
 
     def __init__(self, config: dict, encoders: dict, pwm, watchdog_s: float = 0.2,
-                 controllers: list | None = None):
+                 force_sensors: dict | None = None, controllers: list | None = None):
         self.config, self.encoders, self.pwm = config, encoders, pwm
         self.watchdog_s = watchdog_s
         self.joints = joint_configs(config)
-        self.controllers = controllers if controllers is not None else build_controllers(config)
+        if controllers is None:
+            controllers = build_controllers(config, force_sensors)
+        self.controllers = controllers
         self.owner = {joint: c for c in self.controllers for joint in c.joints}
         self.trackers = {name: self._new_tracker(name) for name in self.joints}
         self.channels = [channel for c in self.controllers for channel in c.channels]
@@ -65,11 +68,33 @@ class Driver:
         self.written = {}               # {κανάλι: τελευταίος παλμός που γράφτηκε}
         self._status = {}
         self._reason = None
+        self._pending = []              # γεγονότα από αλλαγές βαθμονόμησης, για το επόμενο tick
 
     def _new_tracker(self, name: str) -> Tracker:
-        joint = self.joints[name]
+        # Τα όρια διευρυμένα κατά το περιθώριο ασφαλείας: η θέση μένει συνεχής και λίγο έξω από
+        # τα όρια (εκεί τη χρειάζεται ο έλεγχος ορίων), και μια αρπάγη χωρίς βαθμονόμηση
+        # (όρια [0, 0]) έχει ακόμα εύρος.
+        joint, margin = self.joints[name], self.config['control']['limit_margin_deg']
         inverted = joint['sign'] < 0
-        return Tracker(joint['zero_deg'], inverted, joint['lower_deg'], joint['upper_deg'])
+        return Tracker(joint['zero_deg'], inverted, joint['lower_deg'] - margin,
+                       joint['upper_deg'] + margin)
+
+    def update_joint(self, name: str, fields: dict) -> bool:
+        """Νέα βαθμονόμηση μιας άρθρωσης (μηδέν, φορά, όρια) ενώ τρέχει· True αν μας αφορά.
+
+        Οι θέσεις «πηδούν» με νέο μηδέν, οπότε για ασφάλεια ξεχνιούνται όλοι οι στόχοι: τα μοτέρ
+        σταματούν μέχρι την επόμενη εντολή. Τα controllers βλέπουν τα ίδια λεξικά αρθρώσεων, άρα
+        και τα νέα όρια.
+        """
+        if name not in self.joints or not fields:
+            return False
+        self.joints[name].update(fields)
+        self.trackers[name] = self._new_tracker(name)
+        for controller in self.controllers:
+            controller.clear_targets()
+        text = ', '.join(f'{k} = {v:g}' for k, v in fields.items())
+        self._pending.append((WARNING, f'νέα βαθμονόμηση {name}: {text} · στόχοι μηδενίστηκαν'))
+        return True
 
     def command(self, targets_deg: dict, now: float) -> dict:
         """Νέοι στόχοι (μοίρες)· επιστρέφει τους στόχους που ισχύουν.
@@ -168,10 +193,11 @@ class Driver:
             # όχι εκεί που της είχαν πει πριν (μπορεί να μετακινήθηκε με το χέρι στο μεταξύ).
             for controller in self.controllers:
                 controller.clear_targets()
-        return Report(joints, moving, reason, level, self._events(joints, reason, level))
+        extra = [item for controller in self.controllers for item in controller.diagnostics()]
+        return Report(joints, moving, reason, level, self._events(joints, reason, level), extra)
 
     def _events(self, joints: dict, reason: str, level: str) -> list:
-        events = []
+        events, self._pending = self._pending, []
         for name, joint in joints.items():
             if self._status.get(name) != joint.status:
                 if joint.status == 'OK':

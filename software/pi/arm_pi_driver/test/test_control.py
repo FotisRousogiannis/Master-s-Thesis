@@ -1,14 +1,11 @@
 import copy
-from pathlib import Path
 
 from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller, LAWS,
                                    make_law, MixController, PID)
 from arm_pi_driver.driver import Driver
 from arm_pi_driver.hardware.fake import SimulatedArm
 import pytest
-import yaml
 
-CONFIG = Path(__file__).resolve().parents[1] / 'config' / 'base.yaml'
 DT = 0.02
 
 JOINT_3 = {   # δύο κατοπτρικά servo, μία κίνηση (όπως ο Φώτης περιγράφει το joint_3)
@@ -27,11 +24,6 @@ TOOL = {      # ένα servo (π.χ. εργαλείο)
     'motors': {'a': {'channel': 8, 'neutral_us': 1600, 'deadband_edges_us': [1560, 1640],
                      'mix': {'tool': 1}}},
 }
-
-
-@pytest.fixture
-def config():
-    return yaml.safe_load(CONFIG.read_text(encoding='utf-8'))
 
 
 @pytest.fixture

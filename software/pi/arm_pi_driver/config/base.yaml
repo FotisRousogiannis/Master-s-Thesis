@@ -1,6 +1,10 @@
 # Ο βραχίονας στο Pi (ADR-0021): σήμερα μόνο η βάση (διαφορικό joint_1 + joint_2).
 # Τιμές της βάσης από software/tools/wrist_bench/base_calibration.json (πάγκος, 2026-11-14).
 # Γωνίες σε μοίρες εδώ· στο ROS 2 (topics) σε ακτίνια.
+#
+# ΜΗΔΕΝ και ΦΟΡΑ κάθε encoder, και το ΑΝΟΙΓΜΑ της αρπάγης, ΔΕΝ γράφονται εδώ: έρχονται από το
+# software/ros2_ws/src/arm_calibration/config/calibration.yaml (μία πηγή, ADR-0017/0019),
+# και ζωντανά από το Arm Studio («Μηδέν = τρέχουσα θέση», node /arm_calibration).
 segment: base               # topics: /base/joint_states, /base/joint_commands (ADR-0007)
 i2c_bus: 1
 tca_address: 0x70
@@ -30,8 +34,6 @@ groups:
     joints:
       joint_1:              # yaw (στροφή της βάσης)
         mux_channel: 2      # κανάλι του TCA9548A όπου είναι ο ENCODER της άρθρωσης
-        sign: 1
-        zero_deg: 267.891
         lower_deg: -30.0
         upper_deg: 50.0
         deadband_pos: 0.05  # μικρότερη εντολή που κινεί την άρθρωση, ανά φορά (teleop [9])
@@ -39,8 +41,6 @@ groups:
         law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}    # τιμές πάγκου, ΟΧΙ ρυθμισμένες
       joint_2:              # roll του διαφορικού: σηκώνει τον βραχίονα (pitch στο URDF)
         mux_channel: 1
-        sign: -1
-        zero_deg: 112.676
         lower_deg: -90.0
         upper_deg: 90.0
         deadband_pos: 0.07
@@ -63,9 +63,24 @@ groups:
 # Παράδειγμα (όταν συνδεθεί): joint_3 με δύο κατοπτρικά servo που κάνουν μία κίνηση.
 #  joint_3:
 #    joints:
-#      joint_3: {mux_channel: 3, sign: 1, zero_deg: 0.0, lower_deg: -90.0, upper_deg: 90.0,
-#                law: {type: pid, kp: 0.02}}
+#      joint_3: {mux_channel: 3, lower_deg: -90.0, upper_deg: 90.0, law: {type: pid, kp: 0.02}}
 #    motors:
 #      a: {channel: 2, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1}}
 #      b: {channel: 3, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1},
 #          mirrored: true}
+
+# Παράδειγμα (όταν συνδεθεί): η αρπάγη. Ένα servo, AS5600 στον άξονα, 2 × ZD10 μέσω ADS1115 στο
+# ΙΔΙΟ κανάλι του mux με τον AS5600 της (ADR-0021). Όρια κίνησης: 0° (κλειστή) έως gripper.open_deg
+# του calibration.yaml (0 = δεν ανοίγει, μέχρι να βαθμονομηθεί). Το κλείσιμο σταματά όταν κάποιο
+# δάχτυλο ξεπεράσει το `contact` (V στην είσοδο του ADS1115· χωρίς πίεση ~0.94 V, μέγιστη ~2.5 V).
+#  gripper:
+#    controller: gripper
+#    joints:
+#      gripper: {mux_channel: 7, law: {type: pid, kp: 0.02}}
+#    motors:
+#      a: {channel: 8, neutral_us: 1600, deadband_edges_us: [1560, 1640], mix: {gripper: 1}}
+#    contact: 1.3          # V· ΑΡΧΙΚΗ τιμή, ΟΧΙ μετρημένη (λίγο πάνω από τα 0.94 V χωρίς πίεση)
+#    adc: {mux_channel: 7, address: 0x48, full_scale_v: 4.096, rate_sps: 860}
+#    force_sensors:
+#      finger_1: {input: 0}   # ADS1115 A0
+#      finger_2: {input: 1}   # ADS1115 A1

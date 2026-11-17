@@ -10,6 +10,7 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>diagnostic_msgs</depend>
+  <depend>rcl_interfaces</depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>arm_calibration</exec_depend>
   <exec_depend>python3-smbus2</exec_depend>

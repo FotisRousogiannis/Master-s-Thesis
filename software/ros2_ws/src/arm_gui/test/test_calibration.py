@@ -198,18 +198,19 @@ def test_joints_page_hides_the_details_until_asked(panel):
 
 def test_arrows_move_while_held_and_keys_do_the_same(panel, window):
     b = window._bridge
-    assert panel.up_label.text().endswith("joint_2") and panel.side_label.text().endswith("joint_1")
-    panel.hold("up", 1)
+    panel.move_joint.setCurrentText("joint_2")
+    panel.hold(1)
     assert b.identify_requests[-1] == {**b.identify_requests[-1], "op": "drive",
                                        "servos": {"servo_1": 0.4, "servo_2": 0.4}}
     assert panel._drive_timer.isActive()
-    panel.release("up")
+    panel.release()
     assert not panel._drive_timer.isActive()
     from arm_gui.qt import QtCore, QtGui
-    key = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_D, QtCore.Qt.NoModifier)
+    panel.move_joint.setCurrentText("joint_1")
+    key = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_A, QtCore.Qt.NoModifier)
     panel.keyPressEvent(key)
-    assert b.identify_requests[-1]["servos"] == {"servo_1": 0.4, "servo_2": -0.4}
-    panel.keyReleaseEvent(QtGui.QKeyEvent(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_D, QtCore.Qt.NoModifier))
+    assert b.identify_requests[-1]["servos"] == {"servo_1": -0.4, "servo_2": 0.4}
+    panel.keyReleaseEvent(QtGui.QKeyEvent(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_A, QtCore.Qt.NoModifier))
     assert not panel._drive_timer.isActive()
 
 

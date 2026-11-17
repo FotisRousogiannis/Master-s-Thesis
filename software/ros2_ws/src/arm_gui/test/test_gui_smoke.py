@@ -498,7 +498,6 @@ def test_connection_panel_measures_the_link(window, monkeypatch):
     assert "arm_link" in panel._texts["udp"].text()
 
 
-
 def test_five_sections_in_the_side_bar(window):
     assert window.section == "run"
     assert window.nav.count() == 5

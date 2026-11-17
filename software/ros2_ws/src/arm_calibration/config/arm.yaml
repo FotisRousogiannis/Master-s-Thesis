@@ -1,0 +1,132 @@
+# Ο βραχίονας σε ΕΝΑ αρχείο (ADR-0023): servo, encoders, αισθητήρες πίεσης, αρθρώσεις, ελεγκτής.
+# Το διαβάζουν Arm Studio (PC), arm_pi_driver (Pi) και αργότερα τα ESP32· το αλλάζει το Arm Studio ή το χέρι.
+#
+# servos / encoders / force_sensors: ΛΙΣΤΕΣ, το καθένα μία φορά (μόνο «πού είναι» και τα δικά του χαρακτηριστικά).
+# joints: κάθε άρθρωση ΑΝΑΦΕΡΕΙ τα servo της με πρόσημο και τον encoder της.
+#   servos: {servo_1: +1, servo_2: -1}  →  +1 = με παλμό πάνω από το νεκρό σημείο η άρθρωση πάει θετικά.
+#   Δύο αρθρώσεις με τα ίδια servo = διαφορικό· μία άρθρωση με 2 servo = κατοπτρικά· με 1 = μονό.
+#   zero_deg / invert / deadband ανήκουν στην ΑΡΘΡΩΣΗ (όχι στον encoder).
+# enabled: false = η άρθρωση αγνοείται εντελώς (ούτε encoder ούτε servo). null = δεν είναι γνωστό ακόμα.
+#
+# Τιμές (2026-11-17): βάση από τον πάγκο (teleop [6] [9] [10], 2026-11-14), καρπός από wrist_bench.json.
+# Πρόσημα = mix × (invert του servo) των παλιών base.yaml / calibration.yaml.
+servos:
+  servo_1: {channel: 0, neutral_us: 1630, deadband_us: [1420, 1840], description: βάση, κινητήρας A}
+  servo_2: {channel: 1, neutral_us: 1605, deadband_us: [1510, 1700], description: βάση, κινητήρας B}
+  servo_3: {channel: null, neutral_us: 1600, description: joint_3, κινητήρας A}
+  servo_4: {channel: null, neutral_us: 1600, description: joint_3, κινητήρας B}
+  servo_5: {channel: null, neutral_us: 1600, description: joint_4, κινητήρας A}
+  servo_6: {channel: null, neutral_us: 1600, description: joint_4, κινητήρας B}
+  servo_7: {channel: 9, neutral_us: 1600, description: καρπός, κινητήρας A}
+  servo_8: {channel: 10, neutral_us: 1600, description: καρπός, κινητήρας B}
+  servo_9: {channel: null, neutral_us: 1600, description: αρπάγη}
+  servo_10: {channel: 8, neutral_us: 1600, description: πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)}
+  servo_11: {channel: 11, neutral_us: 1600, description: πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)}
+encoders:                     # AS5600 στον άξονα κάθε άρθρωσης, 1:1· channel = κανάλι του TCA9548A
+  enc_1: {channel: 2}
+  enc_2: {channel: 1}
+  enc_3: {channel: null}
+  enc_4: {channel: null}
+  enc_5: {channel: null}
+  enc_6: {channel: null}
+  enc_7: {channel: null}
+force_sensors:                # ZD10 μέσω ADS1115· adc_channel = κανάλι TCA του ADS1115, input = A0..A3
+  finger_1: {adc_channel: null, input: 0}
+  finger_2: {adc_channel: null, input: 1}
+joints:
+  joint_1:
+    description: βάση, στροφή
+    enabled: true
+    servos: {servo_1: 1, servo_2: -1}
+    encoder: enc_1
+    zero_deg: 267.891
+    invert: false
+    limits_deg: [-30.0, 50.0]
+    deadband: [0.05, 0.05]    # ελάχιστη εντολή που την κινεί: [θετικά, αρνητικά]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}    # τιμές πάγκου, ΟΧΙ ρυθμισμένες
+  joint_2:
+    description: βάση, πάνω-κάτω
+    enabled: true
+    servos: {servo_1: 1, servo_2: 1}
+    encoder: enc_2
+    zero_deg: 112.676
+    invert: true
+    limits_deg: [-90.0, 90.0]
+    deadband: [0.07, 0.07]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+  joint_3:
+    description: δύο κατοπτρικά servo
+    enabled: false
+    servos: {servo_3: 1, servo_4: -1}
+    encoder: enc_3
+    zero_deg: 0.0
+    invert: false
+    limits_deg: [-90.0, 90.0]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+  joint_4:
+    description: πιθανότατα δύο κατοπτρικά (προς επιβεβαίωση)
+    enabled: false
+    servos: {servo_5: 1, servo_6: -1}
+    encoder: enc_4
+    zero_deg: 0.0
+    invert: false
+    limits_deg: [-90.0, 90.0]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+  joint_5:
+    description: καρπός, διαφορικό με το joint_6
+    enabled: false
+    servos: {servo_7: 1, servo_8: -1}
+    encoder: enc_5
+    zero_deg: 0.0
+    invert: false
+    limits_deg: [-90.0, 90.0]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+  joint_6:
+    description: καρπός, διαφορικό με το joint_5
+    enabled: false
+    servos: {servo_7: 1, servo_8: 1}
+    encoder: enc_6
+    zero_deg: 0.0
+    invert: false
+    limits_deg: [-90.0, 90.0]
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+  gripper:
+    description: αρπάγη, ένα servo + 2 × ZD10
+    enabled: false
+    servos: {servo_9: 1}
+    encoder: enc_7
+    zero_deg: 0.0             # 0° = πλήρως κλειστή (βήμα 8α)
+    invert: false
+    limits_deg: [0.0, 0.0]    # [κλειστή, ανοιχτή]· [0, 0] μέχρι τη βαθμονόμηση = δεν ανοίγει (ασφαλές)
+    law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    force_sensors: [finger_1, finger_2]
+    travel_margin: 0.9        # κινείται στο μεσαίο 90 % της διαδρομής (5 % πριν από κάθε άκρο)
+    force_margin: 0.9         # σταματά να κλείνει στο 90 % της μέγιστης πίεσης κάθε ZD10 (max_v, βήμα 8β)
+controller:                   # τα «τεχνικά» του ελεγκτή (σήμερα το Pi, ADR-0021)
+  segment: base               # topics /base/joint_states, /base/joint_commands (ADR-0007)
+  i2c_bus: 1
+  tca_address: 0x70
+  pca:
+    address: 0x40
+    mux_channel: 0            # κανάλι του TCA9548A με τον PCA9685
+    freq_hz: 50
+    osc_hz: 25000000
+    pulse_min_us: 500         # προδιαγραφή του servo, δεν ξεπερνιέται ποτέ
+    pulse_max_us: 2500
+    max_offset_us: 900        # όριο ασφαλείας γύρω από το νεκρό σημείο
+  adc:
+    address: 0x48
+    full_scale_v: 4.096
+    rate_sps: 860
+    safety_v: 2.4             # βαθμονόμηση πίεσης (8β): στάση αν ένας ZD10 φτάσει εδώ
+  control:                    # κοινά για όλες τις αρθρώσεις
+    max_speed: 0.5            # μέγιστη εντολή (κλάσμα ταχύτητας)
+    min_speed: 0.3            # ελάχιστη εντολή όταν δεν υπάρχει μετρημένη νεκρή ζώνη
+    tolerance_deg: 1.0        # μέσα σε αυτό η άρθρωση «έφτασε»
+    limit_margin_deg: 5.0     # πέρα από τα όρια + αυτό: στάση
+    deadband_margin: 0.03     # προστίθεται στη μετρημένη νεκρή ζώνη
+    motor_compensation: true  # κάθε μοτέρ ξεκινά από την άκρη της δικής του νεκρής ζώνης
+    stop: brake               # στάση με παλμό νεκρού σημείου· off = κανένας παλμός
+  bench:                      # όρια εργαλείων πάγκου (teleop, wrist_bench, αναγνώριση)
+    max_duration_s: 3.0
+    max_travel_deg: 30.0

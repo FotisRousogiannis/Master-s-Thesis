@@ -55,6 +55,14 @@ def nest(values: dict) -> dict:
     return data
 
 
+def _show(value) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "ναι" if value else "όχι"
+    return f"{value:g}" if isinstance(value, float) else str(value)
+
+
 class Wizard:
     """State of the calibration procedure between requests to the Pi."""
 
@@ -200,6 +208,11 @@ class Wizard:
         names = {p.name for p in proposals}
         self.proposals = [row for row in self.proposals if row[0].name not in names]
         self.proposals += [[p, False] for p in proposals]
+        for p in proposals:                 # seen at once, whatever step the user is on
+            self.findings.append(procedure.Finding(
+                procedure.INFO, f"Πρόταση: {p.name}  {_show(p.old)} → {_show(p.new)} · τσέκαρέ την στο «4 · Έλεγχος»"))
+        if not proposals:
+            self.findings.append(procedure.Finding(procedure.INFO, "Καμία αλλαγή: το αρχείο έχει ήδη αυτή την τιμή."))
 
     def relabel(self, actual: str) -> None:
         """The last jog moved what the user calls `actual`."""

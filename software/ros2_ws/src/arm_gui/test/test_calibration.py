@@ -93,6 +93,7 @@ def test_zero_and_gripper_from_a_read(wizard):
                    "result": {"2": {"raw_deg": 270.0, "status": "OK"}}})
     assert wizard.zero("joint_1")
     assert ("joints.joint_1.zero_deg", 270.0) in [(p.name, p.new) for p, _ in wizard.proposals]
+    assert "Πρόταση: joints.joint_1.zero_deg  267.891 → 270" in wizard.findings[-1].text    # seen at once
 
 
 # ---------------------------------------------------------------------------------------------- panel

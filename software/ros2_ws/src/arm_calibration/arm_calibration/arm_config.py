@@ -25,6 +25,14 @@ TCA_CHANNELS = 8
 ADC_INPUTS = 4
 LAWS = ("pid", "bang_bang")
 
+KEYS = {   # every key an entry may have: anything else is a typo (or a comma inside {…} without quotes)
+    "servos": {"channel", "neutral_us", "deadband_us", "description"},
+    "encoders": {"channel", "description"},
+    "force_sensors": {"adc_channel", "input", "max_v", "description"},
+    "joints": {"description", "enabled", "servos", "encoder", "zero_deg", "invert", "limits_deg", "deadband",
+               "law", "force_sensors", "travel_margin", "force_margin"},
+}
+
 SINGLE = "single"
 MIRRORED = "mirrored"
 DIFFERENTIAL = "differential"
@@ -111,6 +119,10 @@ FLOAT_LEAVES = {"zero_deg", "kp", "ki", "kd", "speed", "max_v", "travel_margin",
                 "limits_deg", "deadband", "full_scale_v", "safety_v"}
 # Leaves that may be added while running (a null in the file has no parameter until it gets a value).
 NEW_LEAVES = {"channel", "adc_channel", "max_v", "deadband_us", "deadband", "encoder"}
+# A channel that is not known yet (null in the file) is -1 as a parameter: ROS 2 parameters have no
+# null, and without a parameter an encoder with only a channel would not exist for Arm Studio.
+CHANNEL_LEAVES = {"channel", "adc_channel"}
+NO_CHANNEL = -1
 DESCRIPTIONS = {
     "channel": "Κανάλι (PCA9685 για servo, TCA9548A για encoder)",
     "neutral_us": "Νεκρό σημείο (στάση) [µs]",
@@ -142,7 +154,13 @@ def _flatten(tree: dict, prefix: str = "") -> dict:
 
 
 def coerce(name: str, value):
-    """A value in the type its parameter has: floats where a float is meant (YAML may write 0 for 0.0)."""
+    """A value in the type its parameter has: floats where a float is meant (YAML may write 0 for 0.0).
+
+    Channel -1 and encoder "" mean "not set" (None in the file).
+    """
+    leaf = name.rsplit(".", 1)[-1]
+    if (leaf in CHANNEL_LEAVES and value == NO_CHANNEL) or (leaf == "encoder" and value == ""):
+        return None
     sequence = isinstance(value, (list, tuple, array))     # rclpy gives arrays as array.array
     if name.rsplit(".", 1)[-1] not in FLOAT_LEAVES or value is None or isinstance(value, bool):
         return list(value) if sequence else value
@@ -152,8 +170,14 @@ def coerce(name: str, value):
 
 
 def parameters(data: dict) -> dict:
-    """{flat name: value} for every known value (nulls left out)."""
-    return {name: coerce(name, v) for name, v in _flatten(data).items() if v is not None}
+    """{flat name: value} for every known value; a null channel is -1, other nulls are left out."""
+    result = {}
+    for name, value in _flatten(data).items():
+        if value is None and name.rsplit(".", 1)[-1] in CHANNEL_LEAVES:
+            result[name] = NO_CHANNEL
+        elif value is not None:
+            result[name] = coerce(name, value)
+    return result
 
 
 def get_value(data: dict, name: str):
@@ -189,6 +213,12 @@ def validate(data: dict) -> list[str]:
     errors = [f"λείπει το τμήμα «{s}»" for s in SECTIONS if not isinstance(data.get(s), dict)]
     if errors:
         return errors
+    for section, keys in KEYS.items():
+        for name, entry in data[section].items():
+            unknown = sorted(set(entry) - keys) if isinstance(entry, dict) else []
+            if unknown:
+                errors.append(f"{section}.{name}: άγνωστα κλειδιά {', '.join(map(str, unknown))} "
+                              "(τυπογραφικό; κόμμα σε κείμενο χωρίς εισαγωγικά;)")
     errors += _check_controller(data["controller"])
     pulse = (data["controller"].get("pca") or {})
     lo = pulse.get("pulse_min_us", HARD_PULSE_MIN_US)

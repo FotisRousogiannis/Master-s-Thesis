@@ -8,6 +8,7 @@ from pathlib import Path
 from . import APP_NAME, theme
 from .layouts import APP, PRESETS, Rect, WindowPlacer, fit_to_screens, preset_layout
 from .model import parse_joints
+from .panels.calibration_panel import CalibrationPanel
 from .panels.connection_panel import ConnectionPanel
 from .panels.devices_panel import DevicesPanel
 from .panels.graph_panel import GraphPanel
@@ -70,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sensors = SensorsPanel()
         self.devices = DevicesPanel()
         self.parameters = ParametersPanel()
+        self.calibration = CalibrationPanel()
         self.graph = GraphPanel(bridge.node_info)
         self.log = LogPanel()
         self.tools = ToolsPanel()
@@ -100,6 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ("sensors", "Αισθητήρες", self.sensors),
             ("devices", "Συσκευές", self.devices),
             ("parameters", "Παράμετροι", self.parameters),
+            ("calibration", "Βαθμονόμηση", self.calibration),
             ("graph", "ROS 2", self.graph),
             ("connection", "Σύνδεση", self.connection),
             ("tools", "Εργαλεία", self.tools),
@@ -120,7 +123,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, d["system"])
         self.splitDockWidget(d["system"], d["joints"], Qt.Horizontal)
         self.splitDockWidget(d["joints"], d["sensors"], Qt.Horizontal)
-        for key in ("devices", "parameters", "graph", "connection", "tools", "log"):
+        for key in ("devices", "parameters", "calibration", "graph", "connection", "tools", "log"):
             self.tabifyDockWidget(d["sensors"], d[key])
         for dock in d.values():
             dock.show()
@@ -247,6 +250,13 @@ class MainWindow(QtWidgets.QMainWindow):
         b.diagnostics.connect(self.devices.update_diagnostics)
         b.diagnostics.connect(self.parameters.update_diagnostics)
         b.parameters_set.connect(self.parameters.show_set_results)
+        b.parameters_loaded.connect(self.calibration.show_parameters)
+        b.parameters_set.connect(self.calibration.show_set_results)
+        b.diagnostics.connect(self.calibration.update_diagnostics)
+        b.identify_reply.connect(self.calibration.on_identify_reply)
+        self.calibration.load_requested.connect(b.request_parameters)
+        self.calibration.apply_requested.connect(b.set_parameters_atomically)
+        self.calibration.identify_requested.connect(b.identify)
         b.service_result.connect(self.parameters.show_service_result)
         b.service_result.connect(lambda srv, ok, msg: self.log.append("υπηρεσία", f"{srv}: {msg}"))
         self.parameters.load_requested.connect(b.request_parameters)

@@ -107,7 +107,8 @@ def test_parameters_are_flat_and_typed(data):
     assert params["joints.joint_1.zero_deg"] == 267.891
     assert params["joints.joint_1.servos.servo_2"] == -1
     assert params["servos.servo_1.deadband_us"] == [1420, 1840]
-    assert "encoders.enc_3.channel" not in params                  # null: no parameter
+    assert params["encoders.enc_3.channel"] == -1                  # null channel: -1
+    assert "joints.joint_3.encoder" in params and "force_sensors.finger_1.max_v" not in params
     assert isinstance(params["joints.gripper.limits_deg"][0], float)
 
 
@@ -117,9 +118,17 @@ def test_set_value_from_ros(data):
     assert data["joints"]["joint_1"]["limits_deg"] == [-20.0, 40.0]
     a.set_value(data, "encoders.enc_3.channel", 4)                 # a null gets a value
     assert data["encoders"]["enc_3"]["channel"] == 4
+    a.set_value(data, "encoders.enc_3.channel", -1)                # and back to null
+    assert data["encoders"]["enc_3"]["channel"] is None
     a.set_value(data, "joints.joint_3.servos.servo_10", 1)         # a servo added to a joint
     assert data["joints"]["joint_3"]["servos"]["servo_10"] == 1
     with pytest.raises(KeyError):
         a.set_value(data, "joints.joint_1.typo", 1)
     with pytest.raises(KeyError):
         a.set_value(data, "nothing.here", 1)
+
+
+def test_unknown_keys_are_refused(data):
+    """`{description: βάση, κινητήρας A}` without quotes gives a key «κινητήρας A»."""
+    msg = errors_after(data, lambda d: d["servos"]["servo_1"].update({"κινητήρας A": None}))
+    assert "άγνωστα κλειδιά κινητήρας A" in msg

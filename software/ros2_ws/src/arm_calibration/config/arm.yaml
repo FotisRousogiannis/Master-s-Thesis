@@ -11,17 +11,17 @@
 # Τιμές (2026-11-17): βάση από τον πάγκο (teleop [6] [9] [10], 2026-11-14), καρπός από wrist_bench.json.
 # Πρόσημα = mix × (invert του servo) των παλιών base.yaml / calibration.yaml.
 servos:
-  servo_1: {channel: 0, neutral_us: 1630, deadband_us: [1420, 1840], description: βάση, κινητήρας A}
-  servo_2: {channel: 1, neutral_us: 1605, deadband_us: [1510, 1700], description: βάση, κινητήρας B}
-  servo_3: {channel: null, neutral_us: 1600, description: joint_3, κινητήρας A}
-  servo_4: {channel: null, neutral_us: 1600, description: joint_3, κινητήρας B}
-  servo_5: {channel: null, neutral_us: 1600, description: joint_4, κινητήρας A}
-  servo_6: {channel: null, neutral_us: 1600, description: joint_4, κινητήρας B}
-  servo_7: {channel: 9, neutral_us: 1600, description: καρπός, κινητήρας A}
-  servo_8: {channel: 10, neutral_us: 1600, description: καρπός, κινητήρας B}
-  servo_9: {channel: null, neutral_us: 1600, description: αρπάγη}
-  servo_10: {channel: 8, neutral_us: 1600, description: πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)}
-  servo_11: {channel: 11, neutral_us: 1600, description: πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)}
+  servo_1: {channel: 0, neutral_us: 1630, deadband_us: [1420, 1840], description: "βάση, κινητήρας A"}
+  servo_2: {channel: 1, neutral_us: 1605, deadband_us: [1510, 1700], description: "βάση, κινητήρας B"}
+  servo_3: {channel: null, neutral_us: 1600, description: "joint_3, κινητήρας A"}
+  servo_4: {channel: null, neutral_us: 1600, description: "joint_3, κινητήρας B"}
+  servo_5: {channel: null, neutral_us: 1600, description: "joint_4, κινητήρας A"}
+  servo_6: {channel: null, neutral_us: 1600, description: "joint_4, κινητήρας B"}
+  servo_7: {channel: 9, neutral_us: 1600, description: "καρπός, κινητήρας A"}
+  servo_8: {channel: 10, neutral_us: 1600, description: "καρπός, κινητήρας B"}
+  servo_9: {channel: null, neutral_us: 1600, description: "αρπάγη"}
+  servo_10: {channel: 8, neutral_us: 1600, description: "πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)"}
+  servo_11: {channel: 11, neutral_us: 1600, description: "πάγκος καρπού, κανάλι προς επαλήθευση (T3/T4)"}
 encoders:                     # AS5600 στον άξονα κάθε άρθρωσης, 1:1· channel = κανάλι του TCA9548A
   enc_1: {channel: 2}
   enc_2: {channel: 1}

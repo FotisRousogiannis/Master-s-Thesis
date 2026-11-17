@@ -28,12 +28,20 @@ class FakeBridge(QtCore.QObject):
     parameters_set = Signal(str, object)
     service_result = Signal(str, bool, str)
     diagnostics = Signal(object)
+    identify_reply = Signal(object)
 
     def __init__(self):
         super().__init__()
         self.goals, self.stops = [], 0
         self.param_requests, self.param_sets, self.triggers = [], [], []
         self.events = []
+        self.identify_requests, self.atomic_sets = [], []
+
+    def identify(self, request):
+        self.identify_requests.append(request)
+
+    def set_parameters_atomically(self, node, values):
+        self.atomic_sets.append((node, values))
 
     def log_event(self, event):
         self.events.append(event)

@@ -370,3 +370,5 @@
   (εκκίνηση + ζωντανά από το `/arm_calibration`)· τα μηδενικά της βάσης μεταφέρθηκαν εκεί. Tests 44 ✅ (προσομοίωση).
   Γνωστός περιορισμός: το «Μηδέν = τρέχουσα θέση» του `/arm_calibration` θέλει αναφορές από ΟΛΟΥΣ τους encoders
   του αρχείου (ADR-0019), ενώ το Pi στέλνει σήμερα μόνο joint_1/2· μέχρι τότε `ros2 param set` ανά άρθρωση.
+- **Merge `feature/pi-driver` → `draft`** (έγκριση του Φώτη, `--no-ff`). Tests μετά το merge: arm_pi_driver 44,
+  arm_link 1, arm_gui 39, wrist_bench 61, arm_calibration 20, arm_logbook 5, setup_network 3 ✅.

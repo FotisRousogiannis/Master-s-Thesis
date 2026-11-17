@@ -123,6 +123,13 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   reboot). Πάνελ «Σύνδεση» του Arm Studio: εύρεση UDP και μέτρηση της σύνδεσης (ADR-0022)· με το Pi 0 %, RTT 0.14 ms. Ενώθηκαν στο `draft` (2026-11-16).
   Εκκρεμούν: WiFi, tests του `arm_link` (μόνο 1 τώρα). Docker του PC: εξαρτήσεις από τα `package.xml` με `rosdep`, όπως
   στο Pi (πρώτα να συμπληρωθούν τα `package.xml`, π.χ. PyQt5/psutil στο `arm_gui`· ένα πλήρες ξαναχτίσιμο).
+- **`arm_pi_driver` (2026-11-17, στο `draft`):** node ROS 2 του Pi σε Docker (`software/pi/`: `docker/`, `arm_pi_driver/`),
+  αυτόματη εκκίνηση με το Pi. Υλικό πίσω από interfaces (`Encoder`, `PwmOutput`, `ForceSensor`: TCA9548A, AS5600,
+  PCA9685, ADS1115, ZD10)· έλεγχος με `Controller`/`ControlLaw` (μίξη ανά μοτέρ στο YAML: διαφορικό, κατοπτρικά, ένα
+  servo· αρπάγη με στάση στην επαφή· PID ή BangBang ανά άρθρωση). Ασφάλεια: watchdog 0.2 s, encoders, όρια, ξεχνά
+  στόχους μετά από στάση. Βαθμονόμηση μόνο από το `calibration.yaml` (και ζωντανά). Topics `/base/joint_states`,
+  `/base/joint_commands`, `/diagnostics`. Προσομοίωση στο Pi: 50 Hz. **Με υλικό: δεν έχει δοκιμαστεί.** Εκκρεμούν:
+  E-stop/OE, δοκιμή βάσης στο εργαστήριο, υπόλοιπες αρθρώσεις, όριο επαφής αρπάγης, στάδιο D (`hardware:=real`).
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

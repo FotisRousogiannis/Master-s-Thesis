@@ -46,6 +46,7 @@ LEVELS = {IDLE: DiagnosticStatus.OK, WARNING: DiagnosticStatus.WARN, ERROR: Diag
 CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το arm.yaml
 CALIBRATION_PREFIXES = ('servos.', 'encoders.', 'force_sensors.', 'joints.', 'controller.')
 SYNC_PERIOD_S = 2.0                         # πόσο συχνά ξαναρωτά το PC μέχρι να απαντήσει
+SYNC_TIMEOUT_S = 6.0                        # χωρίς απάντηση τόσο: χάθηκε (DDS), ξαναρωτά
 
 
 def arm_file_path(path: str) -> str:
@@ -156,7 +157,7 @@ class PiDriverNode(Node):
         self.list_client = self.create_client(ListParameters,
                                               f'{CALIBRATION_NODE}/list_parameters')
         self.get_client = self.create_client(GetParameters, f'{CALIBRATION_NODE}/get_parameters')
-        self.synced, self.syncing = False, False
+        self.synced, self.syncing, self.sync_started = False, False, 0.0
         self.sync_timer = self.create_timer(SYNC_PERIOD_S, self.sync_calibration)
         self.period = 1.0 / rate_hz
         self.create_timer(self.period, self.tick)
@@ -221,9 +222,11 @@ class PiDriverNode(Node):
 
     def sync_calibration(self) -> None:
         """Ζητά όλες τις τιμές από το /arm_calibration του PC, μέχρι να απαντήσει μία φορά."""
+        if self.syncing and time.monotonic() - self.sync_started > SYNC_TIMEOUT_S:
+            self.syncing = False        # η απάντηση χάθηκε («failed to send response» στο PC)
         if self.synced or self.syncing or not self.list_client.service_is_ready():
             return
-        self.syncing = True
+        self.syncing, self.sync_started = True, time.monotonic()
         request = ListParameters.Request()
         request.prefixes = [p.rstrip('.') for p in CALIBRATION_PREFIXES]
         self.list_client.call_async(request).add_done_callback(self._on_names)

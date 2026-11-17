@@ -185,6 +185,17 @@ class Bench:
     def read_encoders(self):
         return {name: enc.read() for name, enc in self.encoders.items()}
 
+    def read_encoders_or_missing(self):
+        """For display only (enc): an encoder that does not answer is (nan, NO_RESPONSE), not an error.
+        Motion commands keep read_encoders(): there a missing encoder must stop them."""
+        result = {}
+        for name, enc in self.encoders.items():
+            try:
+                result[name] = enc.read()
+            except OSError:
+                result[name] = (float("nan"), None, "NO_RESPONSE", "-")
+        return result
+
     def run_motion(self, pulses, duration, rate, writer=None, label=""):
         """Apply {servo: offset_us} for `duration` s, sampling encoders; abort on travel limit."""
         servos = self.cfg["servos"]
@@ -583,7 +594,7 @@ def dispatch(bench, args):
         if args.cmd == "enc":
             t0 = time.monotonic()
             while not args.duration or time.monotonic() - t0 < args.duration:
-                r = bench.read_encoders()
+                r = bench.read_encoders_or_missing()
                 t = time.monotonic() - t0
                 print(f"{t:7.2f}s  " + "  ".join(f"{n}={r[n][0]:7.2f}° ({r[n][2]}, agc {r[n][3]})" for n in names))
                 if writer:

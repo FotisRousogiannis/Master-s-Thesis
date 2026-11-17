@@ -37,6 +37,7 @@ from .qt import QtCore, Signal
 ARM_CONTROLLER = "arm_controller"
 JOINT_STATE_MAX_RATE_HZ = 20.0
 SERVICE_TIMEOUT_S = 3.0
+RESPONSE_TIMEOUT_S = 5.0
 PARAM_TYPES = {
     ParameterType.PARAMETER_BOOL: "bool",
     ParameterType.PARAMETER_INTEGER: "integer",
@@ -191,11 +192,29 @@ class RosBridge(QtCore.QObject):
             on_error(f"Η υπηρεσία {service} δεν απαντά")
             return
 
+        finished = threading.Event()
+
         def done(future):
+            if finished.is_set() or future.cancelled():
+                return
+            finished.set()
             exc = future.exception()
             on_error(str(exc)) if exc else on_done(future.result())
 
-        client.call_async(request).add_done_callback(done)
+        future = client.call_async(request)
+        future.add_done_callback(done)
+
+        def give_up():
+            # DDS can drop a response to a client that was just created ("failed to send response
+            # (timeout)" in the server's log): without this the caller would wait forever.
+            if not finished.is_set():
+                finished.set()
+                future.cancel()
+                on_error(f"Η υπηρεσία {service} δεν απάντησε (χάθηκε η απάντηση· ξαναδοκίμασε)")
+
+        timer = threading.Timer(RESPONSE_TIMEOUT_S, give_up)
+        timer.daemon = True
+        timer.start()
 
     def request_parameters(self, node: str):
         def fail(msg):

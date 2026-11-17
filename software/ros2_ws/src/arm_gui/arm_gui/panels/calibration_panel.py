@@ -10,11 +10,14 @@ Values come from /arm_calibration (flat parameters of arm.yaml); «Εφαρμο�
 all at once, and the node validates the whole file. «Αποθήκευση» is the Parameters panel's.
 """
 
+import time
+
 from ..calibration import Wizard, nest
 from ..qt import QtCore, QtWidgets, Signal
 
 CALIBRATION_NODE = "/arm_calibration"
 KEEPALIVE_MS = 2000      # the Pi leaves identification mode after 5 s without a request
+RELOAD_AFTER_S = 6.0     # no values yet while /arm_calibration runs: ask again (a reply can be lost)
 NONE = "—"
 
 
@@ -120,9 +123,11 @@ class CalibrationPanel(QtWidgets.QWidget):
     apply_requested = Signal(str, object)         # node, {parameter: value}: all at once
     identify_requested = Signal(object)           # request to the Pi (dict)
 
-    def __init__(self, parent=None, confirm=None):
+    def __init__(self, parent=None, confirm=None, clock=time.monotonic):
         super().__init__(parent)
         self.data = None
+        self._clock = clock
+        self._asked = None                         # when values were last requested
         self.wizard = Wizard()
         self._confirm = confirm or self._ask
         layout = QtWidgets.QVBoxLayout(self)
@@ -364,6 +369,17 @@ class CalibrationPanel(QtWidgets.QWidget):
         self.proposals.blockSignals(False)
 
     # ---------------------------------------------------------------- pages
+    def set_nodes(self, nodes):
+        """While /arm_calibration runs and no values came (e.g. a lost reply), ask again."""
+        if CALIBRATION_NODE not in nodes or self.data is not None:
+            return
+        now = self._clock()
+        if self._asked is None:
+            self._asked = now          # the Parameters panel asks as soon as the node appears
+        elif now - self._asked > RELOAD_AFTER_S:
+            self._asked = now
+            self.load_requested.emit(CALIBRATION_NODE)
+
     def show_parameters(self, node, params):
         if node != CALIBRATION_NODE:
             return

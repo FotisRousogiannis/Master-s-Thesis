@@ -254,6 +254,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.parameters_set.connect(self.calibration.show_set_results)
         b.diagnostics.connect(self.calibration.update_diagnostics)
         b.identify_reply.connect(self.calibration.on_identify_reply)
+        b.nodes_changed.connect(self.calibration.set_nodes)
         self.calibration.load_requested.connect(b.request_parameters)
         self.calibration.apply_requested.connect(b.set_parameters_atomically)
         self.calibration.identify_requested.connect(b.identify)

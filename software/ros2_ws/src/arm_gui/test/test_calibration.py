@@ -155,3 +155,22 @@ def test_live_values_from_diagnostics(panel, window):
     window._bridge.diagnostics.emit([{"name": "encoder/joint_1", "level": 0, "message": "OK", "hardware_id": "",
                                       "values": {"raw_deg": "267.90", "position_deg": "0.01"}}])
     assert panel.joints.item(0, 11).text() == "0.01" and panel.encoders.item(0, 3).text() == "267.90"
+
+
+def test_values_are_asked_again_while_none_came(window):
+    """A reply of /arm_calibration can be lost (DDS): while the node runs, the panel asks again."""
+    panel, b = window.calibration, window._bridge
+    now = [100.0]
+    panel._clock = lambda: now[0]
+    panel.set_nodes(["/arm_calibration"])
+    asked = b.param_requests.count("/arm_calibration")                     # the Parameters panel's
+    now[0] += 1.0
+    panel.set_nodes(["/arm_calibration"])
+    assert b.param_requests.count("/arm_calibration") == asked             # not every second
+    now[0] += 7.0
+    panel.set_nodes(["/arm_calibration"])
+    assert b.param_requests.count("/arm_calibration") == asked + 1
+    b.parameters_loaded.emit("/arm_calibration", params())
+    now[0] += 7.0
+    panel.set_nodes(["/arm_calibration"])
+    assert b.param_requests.count("/arm_calibration") == asked + 1         # loaded: no more

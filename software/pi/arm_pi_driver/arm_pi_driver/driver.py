@@ -16,6 +16,7 @@
 from dataclasses import dataclass
 
 from arm_calibration.encoders import EncoderJump, Tracker
+from arm_pi_driver.calibration import Change, GRIPPER_GROUP, JOINT, SERVO
 from arm_pi_driver.control import build_controllers, joint_configs, LimitError
 
 USABLE = ('OK', 'TOO_WEAK', 'TOO_STRONG')   # η γωνία μετρά, ίσως λιγότερο αξιόπιστα
@@ -94,6 +95,48 @@ class Driver:
             controller.clear_targets()
         text = ', '.join(f'{k} = {v:g}' for k, v in fields.items())
         self._pending.append((WARNING, f'νέα βαθμονόμηση {name}: {text} · στόχοι μηδενίστηκαν'))
+        return True
+
+    def apply_change(self, change: Change) -> bool:
+        """Μια αλλαγή βαθμονόμησης (από το calibration.yaml / Arm Studio)· True αν εφαρμόστηκε."""
+        if change.kind == JOINT:
+            return self.update_joint(change.name, change.fields)
+        if change.kind == SERVO:
+            return self.update_servo(change.name, change.fields)
+        if change.kind == GRIPPER_GROUP:
+            groups = [g for g in self.config['groups'].values() if 'force_sensors' in g]
+            for group in groups:
+                group.update(change.fields)
+            if groups:
+                self._pending.append((IDLE, f'αρπάγη: όριο επαφής {change.fields["contact"]:g} V'))
+            return bool(groups)
+        return False
+
+    def update_servo(self, servo: str, fields: dict) -> bool:
+        """Νέα βαθμονόμηση ενός servo (νεκρό σημείο, φορά, νεκρή ζώνη) ενώ τρέχει.
+
+        Το κανάλι ΔΕΝ αλλάζει ζωντανά (θα έστελνε παλμούς σε άλλο servo): θέλει επανεκκίνηση.
+        Για ασφάλεια ξεχνιούνται όλοι οι στόχοι, όπως στις αρθρώσεις.
+        """
+        motors = [m for g in self.config['groups'].values() for m in g['motors'].values()
+                  if m.get('servo') == servo]
+        if not motors or not fields:
+            return False
+        fields = dict(fields)
+        if 'channel' in fields and fields.pop('channel') != motors[0]['channel']:
+            self._pending.append((WARNING, f'servo {servo}: νέο κανάλι στο calibration.yaml· '
+                                           f'ισχύει μετά από επανεκκίνηση του driver'))
+        for motor in motors:
+            for side, index in (('deadband_down_us', 0), ('deadband_up_us', 1)):
+                if side in fields:
+                    edges = list(motor.get('deadband_edges_us') or [motor['neutral_us']] * 2)
+                    edges[index] = fields.pop(side)
+                    motor['deadband_edges_us'] = edges
+            motor.update(fields)
+        for controller in self.controllers:
+            controller.clear_targets()
+        self.written = {}                   # ο παλμός στάσης μπορεί να άλλαξε: ξαναγράφεται
+        self._pending.append((WARNING, f'νέα βαθμονόμηση servo {servo} · στόχοι μηδενίστηκαν'))
         return True
 
     def command(self, targets_deg: dict, now: float) -> dict:

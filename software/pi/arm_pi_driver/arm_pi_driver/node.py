@@ -6,6 +6,10 @@
     /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, pi_driver/<segment>, force/…, 1 Hz
     /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
 
+Βαθμονόμηση: στην εκκίνηση από το calibration.yaml (αντίγραφο του repo στο Pi)· μόλις απαντήσει
+το /arm_calibration του PC, παίρνει τις τιμές ΤΟΥ (ίσως νεότερες από το αρχείο του Pi) και μετά
+κάθε αλλαγή του ζωντανά. Εφαρμόζονται μόνο όσες τιμές διαφέρουν από αυτές που ισχύουν.
+
 Παράμετροι: fake (χωρίς υλικό: προσομοίωση), rate_hz, watchdog_s, config (αρχείο YAML),
 calibration (calibration.yaml· κενό → του πακέτου arm_calibration).
     ros2 run arm_pi_driver driver --ros-args -p fake:=true
@@ -23,6 +27,7 @@ from arm_pi_driver.hardware import ADS1115, AS5600, PCA9685, TCA9548A, ZD10
 from arm_pi_driver.hardware.fake import FakeForceSensor, SimulatedArm
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from rcl_interfaces.msg import ParameterEvent, ParameterType
+from rcl_interfaces.srv import GetParameters, ListParameters
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
@@ -30,6 +35,8 @@ import yaml
 
 LEVELS = {IDLE: DiagnosticStatus.OK, WARNING: DiagnosticStatus.WARN, ERROR: DiagnosticStatus.ERROR}
 CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το calibration.yaml
+CALIBRATION_PREFIXES = ('encoders.', 'servos.', 'gripper.')
+SYNC_PERIOD_S = 2.0                         # πόσο συχνά ξαναρωτά το PC μέχρι να απαντήσει
 
 
 def load_config(path: str) -> dict:
@@ -96,7 +103,8 @@ class PiDriverNode(Node):
         watchdog_s = self.declare_parameter('watchdog_s', 0.2).value
         config = load_config(self.declare_parameter('config', '').value)
         calibration = calibration_file(self.declare_parameter('calibration', '').value)
-        apply_calibration(config, load_calibration(calibration))    # μηδέν, φορά, άνοιγμα αρπάγης
+        self.calibration = load_calibration(calibration)            # οι τιμές που ισχύουν τώρα
+        apply_calibration(config, self.calibration)                 # μηδέν, φορά, νεκρές ζώνες…
         self.segment = config['segment']
 
         if fake:
@@ -115,6 +123,11 @@ class PiDriverNode(Node):
         self.create_subscription(JointState, f'/{self.segment}/joint_commands',
                                  self.on_command, 10)
         self.create_subscription(ParameterEvent, '/parameter_events', self.on_parameters, 10)
+        self.list_client = self.create_client(ListParameters,
+                                              f'{CALIBRATION_NODE}/list_parameters')
+        self.get_client = self.create_client(GetParameters, f'{CALIBRATION_NODE}/get_parameters')
+        self.synced, self.syncing = False, False
+        self.sync_timer = self.create_timer(SYNC_PERIOD_S, self.sync_calibration)
         self.period = 1.0 / rate_hz
         self.create_timer(self.period, self.tick)
         self.create_timer(1.0, self.publish_diagnostics)
@@ -134,9 +147,46 @@ class PiDriverNode(Node):
         if event.node != CALIBRATION_NODE:
             return
         for parameter in list(event.new_parameters) + list(event.changed_parameters):
-            change = parameter_change(parameter.name, parameter_value(parameter.value))
-            if change:
-                self.driver.update_joint(*change)
+            self.calibrate(parameter.name, parameter_value(parameter.value))
+
+    def calibrate(self, name: str, value) -> bool:
+        """Μία τιμή βαθμονόμησης· εφαρμόζεται μόνο αν διαφέρει από αυτή που ισχύει."""
+        if value is None or self.calibration.get(name) == value:
+            return False
+        change = parameter_change(name, value)
+        if change is None:
+            return False
+        self.calibration[name] = value
+        return self.driver.apply_change(change)
+
+    def sync_calibration(self) -> None:
+        """Ζητά όλες τις τιμές από το /arm_calibration του PC, μέχρι να απαντήσει μία φορά."""
+        if self.synced or self.syncing or not self.list_client.service_is_ready():
+            return
+        self.syncing = True
+        request = ListParameters.Request()
+        request.prefixes = [p.rstrip('.') for p in CALIBRATION_PREFIXES]
+        self.list_client.call_async(request).add_done_callback(self._on_names)
+
+    def _on_names(self, future) -> None:
+        if future.result() is None:
+            self.syncing = False
+            return
+        names = [n for n in future.result().result.names if n.startswith(CALIBRATION_PREFIXES)]
+        request = GetParameters.Request()
+        request.names = names
+        self.get_client.call_async(request).add_done_callback(
+            lambda f: self._on_values(names, f))
+
+    def _on_values(self, names: list, future) -> None:
+        self.syncing = False
+        if future.result() is None:
+            return
+        changed = sum(self.calibrate(name, parameter_value(value))
+                      for name, value in zip(names, future.result().values))
+        self.synced = True
+        self.get_logger().info(f'βαθμονόμηση από το {CALIBRATION_NODE} του PC: {len(names)} '
+                               f'τιμές, {changed} διαφορετικές από το αρχείο του Pi')
 
     def tick(self) -> None:
         """Ένας κύκλος του Driver και δημοσίευση των θέσεων."""

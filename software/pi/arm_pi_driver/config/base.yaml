@@ -1,10 +1,13 @@
 # Ο βραχίονας στο Pi (ADR-0021): σήμερα μόνο η βάση (διαφορικό joint_1 + joint_2).
-# Τιμές της βάσης από software/tools/wrist_bench/base_calibration.json (πάγκος, 2026-11-14).
 # Γωνίες σε μοίρες εδώ· στο ROS 2 (topics) σε ακτίνια.
 #
-# ΜΗΔΕΝ και ΦΟΡΑ κάθε encoder, και το ΑΝΟΙΓΜΑ της αρπάγης, ΔΕΝ γράφονται εδώ: έρχονται από το
-# software/ros2_ws/src/arm_calibration/config/calibration.yaml (μία πηγή, ADR-0017/0019),
-# και ζωντανά από το Arm Studio («Μηδέν = τρέχουσα θέση», node /arm_calibration).
+# Εδώ: ΚΑΛΩΔΙΩΣΗ και ΣΧΕΔΙΑΣΜΟΣ (ομάδες, κανάλια encoders, ποιο servo σε ποια ομάδα, μίξη, έλεγχος, όρια).
+# Ό,τι ΜΕΤΡΙΕΤΑΙ έρχεται από το ΚΟΙΝΟ αρχείο βαθμονόμησης
+#   software/ros2_ws/src/arm_calibration/config/calibration.yaml   (ADR-0017/0019)
+# στην εκκίνηση, και ζωντανά από το Arm Studio (node /arm_calibration του PC):
+#   encoders.<άρθρωση>: zero_deg, invert, deadband_pos/neg
+#   servos.<servo>:     channel, neutral_us, invert (κατοπτρικό), deadband_down_us/up_us
+#   gripper:            open_deg (όρια αρπάγης), contact_v (όριο επαφής)
 segment: base               # topics: /base/joint_states, /base/joint_commands (ADR-0007)
 i2c_bus: 1
 tca_address: 0x70
@@ -29,7 +32,7 @@ control:                    # κοινά για ΟΛΕΣ τις αρθρώσει
                             # Στον τερματισμό του node ΠΑΝΤΑ κανένας παλμός (Driver.stop).
 
 # Ομάδες: αρθρώσεις και τα μοτέρ που τις κινούν. Κάθε μοτέρ: mix = πόσο συμμετέχει σε κάθε
-# άρθρωση (ταχύτητα μοτέρ = Σ mix × ταχύτητα άρθρωσης· × −1 αν mirrored).
+# άρθρωση (ταχύτητα μοτέρ = Σ mix × ταχύτητα άρθρωσης· × −1 αν το servo έχει invert).
 # Νόμος ελέγχου ανά άρθρωση: law: {type: pid, kp, ki, kd} ή {type: bang_bang, speed} (laws.py).
 groups:
   base:                     # διαφορικό
@@ -38,28 +41,18 @@ groups:
         mux_channel: 2      # κανάλι του TCA9548A όπου είναι ο ENCODER της άρθρωσης
         lower_deg: -30.0
         upper_deg: 50.0
-        deadband_pos: 0.05  # μικρότερη εντολή που κινεί την άρθρωση, ανά φορά (teleop [9])
-        deadband_neg: 0.05
         law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}    # τιμές πάγκου, ΟΧΙ ρυθμισμένες
       joint_2:              # roll του διαφορικού: σηκώνει τον βραχίονα (pitch στο URDF)
         mux_channel: 1
         lower_deg: -90.0
         upper_deg: 90.0
-        deadband_pos: 0.07
-        deadband_neg: 0.07
         law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
     motors:
       a:
-        channel: 0                        # κανάλι του PCA9685 όπου είναι το SERVO
-        neutral_us: 1630                  # πραγματικό νεκρό σημείο (teleop [10])
-        deadband_edges_us: [1420, 1840]   # κάτω/πάνω όριο της νεκρής ζώνης
-        mirrored: false
+        servo: base_a                     # όνομα στο calibration.yaml (κανάλι, νεκρό σημείο, ζώνη)
         mix: {joint_1: 1, joint_2: 1}     # μαζί → joint_1, αντίθετα → joint_2
       b:
-        channel: 1
-        neutral_us: 1605
-        deadband_edges_us: [1510, 1700]
-        mirrored: true                    # κατοπτρικό: ίδια εντολή, αντίθετη φορά
+        servo: base_b                     # κατοπτρικό (invert: true στο calibration.yaml)
         mix: {joint_1: 1, joint_2: -1}
 
 # Παράδειγμα (όταν συνδεθεί): joint_3 με δύο κατοπτρικά servo που κάνουν μία κίνηση.
@@ -67,21 +60,20 @@ groups:
 #    joints:
 #      joint_3: {mux_channel: 3, lower_deg: -90.0, upper_deg: 90.0, law: {type: pid, kp: 0.02}}
 #    motors:
-#      a: {channel: 2, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1}}
-#      b: {channel: 3, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1},
-#          mirrored: true}
+#      a: {servo: joint3_a, mix: {joint_3: 1}}     # τα servo στο calibration.yaml (servos.joint3_a …)
+#      b: {servo: joint3_b, mix: {joint_3: 1}}     # το κατοπτρικό: invert: true εκεί
 
 # Παράδειγμα (όταν συνδεθεί): η αρπάγη. Ένα servo, AS5600 στον άξονα, 2 × ZD10 μέσω ADS1115 στο
 # ΙΔΙΟ κανάλι του mux με τον AS5600 της (ADR-0021). Όρια κίνησης: 0° (κλειστή) έως gripper.open_deg
 # του calibration.yaml (0 = δεν ανοίγει, μέχρι να βαθμονομηθεί). Το κλείσιμο σταματά όταν κάποιο
-# δάχτυλο ξεπεράσει το `contact` (V στην είσοδο του ADS1115· χωρίς πίεση ~0.94 V, μέγιστη ~2.5 V).
+# δάχτυλο ξεπεράσει το gripper.contact_v του calibration.yaml (V στην είσοδο του ADS1115· χωρίς πίεση
+# ~0.94 V, μέγιστη ~2.5 V· χωρίς contact_v: καμία ανίχνευση επαφής).
 #  gripper:
 #    controller: gripper
 #    joints:
 #      gripper: {mux_channel: 7, law: {type: pid, kp: 0.02}}
 #    motors:
-#      a: {channel: 8, neutral_us: 1600, deadband_edges_us: [1560, 1640], mix: {gripper: 1}}
-#    contact: 1.3          # V· ΑΡΧΙΚΗ τιμή, ΟΧΙ μετρημένη (λίγο πάνω από τα 0.94 V χωρίς πίεση)
+#      a: {servo: gripper, mix: {gripper: 1}}      # servos.gripper στο calibration.yaml
 #    adc: {mux_channel: 7, address: 0x48, full_scale_v: 4.096, rate_sps: 860}
 #    force_sensors:
 #      finger_1: {input: 0}   # ADS1115 A0

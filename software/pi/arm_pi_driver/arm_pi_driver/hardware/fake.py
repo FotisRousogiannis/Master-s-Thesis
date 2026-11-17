@@ -119,7 +119,7 @@ class SimulatedArm:
     def motor_speed(self, motor: dict) -> float:
         """−1..1 από τον παλμό του μοτέρ (0 μέσα στη νεκρή ζώνη ή χωρίς παλμό)."""
         pulse = self.pwm.pulses.get(motor['channel'])
-        down, up = motor['deadband_edges_us']
+        down, up = motor.get('deadband_edges_us') or (motor['neutral_us'], motor['neutral_us'])
         if pulse is None or down <= pulse <= up:
             return 0.0
         speed = (pulse - up) if pulse > up else (pulse - down)

@@ -4,11 +4,14 @@
     ros2 param set /arm_calibration servos.wrist_diff_a.neutral_us 1605
     ros2 service call /arm_calibration/save std_srvs/srv/Trigger
     ros2 service call /arm_calibration/set_zero std_srvs/srv/Trigger   # arm in its reference pose
+    ros2 service call /arm_calibration/set_zero/joint_1 std_srvs/srv/Trigger   # one joint only
 
 Every change is validated against the whole calibration (ranges, pulse limits, unique
 channels) before it is accepted. ~/save writes the file, ~/reload discards unsaved changes.
 ~/set_zero takes the encoder readings of the arm in its reference pose as the joint zeros
 (ADR-0019): all joints or none, from the encoder/<joint> entries of /diagnostics.
+~/set_zero/<joint> does the same for one joint (while not all encoders are connected, or to
+redo one joint); Arm Studio calls it for the joints the user ticks.
 The hardware layer (arm_hardware -> ESP32) reads these parameters when it connects.
 """
 
@@ -68,6 +71,9 @@ class CalibrationNode(Node):
         self._encoder_reports = {}  # joint -> (stamp s, level, raw deg or None)
         self.create_subscription(DiagnosticArray, "/diagnostics", self._on_diagnostics, 10)
         self.create_service(Trigger, "~/set_zero", self._on_set_zero)
+        for joint in calibration.encoder_names(self._values):
+            self.create_service(Trigger, f"~/set_zero/{joint}",
+                                lambda _req, resp, j=joint: self._set_zeros([j], resp))
         self._logbook = self.create_publisher(String, "/logbook/event", 10)  # history (ADR-0020)
         self.get_logger().info(f"{len(self._values)} παράμετροι από {self._file}")
 
@@ -100,7 +106,10 @@ class CalibrationNode(Node):
             self._encoder_reports[status.name.split("/", 1)[1]] = (self._now(), level, raw)
 
     def _on_set_zero(self, _request, response):
-        joints = calibration.encoder_names(self._values)
+        return self._set_zeros(calibration.encoder_names(self._values), response)
+
+    def _set_zeros(self, joints, response):
+        """Zeros of these joints from their latest encoder reports: all of them or none."""
         zeros, problems = encoders.zeros_from_reports(joints, self._encoder_reports, self._now())
         if problems:
             response.success = False

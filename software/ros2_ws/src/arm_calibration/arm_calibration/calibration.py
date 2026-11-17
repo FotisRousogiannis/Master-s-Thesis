@@ -15,9 +15,10 @@ HARD_PULSE_MAX_US = 2500
 PCA_CHANNELS = 16
 
 HEADER = """\
-# Βαθμονόμηση servo, μηδενικά encoders και όρια ασφαλείας του βραχίονα (ADR-0017, ADR-0019).
-# Μοναδική πηγή: αλλάζει από το Arm Studio (πάνελ «Παράμετροι» → «Αποθήκευση στο αρχείο») ή με το χέρι.
-# Τιμές από software/tools/wrist_bench/wrist_bench.json (μετρήσεις πάγκου καρπού, 2026-11).
+# Βαθμονόμηση του βραχίονα (ADR-0017, ADR-0019): servo (κανάλι, νεκρό σημείο, φορά, νεκρή ζώνη), encoders
+# (μηδέν, φορά, νεκρή ζώνη άρθρωσης), αρπάγη και όρια ασφαλείας. ΚΟΙΝΟ αρχείο για Arm Studio (PC), arm_pi_driver
+# (Pi) και, αργότερα, τα ESP32. Αλλάζει από το Arm Studio (πάνελ «Παράμετροι» → «Αποθήκευση στο αρχείο») ή με το χέρι.
+# Τιμές: καρπός από software/tools/wrist_bench/wrist_bench.json· βάση από base_calibration.json (πάγκος, 2026-11-14).
 """
 
 
@@ -42,13 +43,19 @@ FIXED_FIELDS = {
     # Gripper (ADR-0020): 0° = fully closed (its encoder zero); it may only move between 0 and open_deg.
     # 0.0 until calibrated = it cannot open at all, which is the safe default.
     "gripper.open_deg": Field(float, "Γωνία πλήρως ανοιχτής αρπάγης, από το κλειστό (0°) [°]", -360.0, 360.0, 0.1),
+    # Pressure at which closing stops (ZD10 divider at the ADS1115 input, ~0.94 V unpressed): optional.
+    "gripper.contact_v": Field(float, "Όριο επαφής αρπάγης: τάση ZD10 στο ADS1115 [V]", 0.0, 3.3, 0.01),
 }
+OPTIONAL_FIXED = {"gripper.contact_v"}
 
 SERVO_FIELDS = {
     "channel": Field(int, "Κανάλι PCA9685", 0, PCA_CHANNELS - 1, 1),
     "neutral_us": Field(int, "Νεκρό σημείο (στάση) [µs]", HARD_PULSE_MIN_US, HARD_PULSE_MAX_US, 5),
     "invert": Field(bool, "Αντίστροφη φορά"),
     "note": Field(str, "Σημείωση"),
+    # Measured per motor (bench teleop [10]): it stands still between these pulses. Optional, both or none.
+    "deadband_down_us": Field(int, "Κάτω άκρη νεκρής ζώνης [µs]", HARD_PULSE_MIN_US, HARD_PULSE_MAX_US, 5),
+    "deadband_up_us": Field(int, "Πάνω άκρη νεκρής ζώνης [µs]", HARD_PULSE_MIN_US, HARD_PULSE_MAX_US, 5),
 }
 
 # One per joint: AS5600 on the joint output axis, 1:1 (ADR-0019).
@@ -56,8 +63,13 @@ ENCODER_FIELDS = {
     "zero_deg": Field(float, "Ένδειξη του encoder όταν η άρθρωση είναι στο 0 [°]", 0.0, 360.0, 0.01),
     "invert": Field(bool, "Ο encoder μετρά αντίθετα από τη θετική φορά της άρθρωσης"),
     "note": Field(str, "Σημείωση"),
+    # Smallest command (speed fraction) that moves the joint, per direction (bench teleop [9]). Optional.
+    "deadband_pos": Field(float, "Ελάχιστη εντολή που κινεί την άρθρωση, θετική φορά", 0.0, 1.0, 0.01),
+    "deadband_neg": Field(float, "Ελάχιστη εντολή που κινεί την άρθρωση, αρνητική φορά", 0.0, 1.0, 0.01),
 }
 GROUPS = {"servos": SERVO_FIELDS, "encoders": ENCODER_FIELDS}
+# Leaves that may be missing (not measured yet); every other leaf is required.
+OPTIONAL = {"servos": {"deadband_down_us", "deadband_up_us"}, "encoders": {"deadband_pos", "deadband_neg"}}
 
 
 def field_for(name: str) -> Field:
@@ -128,12 +140,12 @@ def validate(flat: dict) -> list[str]:
     [pulse_min_us, pulse_max_us] when it is sent (as in wrist_bench), so it never reaches the servo."""
     errors = []
     for name in FIXED_FIELDS:
-        if name not in flat:
+        if name not in flat and name not in OPTIONAL_FIXED:
             errors.append(f"λείπει το {name}")
     for group, fields in GROUPS.items():
         for item in names_in(flat, group):
             for leaf in fields:
-                if f"{group}.{item}.{leaf}" not in flat:
+                if f"{group}.{item}.{leaf}" not in flat and leaf not in OPTIONAL[group]:
                     errors.append(f"λείπει το {group}.{item}.{leaf}")
     if errors:
         return errors
@@ -157,6 +169,11 @@ def validate(flat: dict) -> list[str]:
         neutral = flat[f"servos.{servo}.neutral_us"]
         if not lo < neutral < hi:
             errors.append(f"servos.{servo}.neutral_us ({neutral}) πρέπει να είναι μέσα στο ({lo}, {hi})")
+        down, up = flat.get(f"servos.{servo}.deadband_down_us"), flat.get(f"servos.{servo}.deadband_up_us")
+        if (down is None) != (up is None):
+            errors.append(f"servos.{servo}: νεκρή ζώνη με τις δύο άκρες ή καμία")
+        elif down is not None and not down <= neutral <= up:
+            errors.append(f"servos.{servo}: το νεκρό σημείο ({neutral}) έξω από τη νεκρή ζώνη [{down}, {up}]")
         channel = flat[f"servos.{servo}.channel"]
         if channel in channels:
             errors.append(f"το κανάλι {channel} χρησιμοποιείται από {channels[channel]} και {servo}")

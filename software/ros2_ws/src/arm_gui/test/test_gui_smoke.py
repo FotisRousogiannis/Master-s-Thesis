@@ -204,6 +204,8 @@ CAL_PARAMS = [
      "read_only": False, "min": None, "max": None},
     {"name": "safety.max_duration_s", "type": "double", "value": 3.0, "description": "Διάρκεια",
      "read_only": False, "min": 0.1, "max": 30.0},
+    *({"name": f"encoders.{j}.zero_deg", "type": "double", "value": 0.0, "description": "Μηδέν",
+       "read_only": False, "min": 0.0, "max": 360.0} for j in ("joint_1", "joint_2", "joint_3")),
 ]
 
 
@@ -226,20 +228,29 @@ def test_calibration_node_is_opened_automatically_and_edits_are_applied(window):
     assert b.triggers == ["/arm_calibration/save"]
 
 
-def test_encoder_zeros_are_set_only_after_confirmation_and_then_reloaded(window):
+def test_encoder_zeros_for_the_ticked_joints_then_reloaded(window):
     b, panel = window._bridge, window.parameters
     b.nodes_changed.emit(["/arm_calibration"])
     b.parameters_loaded.emit("/arm_calibration", CAL_PARAMS)
     assert panel._set_zero.isVisibleTo(panel)
-    answers = [False, True]
-    panel.confirm = lambda _title, _text: answers.pop(0)
-    panel._set_zero.click()  # "no": nothing is sent
+    joints = panel.zero_joints()
+    assert joints and all(not j.startswith("servos") for j in joints)
+    b.diagnostics.emit([{"name": f"encoder/{joints[0]}", "level": 0, "message": "OK", "hardware_id": "",
+                         "values": {"raw_deg": "10.0"}}])
+    seen = {}
+    choices = [None, joints, [joints[0]]]
+    panel.choose_joints = lambda js, states: seen.update(states) or choices.pop(0)
+    panel._set_zero.click()  # cancelled: nothing is sent
     assert b.triggers == []
-    panel._set_zero.click()
+    assert seen[joints[0]] == "ok" and all(seen[j] == "silent" for j in joints[1:])
+    panel._set_zero.click()  # every joint: one all-or-none call
     assert b.triggers == ["/arm_calibration/set_zero"]
     panel.show_service_result("/arm_calibration/set_zero", False, "Δεν άλλαξε κανένα μηδέν: joint_1: ο encoder δεν έχει αναφέρει")
     assert "joint_1" in panel._status.text() and b.param_requests == ["/arm_calibration"]
-    panel.show_service_result("/arm_calibration/set_zero", True, "Νέα μηδενικά: …")
+    panel._set_zero.click()  # only the joints that report (before every encoder is connected)
+    assert b.triggers[-1] == f"/arm_calibration/set_zero/{joints[0]}"
+    panel.show_service_result(f"/arm_calibration/set_zero/{joints[0]}", True, "Νέα μηδενικά: …")
+    assert panel._status.text().startswith(f"✔ {joints[0]}:")
     assert b.param_requests == ["/arm_calibration", "/arm_calibration"]  # shows the new zeros
     panel._editors["servos.wrist_diff_a.neutral_us"].widget.setValue(1605)
     assert not panel._set_zero.isEnabled()  # unapplied edits first

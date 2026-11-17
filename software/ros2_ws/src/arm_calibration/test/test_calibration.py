@@ -18,7 +18,34 @@ def test_repository_file_is_valid_and_matches_the_bench_values(flat):
     assert flat["spec.pulse_min_us"] == 500 and flat["spec.pulse_max_us"] == 2500
     assert flat["servos.wrist_diff_a.channel"] == 9 and flat["servos.wrist_diff_b.channel"] == 10
     assert flat["servos.wrist_diff_b.invert"] is True  # motor B mirrored (b_sign = -1)
-    assert all(flat[f"servos.{s}.neutral_us"] == 1600 for s in c.servo_names(flat))
+    assert all(flat[f"servos.{s}.neutral_us"] == 1600 for s in c.servo_names(flat) if s.startswith("wrist"))
+
+
+def test_base_values_from_the_bench(flat):
+    """The base differential (teleop [6], [9], [10] on 2026-11-14) lives in this one common file."""
+    assert flat["servos.base_a.neutral_us"] == 1630 and flat["servos.base_b.neutral_us"] == 1605
+    assert flat["servos.base_b.invert"] is True
+    assert (flat["servos.base_a.deadband_down_us"], flat["servos.base_a.deadband_up_us"]) == (1420, 1840)
+    assert flat["encoders.joint_1.zero_deg"] == 267.891 and flat["encoders.joint_2.invert"] is True
+    assert flat["encoders.joint_2.deadband_pos"] == 0.07
+
+
+def test_measured_fields_are_optional_but_consistent(flat):
+    del flat["servos.base_a.deadband_down_us"]                      # one edge only: refused
+    assert any("νεκρή ζώνη με τις δύο άκρες" in e for e in c.validate(flat))
+    del flat["servos.base_a.deadband_up_us"]                        # none: fine (not measured)
+    del flat["encoders.joint_1.deadband_pos"], flat["encoders.joint_1.deadband_neg"]
+    assert c.validate(flat) == []
+    flat["servos.base_b.deadband_up_us"] = 1590                     # neutral 1605 outside [1510, 1590]
+    assert any("έξω από τη νεκρή ζώνη" in e for e in c.validate(flat))
+
+
+def test_gripper_contact_level_is_optional(flat):
+    assert "gripper.contact_v" not in flat and c.validate(flat) == []
+    flat["gripper.contact_v"] = 1.3
+    assert c.validate(flat) == []
+    flat["gripper.contact_v"] = 5.0                                 # above the 3.3 V supply
+    assert any("contact_v" in e for e in c.validate(flat))
 
 
 def test_saving_an_unchanged_file_reproduces_it_exactly(flat):

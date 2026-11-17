@@ -18,10 +18,15 @@ class GripperController(MixController):
         if len(self._joints) != 1:
             raise ValueError('η αρπάγη έχει μία άρθρωση')
         (self.joint,) = self.joints
+        self.group = group                          # ζωντανό: το όριο επαφής αλλάζει από το UI
         self.sensors = sensors                      # {όνομα: ForceSensor}
-        self.contact_level = group.get('contact')   # None: χωρίς ανίχνευση επαφής (μόνο θέση)
         self.readings = {}                          # {όνομα: (τιμή, κατάσταση)}, τελευταίο step
         self.state = 'ελεύθερη'
+
+    @property
+    def contact_level(self) -> float | None:
+        """Όριο επαφής (gripper.contact_v του calibration.yaml)· None: μόνο θέση, χωρίς επαφή."""
+        return self.group.get('contact')
 
     def closing(self, speed: float) -> bool:
         """Αν η ταχύτητα κινεί την αρπάγη προς το κλειστό (0°)."""

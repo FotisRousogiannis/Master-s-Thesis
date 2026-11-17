@@ -245,6 +245,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.parameters_loaded.connect(self.parameters.show_parameters)
         b.parameters_loaded.connect(self._on_parameters)
         b.diagnostics.connect(self.devices.update_diagnostics)
+        b.diagnostics.connect(self.parameters.update_diagnostics)
         b.parameters_set.connect(self.parameters.show_set_results)
         b.service_result.connect(self.parameters.show_service_result)
         b.service_result.connect(lambda srv, ok, msg: self.log.append("υπηρεσία", f"{srv}: {msg}"))

@@ -2,7 +2,8 @@
 # Εκκίνηση του arm_pi_driver μέσα στο container arm-pi (το καλεί το compose.yaml).
 # Χτίζει το πακέτο σε φάκελο του container (/root/ws), όχι μέσα στο repo, και ξεκινά το node.
 #   ARM_PI_FAKE=true  → προσομοίωση, χωρίς υλικό (docker compose: ARM_PI_FAKE=true docker compose up -d)
-set -euo pipefail
+# Χωρίς `set -u`: το setup.bash του ROS 2 χρησιμοποιεί μεταβλητές που μπορεί να μην υπάρχουν.
+set -eo pipefail
 
 REPO=/root/master-s-thesis
 source /opt/ros/jazzy/setup.bash

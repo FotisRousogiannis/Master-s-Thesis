@@ -55,6 +55,16 @@ def test_identify_runs_every_joint_of_the_group_then_says_what_it_found(bench):
     assert any("joint_2 → encoder στο κανάλι 1, η γωνία κατεβαίνει" in line for line in bench.summary)
 
 
+def test_the_pis_started_is_not_a_result(bench):
+    """Regression (bench 2026-11-17): the immediate «started» was taken for joint_1's result, joint_2
+    was asked while joint_1 still ran, and the real result crashed Arm Studio."""
+    first = bench.identify(bench.groups()[0])
+    assert bench.handle({"id": first["id"], "op": "routine", "ok": True, "result": "ξεκίνησε"}) == []
+    assert bench.running == "Αναγνώριση" and bench._current == "joint_1"
+    bench.stop()
+    assert bench.handle({"id": first["id"], "op": "routine", "ok": True, "result": {"moved": {"2": 3}}}) == []
+
+
 def test_identify_finds_swapped_encoders_and_fixes_the_names(bench):
     group = bench.groups()[0]
     first = bench.identify(group)
@@ -229,7 +239,10 @@ def test_live_table_and_zero_from_the_panel(panel, window):
             for r in range(panel.live_table.rowCount())}
     assert rows == {"joint_1": "+10.0", "joint_2": "-0.0"} or rows["joint_1"] == "+10.0"
     panel.go_step(2)
+    panel.zero_joint.setCurrentText("joint_2")
+    assert (panel.lower.value(), panel.upper.value()) == (-90.0, 90.0)     # joint_2's limits
     panel.zero_joint.setCurrentText("joint_1")
+    assert (panel.lower.value(), panel.upper.value()) == (-30.0, 50.0)
     panel.zero_angle.setValue(0.0)
     panel.do_zero()
     assert panel.bench.changes["joints.joint_1.zero_deg"] == 277.891

@@ -2,9 +2,22 @@
 
 import signal
 import sys
+import traceback
 
 from . import APP_NAME
 from .qt import QtCore, QtWidgets
+
+
+def report_error(window, kind, value, tb):
+    """An error in a Qt slot would otherwise abort the whole application (PyQt5 without a hook):
+    it goes to the Log and the Messages instead, and the application keeps running."""
+    text = "".join(traceback.format_exception(kind, value, tb))
+    sys.stderr.write(text)
+    try:
+        window.log.append("σφάλμα", text)
+        window.messages.add("error", f"Σφάλμα εφαρμογής: {kind.__name__}: {value} (λεπτομέρειες στο Log)")
+    except Exception:  # the window itself is broken: at least stderr has it
+        pass
 
 
 def main():
@@ -25,6 +38,7 @@ def main():
 
     window = MainWindow(bridge)
     window.show()
+    sys.excepthook = lambda *exc: report_error(window, *exc)
     app.aboutToQuit.connect(bridge.shutdown)
 
     # Ctrl+C in a terminal closes the window normally (layout saved, system stopped).

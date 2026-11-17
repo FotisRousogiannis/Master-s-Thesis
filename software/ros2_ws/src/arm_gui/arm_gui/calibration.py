@@ -194,6 +194,10 @@ class Bench:
             return []
         if op == "scan":
             self._scan(reply["result"])
+        if op == "routine" and isinstance(reply.get("result"), str):
+            return []                                         # the Pi's «started»: wait for the result
+        if op == "routine" and self.running is None:
+            return []                                         # stopped meanwhile: nothing to finish
         if op == "routine":
             self._results[self._current] = reply["result"]
             follow = self._pop()

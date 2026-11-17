@@ -307,6 +307,7 @@ class CalibrationPanel(QtWidgets.QWidget):
             box.setRange(-360.0, 360.0)
             box.setSuffix("°")
         self.flip_joint = QtWidgets.QComboBox()
+        self.zero_joint.currentTextChanged.connect(self._zero_joint_changed)
         pages = (
             [self._button("Σάρωση I²C", self.do_scan, primary=True)],
             [self._button("Αυτόματη αναγνώριση", self.do_identify, primary=True),
@@ -392,6 +393,13 @@ class CalibrationPanel(QtWidgets.QWidget):
             combo.clear()
             combo.addItems(joints)
         self._refresh()
+
+    def _zero_joint_changed(self, joint: str):
+        """The limits shown are the chosen joint's (else «Μηδέν εδώ» would save another joint's)."""
+        limits = (self.data or {}).get("joints", {}).get(joint, {}).get("limits_deg")
+        if limits:
+            self.lower.setValue(limits[0])
+            self.upper.setValue(limits[1])
 
     def keyPressEvent(self, event):
         arrow = self.ARROWS.get(event.key())
@@ -643,10 +651,7 @@ class CalibrationPanel(QtWidgets.QWidget):
             self.group_choice.setCurrentText(current)
         self.group_choice.blockSignals(False)
         self._group_changed()
-        limits = d["joints"].get(self.zero_joint.currentText(), {}).get("limits_deg")
-        if limits:
-            self.lower.setValue(limits[0])
-            self.upper.setValue(limits[1])
+        self._zero_joint_changed(self.zero_joint.currentText())
 
     def apply_edits(self):
         values, errors = {}, []

@@ -32,13 +32,13 @@ encoders:
     invert: false
     note: δεν έχει οριστεί (ADR-0020) — 0° = πλήρως κλειστή
   joint_1:
-    zero_deg: 0.0
+    zero_deg: 267.891
     invert: false
-    note: δεν έχει οριστεί (ADR-0019)
+    note: βάση, yaw· πάγκος 2026-11-14 (teleop [6], base_calibration.json)
   joint_2:
-    zero_deg: 0.0
-    invert: false
-    note: δεν έχει οριστεί (ADR-0019)
+    zero_deg: 112.676
+    invert: true
+    note: βάση, roll του διαφορικού· πάγκος 2026-11-14 (teleop [6], base_calibration.json)
   joint_3:
     zero_deg: 0.0
     invert: false

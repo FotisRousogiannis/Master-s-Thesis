@@ -29,3 +29,6 @@ fp-info-cache
 ~*.lck
 .history/
 \#auto_saved_files\#
+
+# Python packaging (colcon / setuptools)
+*.egg-info/

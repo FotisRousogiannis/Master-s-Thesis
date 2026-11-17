@@ -1,0 +1,222 @@
+"""Η λογική του driver χωρίς ROS: encoders → θέσεις, εντολές → παλμοί, με ελέγχους ασφαλείας.
+
+Ο Driver έχει μια λίστα από Controller (control/), έναν ανά ομάδα αρθρώσεων του YAML, και δεν ξέρει
+ποιος είναι ποιος. Η ασφάλεια είναι κοινή: πρόβλημα σε ΜΙΑ ομάδα σταματά ΟΛΕΣ (ένας βραχίονας).
+
+Κάθε tick (π.χ. 50 Hz):
+  1. διαβάζει κάθε encoder· η θέση (μοίρες) με unwrapping από το arm_calibration (ADR-0019)
+  2. κινεί τα μοτέρ ΜΟΝΟ αν: ήρθε εντολή πρόσφατα (watchdog), όλες οι αρθρώσεις έχουν έγκυρη
+     θέση, και καμία δεν είναι εκτός ορίων· αλλιώς καθόλου παλμός (τα servo σταματούν)
+  3. επιστρέφει αναφορά (Report) για το node: θέσεις, καταστάσεις, και γεγονότα μόνο όταν
+     κάτι αλλάζει
+
+Το node (node.py) μόνο μεταφέρει τα παραπάνω από/προς το ROS 2.
+"""
+
+from dataclasses import dataclass
+
+from arm_calibration.encoders import EncoderJump, Tracker
+from arm_pi_driver.control import build_controllers, joint_configs, LimitError
+
+USABLE = ('OK', 'TOO_WEAK', 'TOO_STRONG')   # η γωνία μετρά, ίσως λιγότερο αξιόπιστα
+JUMP = 'JUMP'                               # η ένδειξη άλλαξε πιο πολύ απ' όσο γίνεται: βλάβη
+IDLE = 'info'                               # επίπεδα γεγονότων, ίδια ονόματα με τον logger του ROS
+WARNING = 'warning'
+ERROR = 'error'
+MOVING = 'κίνηση'
+AT_TARGET = 'στον στόχο'
+NO_COMMAND = 'χωρίς εντολή'
+
+
+@dataclass
+class JointReport:
+    """Μια άρθρωση σε ένα tick."""
+
+    status: str                     # OK, TOO_WEAK, TOO_STRONG, NO_MAGNET, NO_RESPONSE, JUMP
+    raw_deg: float                  # η ένδειξη του encoder 0–360 (nan αν δεν απαντά)
+    position_deg: float | None      # η θέση της άρθρωσης· None αν δεν υπάρχει έγκυρη
+
+
+@dataclass
+class Report:
+    """Ένα tick: θέσεις, αν κινείται και γιατί όχι, και τι άλλαξε από το προηγούμενο."""
+
+    joints: dict                    # {άρθρωση: JointReport}
+    moving: bool
+    reason: str                     # MOVING, AT_TARGET, ή γιατί δεν κινείται
+    level: str                      # IDLE, WARNING ή ERROR για το reason
+    events: list                    # [(επίπεδο, κείμενο)] μόνο για όσα άλλαξαν
+    extra: list                     # διαγνωστικά των controllers (π.χ. αισθητήρες της αρπάγης)
+
+
+class Driver:
+    """Όλες οι ομάδες αρθρώσεων ενός ελεγκτή: encoders, PwmOutput, controllers και ασφάλεια."""
+
+    def __init__(self, config: dict, encoders: dict, pwm, watchdog_s: float = 0.2,
+                 force_sensors: dict | None = None, controllers: list | None = None):
+        self.config, self.encoders, self.pwm = config, encoders, pwm
+        self.watchdog_s = watchdog_s
+        self.joints = joint_configs(config)
+        if controllers is None:
+            controllers = build_controllers(config, force_sensors)
+        self.controllers = controllers
+        self.owner = {joint: c for c in self.controllers for joint in c.joints}
+        self.trackers = {name: self._new_tracker(name) for name in self.joints}
+        self.channels = [channel for c in self.controllers for channel in c.channels]
+        self.last_command = None
+        self.last_tick = None
+        self.written = {}               # {κανάλι: τελευταίος παλμός που γράφτηκε}
+        self._status = {}
+        self._reason = None
+        self._pending = []              # γεγονότα από αλλαγές βαθμονόμησης, για το επόμενο tick
+
+    def _new_tracker(self, name: str) -> Tracker:
+        # Τα όρια διευρυμένα κατά το περιθώριο ασφαλείας: η θέση μένει συνεχής και λίγο έξω από
+        # τα όρια (εκεί τη χρειάζεται ο έλεγχος ορίων), και μια αρπάγη χωρίς βαθμονόμηση
+        # (όρια [0, 0]) έχει ακόμα εύρος.
+        joint, margin = self.joints[name], self.config['control']['limit_margin_deg']
+        inverted = joint['sign'] < 0
+        return Tracker(joint['zero_deg'], inverted, joint['lower_deg'] - margin,
+                       joint['upper_deg'] + margin)
+
+    def update_joint(self, name: str, fields: dict) -> bool:
+        """Νέα βαθμονόμηση μιας άρθρωσης (μηδέν, φορά, όρια) ενώ τρέχει· True αν μας αφορά.
+
+        Οι θέσεις «πηδούν» με νέο μηδέν, οπότε για ασφάλεια ξεχνιούνται όλοι οι στόχοι: τα μοτέρ
+        σταματούν μέχρι την επόμενη εντολή. Τα controllers βλέπουν τα ίδια λεξικά αρθρώσεων, άρα
+        και τα νέα όρια.
+        """
+        if name not in self.joints or not fields:
+            return False
+        self.joints[name].update(fields)
+        self.trackers[name] = self._new_tracker(name)
+        for controller in self.controllers:
+            controller.clear_targets()
+        text = ', '.join(f'{k} = {v:g}' for k, v in fields.items())
+        self._pending.append((WARNING, f'νέα βαθμονόμηση {name}: {text} · στόχοι μηδενίστηκαν'))
+        return True
+
+    def command(self, targets_deg: dict, now: float) -> dict:
+        """Νέοι στόχοι (μοίρες)· επιστρέφει τους στόχους που ισχύουν.
+
+        Άγνωστα ονόματα αγνοούνται· όποια άρθρωση λείπει κρατά τον στόχο της, ή αν δεν έχει,
+        μένει εκεί που είναι.
+        """
+        targets = {n: t for n, t in targets_deg.items() if n in self.owner}
+        if not targets:
+            return self.targets
+        for name, controller in self.owner.items():
+            position = self.trackers[name].position
+            has_target = name in targets or name in controller.targets
+            if not has_target and position is not None:
+                targets[name] = position
+        self.last_command = now
+        for controller in self.controllers:
+            mine = {n: t for n, t in targets.items() if n in controller.joints}
+            if mine:
+                controller.set_targets(mine)
+        return self.targets
+
+    @property
+    def targets(self) -> dict:
+        """Οι στόχοι που ισχύουν, από όλες τις ομάδες."""
+        return {n: t for c in self.controllers for n, t in c.targets.items()}
+
+    def read_joints(self) -> dict:
+        """{άρθρωση: JointReport} από μία ανάγνωση κάθε encoder."""
+        joints = {}
+        for name, encoder in self.encoders.items():
+            raw, status = encoder.read()
+            position = None
+            if status in USABLE:
+                try:
+                    position = self.trackers[name].update(raw)
+                except EncoderJump:
+                    status = JUMP       # η μέτρηση απορρίφθηκε· η προηγούμενη θέση μένει
+            else:
+                # Χωρίς μέτρηση η άρθρωση μπορεί να μετακινηθεί (με το χέρι): όταν ξαναβρεθεί,
+                # η θέση ξεκινά από την απόλυτη ένδειξη, όχι από την παλιά.
+                self.trackers[name] = self._new_tracker(name)
+            joints[name] = JointReport(status, raw, position)
+        return joints
+
+    def decide(self, joints: dict, now: float, dt: float) -> tuple:
+        """(παλμοί, λόγος, επίπεδο): κίνηση μόνο αν όλα είναι ασφαλή."""
+        stop = {channel: None for channel in self.channels}
+        if self.last_command is None:
+            return stop, NO_COMMAND, IDLE
+        if now - self.last_command > self.watchdog_s:
+            return stop, f'καμία εντολή για > {self.watchdog_s:g} s (watchdog)', IDLE
+        for name, joint in joints.items():
+            if joint.position_deg is None:
+                return stop, f'{name}: {joint.status}', WARNING
+        angles = {name: joint.position_deg for name, joint in joints.items()}
+        pulses = {}
+        try:
+            for controller in self.controllers:
+                pulses.update(controller.step({n: angles[n] for n in controller.joints}, dt))
+        except LimitError as exc:
+            return stop, str(exc), WARNING
+        if all(pulse is None for pulse in pulses.values()):
+            return stop, AT_TARGET, IDLE
+        return pulses, MOVING, IDLE
+
+    def write(self, pulses: dict) -> str | None:
+        """Γράφει όσους παλμούς άλλαξαν· None αν πέτυχε, αλλιώς το σφάλμα."""
+        try:
+            for channel, pulse in pulses.items():
+                if channel in self.written and self.written[channel] == pulse:
+                    continue
+                if pulse is None:
+                    self.pwm.off(channel)
+                else:
+                    self.pwm.set_pulse(channel, pulse)
+                self.written[channel] = pulse
+        except OSError:
+            self.written = {}               # άγνωστο τι έχει τώρα: ξαναγράφονται όλα
+            return 'PCA9685 δεν απαντά'
+        return None
+
+    def tick(self, now: float) -> Report:
+        """Ένας κύκλος: ανάγνωση, απόφαση, έξοδοι."""
+        dt = 0.0 if self.last_tick is None else now - self.last_tick
+        self.last_tick = now
+        joints = self.read_joints()
+        pulses, reason, level = self.decide(joints, now, dt)
+        failure = self.write(pulses)
+        if failure:
+            reason, level = failure, ERROR
+        moving = reason == MOVING
+        if reason not in (MOVING, AT_TARGET):
+            # Στάση ασφαλείας (watchdog, encoder, όρια, PCA): οι στόχοι ξεχνιούνται. Μετά τη
+            # διακοπή, όποια άρθρωση δεν αναφέρει η επόμενη εντολή μένει εκεί που είναι ΤΟΤΕ,
+            # όχι εκεί που της είχαν πει πριν (μπορεί να μετακινήθηκε με το χέρι στο μεταξύ).
+            for controller in self.controllers:
+                controller.clear_targets()
+        extra = [item for controller in self.controllers for item in controller.diagnostics()]
+        return Report(joints, moving, reason, level, self._events(joints, reason, level), extra)
+
+    def _events(self, joints: dict, reason: str, level: str) -> list:
+        events, self._pending = self._pending, []
+        for name, joint in joints.items():
+            if self._status.get(name) != joint.status:
+                if joint.status == 'OK':
+                    events.append((IDLE, f'encoder {name}: OK'))
+                elif joint.status in USABLE:
+                    text = f'encoder {name}: {joint.status} (μετρά, με επιφύλαξη)'
+                    events.append((WARNING, text))
+                else:
+                    events.append((ERROR, f'encoder {name}: {joint.status}'))
+                self._status[name] = joint.status
+        if reason != self._reason:
+            events.append((level, f'έξοδοι: {reason}'))
+            self._reason = reason
+        return events
+
+    def stop(self) -> None:
+        """Καθόλου παλμός πουθενά (τερματισμός)· αθόρυβα αν το PCA9685 δεν απαντά."""
+        try:
+            self.pwm.all_off()
+        except OSError:
+            pass
+        self.written = {}

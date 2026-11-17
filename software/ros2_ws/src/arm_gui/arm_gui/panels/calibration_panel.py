@@ -15,6 +15,7 @@ import time
 
 from .. import theme
 from ..calibration import Bench, nest
+from ..icons import rotate_icon
 from ..qt import QtCore, QtWidgets, Signal
 
 CALIBRATION_NODE = "/arm_calibration"
@@ -226,10 +227,15 @@ class CalibrationPanel(QtWidgets.QWidget):
         return button
 
     def _arrow(self, text, direction):
-        """An arrow that moves the chosen joint while held (pressed → drive every 100 ms, released → stop)."""
+        """A curved arrow that turns the chosen joint while held (pressed → drive every 100 ms, released → stop).
+
+        − turns clockwise on screen and + counter-clockwise (right-hand rule); which way the joint really
+        turns depends on how it is built: the live angle shows it."""
         button = QtWidgets.QPushButton(text)
         button.setObjectName("arrow")
-        button.setMinimumSize(64, 44)
+        button.setIcon(rotate_icon(clockwise=direction < 0, color=theme.current().fg))
+        button.setIconSize(QtCore.QSize(30, 30))
+        button.setMinimumSize(76, 48)
         button.setAutoRepeat(False)
         button.pressed.connect(lambda: self.hold(direction))
         button.released.connect(self.release)
@@ -269,8 +275,8 @@ class CalibrationPanel(QtWidgets.QWidget):
         self.move_joint.setToolTip("Η άρθρωση που κινούν τα βελάκια (και A/D, W/S, ← →)")
         pad.addWidget(QtWidgets.QLabel("Κίνηση:"), 0, 0)
         pad.addWidget(self.move_joint, 0, 1)
-        pad.addWidget(self._arrow("◀  −", -1), 1, 0)
-        pad.addWidget(self._arrow("+  ▶", 1), 1, 1)
+        pad.addWidget(self._arrow(" −", -1), 1, 0)
+        pad.addWidget(self._arrow(" +", 1), 1, 1)
         self.speed = QtWidgets.QDoubleSpinBox()
         self.speed.setRange(0.05, 1.0)
         self.speed.setSingleStep(0.05)

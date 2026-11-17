@@ -354,3 +354,7 @@
   Το container του Pi το χτίζει και το ξεκινά μόνο του. Tests 24 ✅ (προσομοίωση)· το node ελέγχθηκε με ψεύτικα
   modules ROS, **όχι ακόμα σε ROS 2 στο Pi ούτε με υλικό**. Η ρύθμιση (`config/base.yaml`) είναι αντίγραφο του
   `base_calibration.json` του πάγκου· να ενοποιηθεί με το `calibration.yaml` (ADR-0017).
+- **`arm_pi_driver` τρέχει σε ROS 2 στο Pi** (προσομοίωση, `ARM_PI_FAKE=true`): το container χτίζει
+  `arm_calibration` + `arm_pi_driver` (9.3 s) και ξεκινά το node. Στο PC `ros2 topic hz /base/joint_states`:
+  **50.00 Hz**, περίοδος 19–21 ms, τυπική απόκλιση ~0.4 ms. Χωρίς I²C· με υλικό προστίθεται ο χρόνος ανάγνωσης.
+  Διόρθωση: `start.sh` χωρίς `set -u` (σπάει το `setup.bash` του ROS).

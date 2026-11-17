@@ -15,7 +15,7 @@ import time
 
 from .. import theme
 from ..calibration import Bench, nest
-from ..icons import rotate_icon
+from ..icons import motion_icon
 from ..qt import QtCore, QtWidgets, Signal
 
 CALIBRATION_NODE = "/arm_calibration"
@@ -147,7 +147,7 @@ class CalibrationPanel(QtWidgets.QWidget):
                               "Κατάσταση"])
         self.joints = _Table(["Άρθρωση", "Ενεργή", "Περιγραφή", "Servo (πρόσημο)", "Encoder", "Μηδέν [°]",
                               "Αντίθετη φορά", "Όριο κάτω [°]", "Όριο πάνω [°]", "Ζώνη +", "Ζώνη −",
-                              "Θέση [°]", "Κατάσταση"])
+                              "Θέση [°]", "Κατάσταση", "Κίνηση"])
         sensors = QtWidgets.QWidget()
         sl = QtWidgets.QVBoxLayout(sensors)
         sl.addWidget(QtWidgets.QLabel("Encoders (AS5600)"))
@@ -204,7 +204,7 @@ class CalibrationPanel(QtWidgets.QWidget):
          "Κάθε άρθρωση της ομάδας κινείται λίγο με «θετική» εντολή μέχρι να κινηθεί ένας encoder 3°, και "
          "γυρίζει πίσω. Μετά: «Σωστό · αποθήκευση», ή διόρθωσε.", True),
         ("Μηδέν", "Μηδέν και όρια (teleop [6])",
-         "Φέρε την άρθρωση με τα βελάκια ◀ ▶ (ή A/D) σε γνωστή γωνία (π.χ. κάθετα με αλφάδι), γράψε τη "
+         "Φέρε την άρθρωση με τα βελάκια σε γνωστή γωνία (π.χ. κάθετα με αλφάδι), γράψε τη "
          "γωνία και τα όρια, «Μηδέν εδώ · αποθήκευση».", True),
         ("Νεκρή ζώνη servo", "Νεκρή ζώνη κάθε servo (teleop [10])",
          "Κάθε servo μόνο του, ο παλμός ανεβαίνει ανά 10 µs μέχρι να κινηθεί ένας encoder, και προς τις δύο "
@@ -215,9 +215,13 @@ class CalibrationPanel(QtWidgets.QWidget):
         ("Αρπάγη", "Όρια της αρπάγης",
          "Κλείσε τελείως → «Κλειστή», άνοιξε τελείως → «Ανοιχτή». Κλειστή = 0°.", True),
     )
-    # one joint at a time: + / − of the chosen joint (A/D, W/S and the arrow keys do the same)
-    KEYS = {QtCore.Qt.Key_Right: 1, QtCore.Qt.Key_D: 1, QtCore.Qt.Key_Up: 1, QtCore.Qt.Key_W: 1,
-            QtCore.Qt.Key_Left: -1, QtCore.Qt.Key_A: -1, QtCore.Qt.Key_Down: -1, QtCore.Qt.Key_S: -1}
+    # six arrows, one per motion and direction; the joint of the group with that `motion` moves
+    MOTIONS = (("yaw", "Yaw · στροφή", "A / D"), ("pitch", "Pitch · πάνω-κάτω", "W / S"),
+               ("roll", "Roll · γύρω από τον άξονα", "Q / E"))
+    KEYS = {QtCore.Qt.Key_D: ("yaw", 1), QtCore.Qt.Key_Right: ("yaw", 1), QtCore.Qt.Key_A: ("yaw", -1),
+            QtCore.Qt.Key_Left: ("yaw", -1), QtCore.Qt.Key_W: ("pitch", 1), QtCore.Qt.Key_Up: ("pitch", 1),
+            QtCore.Qt.Key_S: ("pitch", -1), QtCore.Qt.Key_Down: ("pitch", -1), QtCore.Qt.Key_E: ("roll", 1),
+            QtCore.Qt.Key_Q: ("roll", -1)}
 
     def _button(self, text, slot, primary=False):
         button = QtWidgets.QPushButton(text)
@@ -226,18 +230,16 @@ class CalibrationPanel(QtWidgets.QWidget):
             button.setProperty("primary", True)
         return button
 
-    def _arrow(self, text, direction):
-        """A curved arrow that turns the chosen joint while held (pressed → drive every 100 ms, released → stop).
-
-        − turns clockwise on screen and + counter-clockwise (right-hand rule); which way the joint really
-        turns depends on how it is built: the live angle shows it."""
-        button = QtWidgets.QPushButton(text)
+    def _arrow(self, motion, direction):
+        """A curved arrow that moves the group's joint with this motion while held (pressed → drive every
+        100 ms, released → stop). Which way the joint really goes shows in the live angle."""
+        button = QtWidgets.QPushButton(" −" if direction < 0 else " +")
         button.setObjectName("arrow")
-        button.setIcon(rotate_icon(clockwise=direction < 0, color=theme.current().fg))
-        button.setIconSize(QtCore.QSize(30, 30))
-        button.setMinimumSize(76, 48)
+        button.setIcon(motion_icon(motion, direction, theme.current().accent))
+        button.setIconSize(QtCore.QSize(44, 44))
+        button.setMinimumSize(88, 54)
         button.setAutoRepeat(False)
-        button.pressed.connect(lambda: self.hold(direction))
+        button.pressed.connect(lambda: self.hold(motion, direction))
         button.released.connect(self.release)
         return button
 
@@ -271,19 +273,25 @@ class CalibrationPanel(QtWidgets.QWidget):
         live_row.addWidget(self.live_table, 1)
 
         pad = QtWidgets.QGridLayout()
-        self.move_joint = QtWidgets.QComboBox()
-        self.move_joint.setToolTip("Η άρθρωση που κινούν τα βελάκια (και A/D, W/S, ← →)")
-        pad.addWidget(QtWidgets.QLabel("Κίνηση:"), 0, 0)
-        pad.addWidget(self.move_joint, 0, 1)
-        pad.addWidget(self._arrow(" −", -1), 1, 0)
-        pad.addWidget(self._arrow(" +", 1), 1, 1)
+        self.motion_rows = {}
+        for row, (motion, title, keys) in enumerate(self.MOTIONS):
+            label = QtWidgets.QLabel()
+            label.setToolTip(f"Πλήκτρα {keys}")
+            minus, plus = self._arrow(motion, -1), self._arrow(motion, 1)
+            pad.addWidget(label, row, 0)
+            pad.addWidget(minus, row, 1)
+            pad.addWidget(plus, row, 2)
+            self.motion_rows[motion] = (title, keys, label, minus, plus)
+        self.unassigned = QtWidgets.QLabel()
+        self.unassigned.setWordWrap(True)
+        self.unassigned.setProperty("muted", True)
+        pad.addWidget(self.unassigned, 3, 0, 1, 3)
         self.speed = QtWidgets.QDoubleSpinBox()
         self.speed.setRange(0.05, 1.0)
         self.speed.setSingleStep(0.05)
         self.speed.setValue(0.4)
         self.speed.setPrefix("ταχύτητα ")
-        pad.addWidget(self.speed, 2, 0, 1, 2)
-        pad.setRowStretch(3, 1)
+        pad.addWidget(self.speed, 4, 0, 1, 3)
         live_row.addLayout(pad)
         v.addLayout(live_row)
 
@@ -349,7 +357,8 @@ class CalibrationPanel(QtWidgets.QWidget):
         foot.addWidget(self._button("Επόμενο ▶", lambda: self.go_step(self.step + 1)))
         v.addLayout(foot)
 
-        self._held = 0                                  # +1 / −1 while an arrow is held
+        self._held = None                               # (joint, +1 / −1) while an arrow is held
+        self._motions = {}
         self._drive_timer = QtCore.QTimer(self)
         self._drive_timer.timeout.connect(self._send_drive)
         self._gripper_raw = {}
@@ -389,7 +398,20 @@ class CalibrationPanel(QtWidgets.QWidget):
     def _group_changed(self, _index=None):
         group = self.group
         joints = list(group.joints) if group else []
-        for combo in (self.move_joint, self.zero_joint, self.flip_joint):
+        self._motions = {}                           # {motion: joint of this group}
+        for joint in joints:
+            motion = self.data["joints"][joint].get("motion") if self.data else None
+            if motion in self.motion_rows and motion not in self._motions:
+                self._motions[motion] = joint
+        for motion, (title, keys, label, minus, plus) in self.motion_rows.items():
+            joint = self._motions.get(motion)
+            label.setText(f"{title}\n{joint or '—'} · {keys}")
+            minus.setEnabled(joint is not None)
+            plus.setEnabled(joint is not None)
+        loose = [j for j in joints if j not in self._motions.values()]
+        self.unassigned.setText(f"{', '.join(loose)}: όρισε «Κίνηση» (yaw/pitch/roll) στη σελίδα «Αρθρώσεις»"
+                                if loose else "")
+        for combo in (self.zero_joint, self.flip_joint):
             combo.clear()
             combo.addItems(joints)
         self._refresh()
@@ -402,9 +424,9 @@ class CalibrationPanel(QtWidgets.QWidget):
             self.upper.setValue(limits[1])
 
     def keyPressEvent(self, event):
-        direction = self.KEYS.get(event.key())
-        if direction and self.tabs.currentIndex() == 0 and not event.isAutoRepeat():
-            self.hold(direction)
+        key = self.KEYS.get(event.key())
+        if key and self.tabs.currentIndex() == 0 and not event.isAutoRepeat():
+            self.hold(*key)
             return
         if event.key() == QtCore.Qt.Key_Space:
             self.do_stop()
@@ -417,22 +439,23 @@ class CalibrationPanel(QtWidgets.QWidget):
             return
         super().keyReleaseEvent(event)
 
-    def hold(self, direction: int):
-        """+1 / −1: the chosen joint moves while held."""
-        if self.data is None or not self.move_joint.currentText() or self.bench.running:
+    def hold(self, motion: str, direction: int):
+        """The group's joint with this motion moves (+1 / −1) while held."""
+        joint = self._motions.get(motion)
+        if self.data is None or joint is None or self.bench.running:
             return
-        self._held = direction
+        self._held = (joint, direction)
         self._send_drive()
         self._drive_timer.start(DRIVE_MS)
 
     def release(self):
-        self._held = 0
+        self._held = None
         self._drive_timer.stop()              # the Pi stops by itself 0.3 s after the last drive
 
     def _send_drive(self):
-        joint = self.move_joint.currentText()
-        if self._held and joint:
-            self.identify_requested.emit(self.bench.drive({joint: self._held * self.speed.value()}))
+        if self._held:
+            joint, direction = self._held
+            self.identify_requested.emit(self.bench.drive({joint: direction * self.speed.value()}))
 
     # ---------------------------------------------------------------- actions
     def _ready(self) -> bool:
@@ -454,12 +477,12 @@ class CalibrationPanel(QtWidgets.QWidget):
             self._send(self.bench.scan())
 
     def do_exit(self):
-        self._held = 0
+        self._held = None
         self._drive_timer.stop()
         self._send(self.bench.exit())
 
     def do_stop(self):
-        self._held = 0
+        self._held = None
         self._drive_timer.stop()
         self._send(self.bench.stop())
 
@@ -639,7 +662,8 @@ class CalibrationPanel(QtWidgets.QWidget):
                                 ("edit", f"{key}.limits_deg", 0, limits[0]),
                                 ("edit", f"{key}.limits_deg", 1, limits[1]),
                                 ("edit", f"{key}.deadband", 0, band[0]), ("edit", f"{key}.deadband", 1, band[1]),
-                                ("live", NONE, "position"), ("live", NONE, "status")]))
+                                ("live", NONE, "position"), ("live", NONE, "status"),
+                                ("edit", f"{key}.motion", None, j.get("motion"))]))
         self.joints.set_rows(rows)
         current = self.group_choice.currentText()
         self._groups = self.bench.groups()

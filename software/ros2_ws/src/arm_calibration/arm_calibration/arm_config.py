@@ -24,13 +24,14 @@ PCA_CHANNELS = 16
 TCA_CHANNELS = 8
 ADC_INPUTS = 4
 LAWS = ("pid", "bang_bang")
+MOTIONS = ("yaw", "pitch", "roll")       # what the joint does, for Arm Studio's arrows (optional)
 
 KEYS = {   # every key an entry may have: anything else is a typo (or a comma inside {…} without quotes)
     "servos": {"channel", "neutral_us", "deadband_us", "description"},
     "encoders": {"channel", "description"},
     "force_sensors": {"adc_channel", "input", "max_v", "description"},
-    "joints": {"description", "enabled", "servos", "encoder", "zero_deg", "invert", "limits_deg", "deadband",
-               "law", "force_sensors", "travel_margin", "force_margin"},
+    "joints": {"description", "enabled", "motion", "servos", "encoder", "zero_deg", "invert", "limits_deg",
+               "deadband", "law", "force_sensors", "travel_margin", "force_margin"},
 }
 
 SINGLE = "single"
@@ -118,7 +119,7 @@ def servo_signs(data: dict, group: Group) -> dict[str, dict[str, int]]:
 FLOAT_LEAVES = {"zero_deg", "kp", "ki", "kd", "speed", "max_v", "travel_margin", "force_margin",
                 "limits_deg", "deadband", "full_scale_v", "safety_v"}
 # Leaves that may be added while running (a null in the file has no parameter until it gets a value).
-NEW_LEAVES = {"channel", "adc_channel", "max_v", "deadband_us", "deadband", "encoder"}
+NEW_LEAVES = {"channel", "adc_channel", "max_v", "deadband_us", "deadband", "encoder", "motion"}
 # A channel that is not known yet (null in the file) is -1 as a parameter: ROS 2 parameters have no
 # null, and without a parameter an encoder with only a channel would not exist for Arm Studio.
 CHANNEL_LEAVES = {"channel", "adc_channel"}
@@ -132,6 +133,7 @@ DESCRIPTIONS = {
     "input": "Είσοδος ADS1115 (0–3)",
     "max_v": "Μέγιστη πίεση: τάση ZD10 [V]",
     "enabled": "Ενεργή άρθρωση",
+    "motion": "Κίνηση: yaw (στροφή), pitch (πάνω-κάτω) ή roll (περιστροφή γύρω από τον άξονα)",
     "encoder": "Encoder της άρθρωσης",
     "zero_deg": "Ένδειξη του encoder όταν η άρθρωση είναι στο 0 [°]",
     "invert": "Αντίθετη φορά από τον encoder",
@@ -369,6 +371,8 @@ def _check_joints(data: dict) -> list[str]:
         for key in ("travel_margin", "force_margin"):
             if key in j and not (_is_num(j[key]) and 0 < j[key] <= 1):
                 errors.append(f"{w}: {key} πρέπει να είναι στο (0, 1]")
+        if j.get("motion") is not None and j["motion"] not in MOTIONS:
+            errors.append(f"{w}: motion {j['motion']!r} (επιτρέπεται {', '.join(MOTIONS)} ή κενό)")
         if j.get("enabled") is True:
             errors += _check_enabled(w, j, data)
     used = {n: j.get("encoder") for n, j in data["joints"].items() if isinstance(j, dict)}

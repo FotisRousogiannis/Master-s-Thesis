@@ -37,6 +37,7 @@ joints:
   joint_1:
     description: βάση, στροφή
     enabled: true
+    motion: yaw               # yaw / pitch / roll: τα βελάκια του Arm Studio (προαιρετικό)
     servos: {servo_1: 1, servo_2: -1}
     encoder: enc_1
     zero_deg: 267.891
@@ -47,6 +48,7 @@ joints:
   joint_2:
     description: βάση, πάνω-κάτω
     enabled: true
+    motion: pitch
     servos: {servo_1: 1, servo_2: 1}
     encoder: enc_2
     zero_deg: 112.676

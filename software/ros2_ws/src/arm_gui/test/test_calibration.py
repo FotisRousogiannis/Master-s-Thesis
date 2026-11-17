@@ -198,15 +198,16 @@ def test_joints_page_hides_the_details_until_asked(panel):
 
 def test_arrows_move_while_held_and_keys_do_the_same(panel, window):
     b = window._bridge
-    panel.move_joint.setCurrentText("joint_2")
-    panel.hold(1)
+    title, keys, label, minus, plus = panel.motion_rows["pitch"]
+    assert "joint_2" in label.text() and plus.isEnabled()
+    assert not panel.motion_rows["roll"][4].isEnabled()                    # no roll in the base
+    panel.hold("pitch", 1)
     assert b.identify_requests[-1] == {**b.identify_requests[-1], "op": "drive",
                                        "servos": {"servo_1": 0.4, "servo_2": 0.4}}
     assert panel._drive_timer.isActive()
     panel.release()
     assert not panel._drive_timer.isActive()
     from arm_gui.qt import QtCore, QtGui
-    panel.move_joint.setCurrentText("joint_1")
     key = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_A, QtCore.Qt.NoModifier)
     panel.keyPressEvent(key)
     assert b.identify_requests[-1]["servos"] == {"servo_1": -0.4, "servo_2": 0.4}
@@ -255,3 +256,10 @@ def test_wizard_steps_and_power(panel):
     assert "ΑΝΑΜΜΕΝΟ" in panel.power.text()
     panel.go_step(99)
     assert panel.step == len(panel.STEPS) - 1
+
+
+def test_motion_is_set_from_the_joints_page(panel, window):
+    assert panel.joints.item(0, 13).text() == "yaw" and panel.joints.item(2, 13).text() == "—"
+    panel.joints.item(2, 13).setText("pitch")
+    panel.apply_edits()
+    assert window._bridge.atomic_sets[-1][1] == {"joints.joint_3.motion": "pitch"}

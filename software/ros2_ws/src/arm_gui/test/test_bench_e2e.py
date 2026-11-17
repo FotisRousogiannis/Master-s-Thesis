@@ -93,8 +93,7 @@ def test_servo_and_joint_deadbands(rig):
 
 def test_arrows_move_and_stop_when_released(rig):
     panel, sim, pump = rig
-    panel.move_joint.setCurrentText("joint_2")
-    panel.hold(1)
+    panel.hold("pitch", 1)                                        # joint_2
     for _ in range(10):
         panel._send_drive()
         pump(0.1)

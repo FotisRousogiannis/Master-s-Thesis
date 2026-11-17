@@ -2,10 +2,10 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>arm_pi_driver</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <version>0.1.0</version>
+  <description>Raspberry Pi driver of the arm: AS5600 encoders to joint_states, servos through PCA9685 (ADR-0021).</description>
   <maintainer email="115790877+FotisRousogiannis@users.noreply.github.com">Fotis Rousogiannis</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>

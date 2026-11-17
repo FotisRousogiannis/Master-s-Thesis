@@ -1,0 +1,20 @@
+# Raspberry Pi: το container ROS 2 του arm_pi_driver (ADR-0021).
+# Χρήση στο Pi, από αυτόν τον φάκελο (~/Master-s-Thesis/software/pi/docker):
+#   docker compose up -d --build     # χτίσιμο (πρώτη φορά / μετά από αλλαγή του Dockerfile) και εκκίνηση
+#   docker compose exec pi bash      # terminal μέσα στο container
+#   docker compose down              # σταμάτημα
+services:
+  pi:
+    build: .
+    image: arm-pi:jazzy
+    container_name: arm-pi
+    network_mode: host                  # το ROS 2 (DDS) βρίσκει το PC στο καλώδιο
+    devices:
+      - /dev/i2c-1:/dev/i2c-1           # ο δίαυλος I²C του Pi: TCA9548A, AS5600, PCA9685
+    volumes:
+      - ../../..:/root/master-s-thesis  # όλο το repo· αλλαγές στον κώδικα χωρίς νέο χτίσιμο
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}   # ίδιο με το PC (software/docker/compose.yaml)
+    stdin_open: true
+    tty: true
+    command: sleep infinity             # μένει ανοιχτό· στο στάδιο B εδώ ξεκινά το node

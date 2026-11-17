@@ -176,6 +176,10 @@ class Wizard:
         result = []
         for channel, r in sorted(self.readings.items()):
             if r.get("status") == "NO_RESPONSE":
+                if channel in owner:       # the file says an encoder is here: say it is silent
+                    text = (f"{READ_PREFIX}{time.strftime('%H:%M:%S')} · κανάλι {channel} ({owner[channel]}): "
+                            "δεν απαντά στο I²C (καλώδιο, επαφή ή λάθος κανάλι)")
+                    result.append(procedure.Finding(procedure.ERROR, text))
                 continue
             raw = "—" if r.get("raw_deg") is None else f"{r['raw_deg']:.1f}°"
             status = r.get("status", "?")

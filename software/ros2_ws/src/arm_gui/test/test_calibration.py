@@ -227,7 +227,12 @@ def test_read_writes_the_readings_into_the_findings_once(wizard):
     assert texts[0].startswith("Ανάγνωση · ") and ":" in texts[0][11:19]   # with the time
     weak = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
     assert weak.level == "warning" and "πιο κοντά" in weak.text
-    assert not any("κανάλι 5" in t for t in texts)                      # nothing there
+    assert not any("κανάλι 5" in t for t in texts)                      # nothing there, nothing expected
+    silent = {**result, "2": {"raw_deg": None, "status": "NO_RESPONSE"}}
+    request = wizard.read()
+    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": silent})
+    lost = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
+    assert lost.level == "error" and "δεν απαντά" in lost.text
     request = wizard.read()
     wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
     assert len([t for t in (f.text for f in wizard.findings) if "κανάλι 1 (" in t]) == 1   # replaced

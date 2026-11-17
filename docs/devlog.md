@@ -346,3 +346,11 @@
 - Image του Pi: οι εξαρτήσεις εγκαθίστανται από τα `package.xml` (`arm_pi_driver`, `arm_calibration`) με `rosdep`
   (ιδέα του Φώτη: μία λίστα)· χτίστηκε στο Pi, το `i2cdetect` (από `i2c-tools` του `package.xml`) δουλεύει.
   Σκελετός πακέτου `software/pi/arm_pi_driver` (B1).
+- **`arm_pi_driver` για τη βάση** (`feature/pi-driver`, γραμμένο από τη συνεδρία κατόπιν αιτήματος του Φώτη· το
+  `hardware/` σχεδιάστηκε μαζί του: ένα αρχείο ανά chip, interfaces `Encoder`/`PwmOutput`, `NO_RESPONSE` αντί για
+  crash). Driver χωρίς ROS: unwrapping (arm_calibration), PID ανά άρθρωση, μίξη διαφορικού με αντιστάθμιση νεκρής
+  ζώνης (από τον πάγκο), PCA9685. Κίνηση μόνο με πρόσφατη εντολή (watchdog 0.2 s), έγκυρους encoders και μέσα
+  στα όρια. Node: `/base/joint_states`, `/base/joint_commands`, `/diagnostics`· `fake:=true` = προσομοίωση.
+  Το container του Pi το χτίζει και το ξεκινά μόνο του. Tests 24 ✅ (προσομοίωση)· το node ελέγχθηκε με ψεύτικα
+  modules ROS, **όχι ακόμα σε ROS 2 στο Pi ούτε με υλικό**. Η ρύθμιση (`config/base.yaml`) είναι αντίγραφο του
+  `base_calibration.json` του πάγκου· να ενοποιηθεί με το `calibration.yaml` (ADR-0017).

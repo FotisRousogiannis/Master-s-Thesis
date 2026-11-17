@@ -1,13 +1,8 @@
 import copy
 
 import pytest
-import yaml
 
 from arm_calibration import arm_config as a
-
-SRC = a.FILE.parents[2]
-OLD_CALIBRATION = a.FILE.parent / "calibration.yaml"
-OLD_BASE = SRC.parents[1] / "pi" / "arm_pi_driver" / "config" / "base.yaml"
 
 
 @pytest.fixture
@@ -30,23 +25,6 @@ def test_base_values_moved_from_the_old_files(data):
     assert data["encoders"][j["joint_1"]["encoder"]]["channel"] == 2
     assert data["encoders"][j["joint_2"]["encoder"]]["channel"] == 1
     assert j["joint_1"]["limits_deg"] == [-30.0, 50.0]
-
-
-@pytest.mark.skipif(not (OLD_CALIBRATION.exists() and OLD_BASE.exists()), reason="old files removed")
-def test_signs_equal_old_mix_times_servo_invert(data):
-    """New sign = old mix x (-1 if the servo had invert), for every motor of the old base.yaml."""
-    old_cal = yaml.safe_load(OLD_CALIBRATION.read_text(encoding="utf-8"))
-    old_base = yaml.safe_load(OLD_BASE.read_text(encoding="utf-8"))
-    by_channel = {s["channel"]: name for name, s in data["servos"].items()}
-    for group in old_base["groups"].values():
-        for motor in group["motors"].values():
-            old = old_cal["servos"].get(motor["servo"])
-            if old is None:
-                continue
-            new = by_channel[old["channel"]]
-            for joint, mix in motor["mix"].items():
-                expected = mix * (-1 if old["invert"] else 1)
-                assert data["joints"][joint]["servos"][new] == expected, (joint, new)
 
 
 def test_groups_and_kinds(data):
@@ -122,3 +100,26 @@ def test_save_refuses_an_invalid_file(data, tmp_path):
     with pytest.raises(a.ArmConfigError):
         a.save(data, path)
     assert not path.exists()
+
+
+def test_parameters_are_flat_and_typed(data):
+    params = a.parameters(data)
+    assert params["joints.joint_1.zero_deg"] == 267.891
+    assert params["joints.joint_1.servos.servo_2"] == -1
+    assert params["servos.servo_1.deadband_us"] == [1420, 1840]
+    assert "encoders.enc_3.channel" not in params                  # null: no parameter
+    assert isinstance(params["joints.gripper.limits_deg"][0], float)
+
+
+def test_set_value_from_ros(data):
+    from array import array
+    a.set_value(data, "joints.joint_1.limits_deg", array("d", [-20, 40]))
+    assert data["joints"]["joint_1"]["limits_deg"] == [-20.0, 40.0]
+    a.set_value(data, "encoders.enc_3.channel", 4)                 # a null gets a value
+    assert data["encoders"]["enc_3"]["channel"] == 4
+    a.set_value(data, "joints.joint_3.servos.servo_10", 1)         # a servo added to a joint
+    assert data["joints"]["joint_3"]["servos"]["servo_10"] == 1
+    with pytest.raises(KeyError):
+        a.set_value(data, "joints.joint_1.typo", 1)
+    with pytest.raises(KeyError):
+        a.set_value(data, "nothing.here", 1)

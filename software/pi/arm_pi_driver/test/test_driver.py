@@ -12,7 +12,7 @@ DT = 0.02
 
 def base(config):
     """Η ομάδα της βάσης στο YAML."""
-    return config['groups']['base']
+    return config['groups']['joint_1+joint_2']
 
 
 def braking(config):
@@ -105,7 +105,7 @@ def test_events_only_when_something_changes(config):
 
 
 def test_compensation_starts_each_motor_at_its_own_edge(config):
-    a, b = base(config)['motors']['a'], base(config)['motors']['b']
+    a, b = base(config)['motors']['servo_1'], base(config)['motors']['servo_2']
     pca = config['pca']
     span = compensation_span([(a['neutral_us'], a['deadband_edges_us']),
                               (b['neutral_us'], b['deadband_edges_us'])],
@@ -119,7 +119,7 @@ def test_one_motor_brakes_while_the_other_runs(config):
     [controller] = build_controllers(config)
     # joint_1 = joint_2: μοτέρ A τρέχει, μοτέρ B στο 0 → παίρνει νεκρό σημείο (φρένο), όχι None
     pulses = controller.pulses(controller.motor_speeds({'joint_1': 0.2, 'joint_2': 0.2}))
-    a, b = base(config)['motors']['a'], base(config)['motors']['b']
+    a, b = base(config)['motors']['servo_1'], base(config)['motors']['servo_2']
     assert pulses[b['channel']] == b['neutral_us']
     assert pulses[a['channel']] is not None
 

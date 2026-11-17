@@ -6,12 +6,13 @@
     /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, pi_driver/<segment>, force/…, 1 Hz
     /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
 
-Βαθμονόμηση: στην εκκίνηση από το calibration.yaml (αντίγραφο του repo στο Pi)· μόλις απαντήσει
-το /arm_calibration του PC, παίρνει τις τιμές ΤΟΥ (ίσως νεότερες από το αρχείο του Pi) και μετά
-κάθε αλλαγή του ζωντανά. Εφαρμόζονται μόνο όσες τιμές διαφέρουν από αυτές που ισχύουν.
+Ρύθμιση: το ΕΝΑ αρχείο arm.yaml (ADR-0023), αντίγραφο του repo στο Pi. Μόλις απαντήσει το
+/arm_calibration του PC, παίρνει τις τιμές ΤΟΥ (ίσως νεότερες από το αρχείο του Pi) και μετά κάθε
+αλλαγή του ζωντανά. Εφαρμόζονται μόνο όσες τιμές διαφέρουν από αυτές που ισχύουν· όσες αλλάζουν τη
+δομή (κανάλια, servo/encoder μιας άρθρωσης, enabled) ισχύουν μετά από επανεκκίνηση.
 
-Παράμετροι: fake (χωρίς υλικό: προσομοίωση), rate_hz, watchdog_s, config (αρχείο YAML),
-calibration (calibration.yaml· κενό → του πακέτου arm_calibration).
+Παράμετροι: fake (χωρίς υλικό: προσομοίωση), rate_hz, watchdog_s, config (arm.yaml· κενό → του
+πακέτου arm_calibration).
     ros2 run arm_pi_driver driver --ros-args -p fake:=true
 """
 
@@ -20,8 +21,9 @@ from pathlib import Path
 import time
 
 from ament_index_python.packages import get_package_share_directory
-from arm_pi_driver.calibration import apply_calibration, load_calibration, parameter_change
-from arm_pi_driver.control import enabled_groups, joint_configs
+from arm_calibration import arm_config
+from arm_pi_driver import arm_file
+from arm_pi_driver.control import joint_configs
 from arm_pi_driver.driver import Driver, ERROR, IDLE, USABLE, WARNING
 from arm_pi_driver.hardware import ADS1115, AS5600, PCA9685, TCA9548A, ZD10
 from arm_pi_driver.hardware.fake import FakeForceSensor, SimulatedArm
@@ -31,38 +33,32 @@ from rcl_interfaces.srv import GetParameters, ListParameters
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-import yaml
 
 LEVELS = {IDLE: DiagnosticStatus.OK, WARNING: DiagnosticStatus.WARN, ERROR: DiagnosticStatus.ERROR}
-CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το calibration.yaml
-CALIBRATION_PREFIXES = ('encoders.', 'servos.', 'gripper.')
+CALIBRATION_NODE = '/arm_calibration'       # το node του PC που κρατά το arm.yaml
+CALIBRATION_PREFIXES = ('servos.', 'encoders.', 'force_sensors.', 'joints.', 'controller.')
 SYNC_PERIOD_S = 2.0                         # πόσο συχνά ξαναρωτά το PC μέχρι να απαντήσει
 
 
-def load_config(path: str) -> dict:
-    """Το YAML της ρύθμισης· κενό → το config/base.yaml του πακέτου."""
-    if not path:
-        path = str(Path(get_package_share_directory('arm_pi_driver')) / 'config' / 'base.yaml')
-    return yaml.safe_load(Path(path).read_text(encoding='utf-8'))
-
-
-def calibration_file(path: str) -> str:
-    """Το calibration.yaml· κενό → αυτό που εγκατέστησε το colcon από το repo (arm_calibration)."""
+def arm_file_path(path: str) -> str:
+    """Το arm.yaml· κενό → αυτό που εγκατέστησε το colcon από το repo (arm_calibration)."""
     if path:
         return path
-    share = Path(get_package_share_directory('arm_calibration'))
-    return str(share / 'config' / 'calibration.yaml')
+    return str(Path(get_package_share_directory('arm_calibration')) / 'config' / 'arm.yaml')
 
 
 def parameter_value(value):
-    """Η τιμή ενός rcl_interfaces/ParameterValue (μόνο όσοι τύποι μας αφορούν)."""
-    if value.type == ParameterType.PARAMETER_DOUBLE:
-        return value.double_value
-    if value.type == ParameterType.PARAMETER_BOOL:
-        return value.bool_value
-    if value.type == ParameterType.PARAMETER_INTEGER:
-        return value.integer_value
-    return None
+    """Η τιμή ενός rcl_interfaces/ParameterValue (None για τύπο που δεν μας αφορά)."""
+    kinds = {
+        ParameterType.PARAMETER_DOUBLE: lambda: value.double_value,
+        ParameterType.PARAMETER_BOOL: lambda: value.bool_value,
+        ParameterType.PARAMETER_INTEGER: lambda: value.integer_value,
+        ParameterType.PARAMETER_STRING: lambda: value.string_value,
+        ParameterType.PARAMETER_DOUBLE_ARRAY: lambda: list(value.double_array_value),
+        ParameterType.PARAMETER_INTEGER_ARRAY: lambda: list(value.integer_array_value),
+        ParameterType.PARAMETER_STRING_ARRAY: lambda: list(value.string_array_value),
+    }
+    return kinds[value.type]() if value.type in kinds else None
 
 
 def real_hardware(config: dict):
@@ -101,10 +97,10 @@ class PiDriverNode(Node):
         fake = self.declare_parameter('fake', False).value
         rate_hz = self.declare_parameter('rate_hz', 50.0).value
         watchdog_s = self.declare_parameter('watchdog_s', 0.2).value
-        config, disabled = enabled_groups(load_config(self.declare_parameter('config', '').value))
-        calibration = calibration_file(self.declare_parameter('calibration', '').value)
-        self.calibration = load_calibration(calibration)            # οι τιμές που ισχύουν τώρα
-        apply_calibration(config, self.calibration)                 # μηδέν, φορά, νεκρές ζώνες…
+        path = arm_file_path(self.declare_parameter('config', '').value)
+        self.arm = arm_file.load(path)                              # τα δεδομένα του arm.yaml
+        self.values = arm_config.parameters(self.arm)               # οι τιμές που ισχύουν τώρα
+        config, disabled = arm_file.driver_config(self.arm)
         self.segment = config['segment']
 
         if fake:
@@ -135,7 +131,7 @@ class PiDriverNode(Node):
             f"{'ΠΡΟΣΟΜΟΙΩΣΗ (fake)' if fake else 'υλικό I²C'} · {rate_hz:g} Hz · "
             f'/{self.segment}/joint_states, /{self.segment}/joint_commands · '
             f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)} · '
-            f'απενεργοποιημένες: {", ".join(disabled) or "καμία"} · βαθμονόμηση {calibration}')
+            f'ανενεργές: {", ".join(disabled) or "καμία"} · {path}')
 
     def on_command(self, msg: JointState) -> None:
         """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver."""
@@ -150,13 +146,13 @@ class PiDriverNode(Node):
             self.calibrate(parameter.name, parameter_value(parameter.value))
 
     def calibrate(self, name: str, value) -> bool:
-        """Μία τιμή βαθμονόμησης· εφαρμόζεται μόνο αν διαφέρει από αυτή που ισχύει."""
-        if value is None or self.calibration.get(name) == value:
+        """Μία τιμή του arm.yaml· εφαρμόζεται μόνο αν διαφέρει από αυτή που ισχύει."""
+        if value is None or self.values.get(name) == value:
             return False
-        change = parameter_change(name, value)
+        change = arm_file.parameter_change(self.arm, name, value)
         if change is None:
             return False
-        self.calibration[name] = value
+        self.values[name] = arm_config.coerce(name, value)
         return self.driver.apply_change(change)
 
     def sync_calibration(self) -> None:

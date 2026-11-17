@@ -9,7 +9,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/config", ["config/calibration.yaml", "config/arm.yaml"]),
+        (f"share/{package_name}/config", ["config/arm.yaml"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

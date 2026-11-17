@@ -1,10 +1,11 @@
 """GripperController: η αρπάγη (ένα servo, encoder θέσης, αισθητήρες πίεσης στα δάχτυλα).
 
-Είναι ένας MixController με ένα επιπλέον κανόνα: όσο κλείνει, αν κάποιο δάχτυλο νιώσει πίεση
-πάνω από το όριο επαφής (contact) ή αν ένας αισθητήρας δεν μετρά (fault), το κλείσιμο σταματά·
-το άνοιγμα επιτρέπεται πάντα. Έτσι η αρπάγη κρατά το αντικείμενο χωρίς να το συνθλίβει.
+Είναι ένας MixController με ένα επιπλέον κανόνα: όσο κλείνει, αν κάποιο δάχτυλο φτάσει το ΔΙΚΟ του
+όριο επαφής (contact = max_v × force_margin του arm.yaml, ADR-0023) ή αν ένας αισθητήρας δεν μετρά
+(fault), το κλείσιμο σταματά· το άνοιγμα επιτρέπεται πάντα. Έτσι κρατά το αντικείμενο χωρίς να το
+συνθλίβει.
 
-Θέση (ADR-0020): 0° = πλήρως κλειστή, open_deg = πλήρως ανοιχτή (από το calibration.yaml).
+Θέση (ADR-0020/0023): 0° = πλήρως κλειστή· κινείται στο μεσαίο travel_margin των limits_deg.
 """
 
 from arm_pi_driver.control.mix import MixController
@@ -24,9 +25,9 @@ class GripperController(MixController):
         self.state = 'ελεύθερη'
 
     @property
-    def contact_level(self) -> float | None:
-        """Όριο επαφής (gripper.contact_v του calibration.yaml)· None: μόνο θέση, χωρίς επαφή."""
-        return self.group.get('contact')
+    def contact_levels(self) -> dict:
+        """{αισθητήρας: όριο επαφής [V]}· όσοι δεν έχουν (δεν μετρήθηκε max_v): μόνο θέση."""
+        return self.group.get('contact') or {}
 
     def closing(self, speed: float) -> bool:
         """Αν η ταχύτητα κινεί την αρπάγη προς το κλειστό (0°)."""
@@ -39,8 +40,9 @@ class GripperController(MixController):
         speeds = super().joint_speeds(angles, dt)
         self.readings = {name: sensor.read() for name, sensor in self.sensors.items()}
         faults = [f'{n}: {s}' for n, (_, s) in self.readings.items() if s != 'OK']
-        touching = self.contact_level is not None and any(
-            v >= self.contact_level for v, s in self.readings.values() if s == 'OK')
+        levels = self.contact_levels
+        touching = any(v >= levels[n] for n, (v, s) in self.readings.items()
+                       if s == 'OK' and n in levels)
         if faults:
             self.state = 'αισθητήρας: ' + ', '.join(faults)
         elif touching:
@@ -59,6 +61,6 @@ class GripperController(MixController):
             values = {} if value != value else {'value': f'{value:.3f}'}    # nan → τίποτα
             result.append((f'force/{name}', level, status, values))
         level = 'warning' if self.state.startswith('αισθητήρας') else 'info'
-        contact = 'όχι' if self.contact_level is None else f'{self.contact_level:g}'
+        contact = ', '.join(f'{n} {v:.2f}' for n, v in self.contact_levels.items()) or 'όχι'
         result.append((f'gripper/{self.joint}', level, self.state, {'contact_level': contact}))
         return result

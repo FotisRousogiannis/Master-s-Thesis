@@ -6,6 +6,7 @@ whose kind follows from the shape: one joint and one servo = single, one joint a
 more joints = differential.
 """
 
+from array import array
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -100,6 +101,82 @@ def servo_signs(data: dict, group: Group) -> dict[str, dict[str, int]]:
     """Per servo, its sign in each joint of the group (0 if it does not move that joint)."""
     joints = data["joints"]
     return {s: {j: int(joints[j]["servos"].get(s, 0)) for j in group.joints} for s in group.servos}
+
+
+# ---------------------------------------------------------------------------------------------- parameters
+# The file as flat ROS 2 parameters ("joints.joint_1.zero_deg"), shared by the PC node (/arm_calibration)
+# and the Pi driver, so that both compare the same values. null = not known yet: no parameter.
+
+FLOAT_LEAVES = {"zero_deg", "kp", "ki", "kd", "speed", "max_v", "travel_margin", "force_margin",
+                "limits_deg", "deadband", "full_scale_v", "safety_v"}
+# Leaves that may be added while running (a null in the file has no parameter until it gets a value).
+NEW_LEAVES = {"channel", "adc_channel", "max_v", "deadband_us", "deadband", "encoder"}
+DESCRIPTIONS = {
+    "channel": "Κανάλι (PCA9685 για servo, TCA9548A για encoder)",
+    "neutral_us": "Νεκρό σημείο (στάση) [µs]",
+    "deadband_us": "Νεκρή ζώνη servo [κάτω, πάνω] [µs]",
+    "description": "Περιγραφή",
+    "adc_channel": "Κανάλι TCA9548A του ADS1115",
+    "input": "Είσοδος ADS1115 (0–3)",
+    "max_v": "Μέγιστη πίεση: τάση ZD10 [V]",
+    "enabled": "Ενεργή άρθρωση",
+    "encoder": "Encoder της άρθρωσης",
+    "zero_deg": "Ένδειξη του encoder όταν η άρθρωση είναι στο 0 [°]",
+    "invert": "Αντίθετη φορά από τον encoder",
+    "limits_deg": "Όρια [κάτω, πάνω] [°]",
+    "deadband": "Ελάχιστη εντολή που κινεί την άρθρωση [θετικά, αρνητικά]",
+    "travel_margin": "Μέρος της διαδρομής που χρησιμοποιείται (0.9 = 90 %)",
+    "force_margin": "Στάση κλεισίματος σε αυτό το μέρος της μέγιστης πίεσης",
+}
+
+
+def _flatten(tree: dict, prefix: str = "") -> dict:
+    flat = {}
+    for key, value in tree.items():
+        name = f"{prefix}{key}"
+        if isinstance(value, dict):
+            flat.update(_flatten(value, f"{name}."))
+        else:
+            flat[name] = value
+    return flat
+
+
+def coerce(name: str, value):
+    """A value in the type its parameter has: floats where a float is meant (YAML may write 0 for 0.0)."""
+    sequence = isinstance(value, (list, tuple, array))     # rclpy gives arrays as array.array
+    if name.rsplit(".", 1)[-1] not in FLOAT_LEAVES or value is None or isinstance(value, bool):
+        return list(value) if sequence else value
+    if sequence:
+        return [float(v) for v in value]
+    return float(value)
+
+
+def parameters(data: dict) -> dict:
+    """{flat name: value} for every known value (nulls left out)."""
+    return {name: coerce(name, v) for name, v in _flatten(data).items() if v is not None}
+
+
+def get_value(data: dict, name: str):
+    node = data
+    for part in name.split("."):
+        if not isinstance(node, dict) or part not in node:
+            raise KeyError(name)
+        node = node[part]
+    return node
+
+
+def set_value(data: dict, name: str, value) -> None:
+    """Set one flat parameter in the nested data; KeyError for a name the file cannot have."""
+    *parents, leaf = name.split(".")
+    node = data
+    for part in parents:
+        if not isinstance(node, dict) or not isinstance(node.get(part), dict):
+            raise KeyError(f"άγνωστη παράμετρος: {name}")
+        node = node[part]
+    known = leaf in node or leaf in NEW_LEAVES or (len(parents) == 3 and parents[2] == "servos")
+    if not known:
+        raise KeyError(f"άγνωστη παράμετρος: {name}")
+    node[leaf] = coerce(name, value)
 
 
 # ---------------------------------------------------------------------------------------------- validation

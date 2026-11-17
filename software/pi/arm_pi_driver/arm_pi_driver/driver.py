@@ -16,7 +16,7 @@
 from dataclasses import dataclass
 
 from arm_calibration.encoders import EncoderJump, Tracker
-from arm_pi_driver.calibration import Change, GRIPPER_GROUP, JOINT, SERVO
+from arm_pi_driver.arm_file import Change, GRIPPER_GROUP, JOINT, RESTART, SERVO
 from arm_pi_driver.control import build_controllers, joint_configs, LimitError
 
 USABLE = ('OK', 'TOO_WEAK', 'TOO_STRONG')   # η γωνία μετρά, ίσως λιγότερο αξιόπιστα
@@ -98,40 +98,38 @@ class Driver:
         return True
 
     def apply_change(self, change: Change) -> bool:
-        """Μια αλλαγή βαθμονόμησης (από το calibration.yaml / Arm Studio)· True αν εφαρμόστηκε."""
+        """Μια αλλαγή του arm.yaml (από το Arm Studio) ενώ τρέχει· True αν εφαρμόστηκε."""
         if change.kind == JOINT:
             return self.update_joint(change.name, change.fields)
         if change.kind == SERVO:
             return self.update_servo(change.name, change.fields)
         if change.kind == GRIPPER_GROUP:
-            groups = [g for g in self.config['groups'].values() if 'force_sensors' in g]
+            groups = [g for g in self.config['groups'].values()
+                      if 'force_sensors' in g and change.name in g['joints']]
             for group in groups:
                 group.update(change.fields)
             if groups:
-                self._pending.append((IDLE, f'αρπάγη: όριο επαφής {change.fields["contact"]:g} V'))
+                levels = ', '.join(f'{n} {v:.2f} V' for n, v in change.fields['contact'].items())
+                self._pending.append((IDLE, f'αρπάγη: όρια επαφής {levels or "κανένα"}'))
             return bool(groups)
+        if change.kind == RESTART:
+            # Κανάλια, servo/encoder μιας άρθρωσης, enabled, νόμοι ελέγχου: αλλάζουν τη δομή·
+            # ζωντανά θα έστελναν παλμούς σε άλλο servo. Ισχύουν μετά από επανεκκίνηση.
+            self._pending.append((WARNING, f'{change.name}: άλλαξε στο arm.yaml· ισχύει μετά από '
+                                           f'επανεκκίνηση του driver'))
+            return True
         return False
 
     def update_servo(self, servo: str, fields: dict) -> bool:
-        """Νέα βαθμονόμηση ενός servo (νεκρό σημείο, φορά, νεκρή ζώνη) ενώ τρέχει.
+        """Νέο νεκρό σημείο / νεκρή ζώνη ενός servo ενώ τρέχει.
 
-        Το κανάλι ΔΕΝ αλλάζει ζωντανά (θα έστελνε παλμούς σε άλλο servo): θέλει επανεκκίνηση.
         Για ασφάλεια ξεχνιούνται όλοι οι στόχοι, όπως στις αρθρώσεις.
         """
         motors = [m for g in self.config['groups'].values() for m in g['motors'].values()
                   if m.get('servo') == servo]
         if not motors or not fields:
             return False
-        fields = dict(fields)
-        if 'channel' in fields and fields.pop('channel') != motors[0]['channel']:
-            self._pending.append((WARNING, f'servo {servo}: νέο κανάλι στο calibration.yaml· '
-                                           f'ισχύει μετά από επανεκκίνηση του driver'))
         for motor in motors:
-            for side, index in (('deadband_down_us', 0), ('deadband_up_us', 1)):
-                if side in fields:
-                    edges = list(motor.get('deadband_edges_us') or [motor['neutral_us']] * 2)
-                    edges[index] = fields.pop(side)
-                    motor['deadband_edges_us'] = edges
             motor.update(fields)
         for controller in self.controllers:
             controller.clear_targets()

@@ -135,7 +135,7 @@ class ParametersPanel(QtWidgets.QWidget):
         self._revert = QtWidgets.QPushButton("Αναίρεση αλλαγών")
         self._revert.clicked.connect(self.revert)
         self._save = QtWidgets.QPushButton("Αποθήκευση στο αρχείο")
-        self._save.setToolTip("Γράφει τις τρέχουσες τιμές στο arm_calibration/config/calibration.yaml")
+        self._save.setToolTip("Γράφει τις τρέχουσες τιμές στο arm_calibration/config/arm.yaml")
         self._save.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/save"))
         self._load_file = QtWidgets.QPushButton("Επαναφόρτωση από αρχείο")
         self._load_file.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/reload"))
@@ -253,8 +253,10 @@ class ParametersPanel(QtWidgets.QWidget):
             self.apply_requested.emit(self._node, changed)
 
     def zero_joints(self) -> list:
-        """The joints that have an encoder zero in the calibration (encoders.<joint>.zero_deg)."""
-        return sorted(n.split(".")[1] for n in self._editors if n.startswith("encoders.") and n.endswith(".zero_deg"))
+        """The joints that have an encoder and a zero in arm.yaml (joints.<joint>.zero_deg)."""
+        return sorted(n.split(".")[1] for n in self._editors
+                      if n.startswith("joints.") and n.endswith(".zero_deg")
+                      and f"joints.{n.split('.')[1]}.encoder" in self._editors)
 
     def set_zero(self):
         joints = self.zero_joints()
@@ -317,7 +319,7 @@ class ParametersPanel(QtWidgets.QWidget):
         self._set_zero.setEnabled(n == 0)
         self._save.setEnabled(n == 0)  # apply first, so the file gets what the node really holds
         self._save.setToolTip(
-            "Γράφει τις τρέχουσες τιμές στο calibration.yaml" if n == 0 else "Πρώτα «Εφαρμογή» των αλλαγών"
+            "Γράφει τις τρέχουσες τιμές στο arm.yaml" if n == 0 else "Πρώτα «Εφαρμογή» των αλλαγών"
         )
         self._reload.setEnabled(self._nodes.count() > 0)
         theme.repolish(self._apply)

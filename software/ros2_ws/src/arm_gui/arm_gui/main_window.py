@@ -365,13 +365,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_pill(self._ros_pill, "ok" if others else "off", f"ROS 2: {len(others)} nodes")
 
     def _on_parameters(self, node, params):
-        """The servos and encoders of the calibration are devices we expect to hear from."""
+        """Devices we expect to hear from (arm.yaml, ADR-0023): servos with a channel, and the
+        encoder of every enabled joint (the Pi reports it as encoder/<joint>)."""
         if node == CALIBRATION_NODE and not isinstance(params, str):
+            values = {p["name"]: p["value"] for p in params}
             expected = set()
-            for p in params:
-                group, *rest = p["name"].split(".")
-                if group in ("servos", "encoders") and rest:
-                    expected.add(f"{group[:-1]}/{rest[0]}")
+            for name in values:
+                parts = name.split(".")
+                if len(parts) == 3 and parts[0] == "servos" and parts[2] == "channel":
+                    expected.add(f"servo/{parts[1]}")
+                if len(parts) == 3 and parts[0] == "joints" and parts[2] == "encoder":
+                    if values.get(f"joints.{parts[1]}.enabled", True):
+                        expected.add(f"encoder/{parts[1]}")
             self.devices.set_expected(sorted(expected))
 
     def set_theme(self, name: str):

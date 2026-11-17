@@ -1,11 +1,11 @@
 import copy
 
-from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller,
-                                   enabled_groups, LAWS, make_law, MixController, PID)
+from arm_pi_driver import arm_file
+from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller, LAWS,
+                                   make_law, MixController, PID)
 from arm_pi_driver.driver import Driver
 from arm_pi_driver.hardware.fake import SimulatedArm
 import pytest
-import yaml
 
 DT = 0.02
 
@@ -98,7 +98,8 @@ def test_a_problem_in_one_group_stops_all_groups(arm):
 
 
 def test_a_joint_in_two_groups_is_refused(arm):
-    arm['groups']['joint_3']['joints']['joint_1'] = arm['groups']['base']['joints']['joint_1']
+    base = arm['groups']['joint_1+joint_2']
+    arm['groups']['joint_3']['joints']['joint_1'] = base['joints']['joint_1']
     arm['groups']['joint_3']['motors']['a']['mix']['joint_1'] = 1
     with pytest.raises(ValueError):
         build_controllers(arm)
@@ -110,29 +111,14 @@ def test_a_joint_without_a_motor_is_refused(arm):
         build_controllers(arm)
 
 
-def raw_config():
-    from conftest import PACKAGE
-    return yaml.safe_load((PACKAGE / 'config' / 'base.yaml').read_text(encoding='utf-8'))
+def test_only_enabled_joints_are_driven(data):
+    config, disabled = arm_file.driver_config(data)
+    assert list(config['groups']) == ['joint_1+joint_2']
+    assert set(disabled) == {'joint_3', 'joint_4', 'joint_5', 'joint_6', 'gripper'}
 
 
-def test_only_enabled_groups_are_driven():
-    config, disabled = enabled_groups(raw_config())
-    assert list(config['groups']) == ['base']
-    assert set(disabled) == {'joint_3', 'joint_4', 'wrist', 'gripper'}
-
-
-def test_enabling_a_group_with_missing_wiring_is_refused():
-    config = raw_config()
-    config['groups']['joint_3']['enabled'] = True                # mux_channel: null ακόμα
-    with pytest.raises(ValueError, match='joint_3.mux_channel'):
-        enabled_groups(config)
-    config['groups']['joint_3']['joints']['joint_3']['mux_channel'] = 3
-    active, _ = enabled_groups(config)
-    assert list(active['groups']) == ['base', 'joint_3']
-
-
-def test_no_enabled_group_is_refused():
-    config = raw_config()
-    config['groups']['base']['enabled'] = False
+def test_no_enabled_joint_is_refused(data):
+    for joint in data['joints'].values():
+        joint['enabled'] = False
     with pytest.raises(ValueError):
-        enabled_groups(config)
+        arm_file.driver_config(data)

@@ -44,27 +44,6 @@ def build_controllers(config: dict, force_sensors: dict | None = None) -> list:
     return controllers
 
 
-def enabled_groups(config: dict) -> tuple[dict, list]:
-    """(config με ΜΟΝΟ τις ενεργές ομάδες, ονόματα των ανενεργών).
-
-    `enabled: false` = η ομάδα δεν είναι συνδεδεμένη ακόμα: ο driver την αγνοεί εντελώς. Σκάει με
-    ValueError αν μια ενεργή ομάδα έχει ασυμπλήρωτο κανάλι (`null`) στο base.yaml.
-    """
-    active = {name: g for name, g in config['groups'].items() if g.get('enabled', True)}
-    disabled = [name for name in config['groups'] if name not in active]
-    for name, group in active.items():
-        holes = [f'{j}.mux_channel' for j, joint in group['joints'].items()
-                 if joint.get('mux_channel') is None]
-        if 'adc' in group and group['adc'].get('mux_channel') is None:
-            holes.append('adc.mux_channel')
-        if holes:
-            raise ValueError(f'ομάδα {name} (enabled): συμπλήρωσε στο base.yaml: '
-                             f'{", ".join(holes)}')
-    if not active:
-        raise ValueError('καμία ενεργή ομάδα στο base.yaml (enabled: true)')
-    return {**config, 'groups': active}, disabled
-
-
 def joint_configs(config: dict) -> dict:
     """{άρθρωση: ρύθμιση} από όλες τις ομάδες (για encoders και unwrapping)."""
     return {name: joint for group in config['groups'].values()
@@ -78,5 +57,5 @@ def force_sensor_configs(config: dict) -> dict:
 
 
 __all__ = ['BangBang', 'Controller', 'ControlLaw', 'GripperController', 'LAWS', 'LimitError',
-           'MixController', 'PID', 'build_controllers', 'enabled_groups', 'force_sensor_configs',
+           'MixController', 'PID', 'build_controllers', 'force_sensor_configs',
            'joint_configs', 'make_law']

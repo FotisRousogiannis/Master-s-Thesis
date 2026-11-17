@@ -2,7 +2,7 @@
 
 Source: the standard /diagnostics topic. A device is "active" while it keeps reporting; when its
 reports stop it stays in the list as silent, so a cable that fell off is visible. Devices that
-are configured but never reported (e.g. the servos of calibration.yaml) are listed as expected.
+are configured but never reported (e.g. the servos of arm.yaml) are listed as expected.
 """
 
 import time

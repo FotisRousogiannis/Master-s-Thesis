@@ -6,7 +6,7 @@
 Κάθε tick (π.χ. 50 Hz):
   1. διαβάζει κάθε encoder· η θέση (μοίρες) με unwrapping από το arm_calibration (ADR-0019)
   2. κινεί τα μοτέρ ΜΟΝΟ αν: ήρθε εντολή πρόσφατα (watchdog), όλες οι αρθρώσεις έχουν έγκυρη
-     θέση, και καμία δεν είναι εκτός ορίων· αλλιώς καθόλου παλμός (τα servo σταματούν)
+     θέση, και καμία δεν είναι εκτός ορίων· αλλιώς στάση: παλμός νεκρού σημείου (φρένο)
   3. επιστρέφει αναφορά (Report) για το node: θέσεις, καταστάσεις, και γεγονότα μόνο όταν
      κάτι αλλάζει
 
@@ -142,7 +142,9 @@ class Driver:
 
     def decide(self, joints: dict, now: float, dt: float) -> tuple:
         """(παλμοί, λόγος, επίπεδο): κίνηση μόνο αν όλα είναι ασφαλή."""
-        stop = {channel: None for channel in self.channels}
+        stop = {}
+        for controller in self.controllers:
+            stop.update(controller.hold())          # φρένο (νεκρό σημείο), ή κανένας παλμός
         if self.last_command is None:
             return stop, NO_COMMAND, IDLE
         if now - self.last_command > self.watchdog_s:
@@ -157,7 +159,7 @@ class Driver:
                 pulses.update(controller.step({n: angles[n] for n in controller.joints}, dt))
         except LimitError as exc:
             return stop, str(exc), WARNING
-        if all(pulse is None for pulse in pulses.values()):
+        if pulses == stop:
             return stop, AT_TARGET, IDLE
         return pulses, MOVING, IDLE
 
@@ -214,7 +216,12 @@ class Driver:
         return events
 
     def stop(self) -> None:
-        """Καθόλου παλμός πουθενά (τερματισμός)· αθόρυβα αν το PCA9685 δεν απαντά."""
+        """Καθόλου παλμός πουθενά (τερματισμός)· αθόρυβα αν το PCA9685 δεν απαντά.
+
+        ΟΧΙ φρένο εδώ: μετά τον τερματισμό το PCA9685 θα κρατούσε το νεκρό σημείο για πάντα, χωρίς
+        watchdog, και ένα ατελές νεκρό σημείο «σέρνει» το servo. Όσο το node τρέχει, η στάση
+        είναι φρένο (hold) και την επιβλέπουν watchdog και encoders.
+        """
         try:
             self.pwm.all_off()
         except OSError:

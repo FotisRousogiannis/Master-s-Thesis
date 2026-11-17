@@ -15,6 +15,11 @@ def base(config):
     return config['groups']['base']
 
 
+def braking(config):
+    """Οι παλμοί της στάσης: νεκρό σημείο σε κάθε μοτέρ της βάσης."""
+    return {m['channel']: m['neutral_us'] for m in base(config)['motors'].values()}
+
+
 def run(sim, driver, seconds, targets=None, start=0.0):
     """Τρέχει προσομοίωση + driver για `seconds`, με εντολή σε κάθε tick (όπως ένας controller)."""
     now, report = start, None
@@ -37,7 +42,7 @@ def test_no_command_no_pulse(config):
     driver = Driver(config, sim.encoders, sim.pwm)
     report, _ = run(sim, driver, 0.5)
     assert not report.moving and report.reason == 'χωρίς εντολή'
-    assert set(sim.pwm.pulses.values()) == {None}
+    assert sim.pwm.pulses == braking(config)
 
 
 def test_reaches_targets_in_simulation(config):
@@ -48,7 +53,7 @@ def test_reaches_targets_in_simulation(config):
     tolerance = config['control']['tolerance_deg'] + 0.5
     assert sim.angles['joint_1'] == pytest.approx(20.0, abs=tolerance)
     assert sim.angles['joint_2'] == pytest.approx(-15.0, abs=tolerance)
-    assert report.reason == 'στον στόχο' and set(sim.pwm.pulses.values()) == {None}
+    assert report.reason == 'στον στόχο' and sim.pwm.pulses == braking(config)
 
 
 def test_targets_are_clamped_to_the_limits(config):
@@ -66,7 +71,7 @@ def test_watchdog_stops_the_motors(config):
     assert report.moving
     report, _ = run(sim, driver, 0.5, None, start=now)       # οι εντολές σταματούν
     assert not report.moving and 'watchdog' in report.reason
-    assert set(sim.pwm.pulses.values()) == {None}
+    assert sim.pwm.pulses == braking(config)
 
 
 def test_missing_encoder_stops_the_motors(config):
@@ -78,7 +83,7 @@ def test_missing_encoder_stops_the_motors(config):
     sim.encoders['joint_2'].angle = math.nan
     report, _ = run(sim, driver, 0.1, {'joint_1': 40.0}, start=now)
     assert not report.moving and report.reason == f'joint_2: {NO_RESPONSE}'
-    assert set(sim.pwm.pulses.values()) == {None}
+    assert sim.pwm.pulses == braking(config)
     assert report.joints['joint_2'].status == NO_RESPONSE
 
 
@@ -167,3 +172,16 @@ def test_targets_are_kept_while_holding_at_the_target(config):
     assert report.reason == 'στον στόχο'
     report, _ = run(sim, driver, 0.5, {'joint_1': 10.0}, start=now)  # μόνο joint_1
     assert driver.targets['joint_2'] == pytest.approx(5.0)
+
+
+def test_stop_can_be_without_pulse_and_shutdown_always_is(config):
+    sim = SimulatedArm(config)
+    driver = Driver(config, sim.encoders, sim.pwm)
+    run(sim, driver, 0.3, {'joint_1': 40.0})
+    driver.stop()                                            # τερματισμός του node
+    assert set(sim.pwm.pulses.values()) == {None}
+    config['control']['stop'] = 'off'
+    sim = SimulatedArm(config)
+    driver = Driver(config, sim.encoders, sim.pwm)
+    run(sim, driver, 0.3)                                    # χωρίς εντολή
+    assert set(sim.pwm.pulses.values()) == {None}

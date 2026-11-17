@@ -90,7 +90,10 @@ def test_a_problem_in_one_group_stops_all_groups(arm):
     assert report.moving
     sim.encoders['joint_3'].status = 'NO_RESPONSE'
     report = run(sim, driver, 0.1, {'joint_1': 40.0, 'joint_3': 40.0}, start=1.0)
-    assert not report.moving and set(sim.pwm.pulses.values()) == {None}
+    assert not report.moving
+    neutral = {m['channel']: m['neutral_us'] for g in arm['groups'].values()
+               for m in g['motors'].values()}
+    assert sim.pwm.pulses == neutral                          # όλα φρενάρουν
 
 
 def test_a_joint_in_two_groups_is_refused(arm):

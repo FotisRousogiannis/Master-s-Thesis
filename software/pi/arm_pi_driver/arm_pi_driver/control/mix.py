@@ -110,10 +110,19 @@ class MixController(Controller):
             result[name] = clamp(mixed, -1.0, 1.0) * (-1 if motor.get('mirrored') else 1)
         return result
 
+    def hold(self) -> dict:
+        """Οι παλμοί της στάσης: νεκρό σημείο σε κάθε μοτέρ.
+
+        Φρένο: κρατά φορτίο (π.χ. βαρύτητα στο joint_2). Με `control.stop: off` κανένας παλμός:
+        το servo σίγουρα δεν κινείται μόνο του, αλλά δεν κρατά.
+        """
+        brake = self.cfg.get('stop', 'brake') == 'brake'
+        return {m['channel']: (m['neutral_us'] if brake else None) for m in self.motors.values()}
+
     def pulses(self, motor_speeds: dict) -> dict:
-        """{κανάλι: παλμός ή None}: όλα στο 0 → κανένας παλμός· αλλιώς όσα στο 0 φρενάρουν."""
+        """{κανάλι: παλμός}: όλα στο 0 → στάση (hold)· αλλιώς όσα είναι στο 0 φρενάρουν."""
         if not any(motor_speeds.values()):
-            return {motor['channel']: None for motor in self.motors.values()}
+            return self.hold()
         # Μοτέρ στο 0 ενώ άλλο τρέχει: παλμός νεκρού σημείου, ώστε να φρενάρει· χωρίς παλμό το
         # γυρίζει το άλλο μέσα από τη μηχανική σύνδεση (πάγκος, 2026-11-14).
         lo, hi = self.pca['pulse_min_us'], self.pca['pulse_max_us']

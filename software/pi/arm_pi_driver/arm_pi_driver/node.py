@@ -14,9 +14,10 @@ from pathlib import Path
 import time
 
 from ament_index_python.packages import get_package_share_directory
+from arm_pi_driver.control import joint_configs
 from arm_pi_driver.driver import Driver, ERROR, IDLE, USABLE, WARNING
 from arm_pi_driver.hardware import AS5600, PCA9685, TCA9548A
-from arm_pi_driver.hardware.fake import SimulatedBase
+from arm_pi_driver.hardware.fake import SimulatedArm
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import rclpy
 from rclpy.node import Node
@@ -40,7 +41,7 @@ def real_hardware(config: dict):
     bus = SMBus(config['i2c_bus'])
     mux = TCA9548A(bus, config['tca_address'])
     encoders = {name: AS5600(bus, mux, joint['mux_channel'])
-                for name, joint in config['joints'].items()}
+                for name, joint in joint_configs(config).items()}
     pca = config['pca']
     pwm = PCA9685(bus, mux, pca['mux_channel'], pca['address'], pca['freq_hz'], pca['osc_hz'],
                   pca['pulse_min_us'], pca['pulse_max_us'])
@@ -58,9 +59,10 @@ class PiDriverNode(Node):
         config = load_config(self.declare_parameter('config', '').value)
         self.segment = config['segment']
 
-        self.sim = SimulatedBase(config) if fake else None
+        self.sim = SimulatedArm(config) if fake else None
         encoders, pwm = (self.sim.encoders, self.sim.pwm) if fake else real_hardware(config)
-        self.channels = {name: joint['mux_channel'] for name, joint in config['joints'].items()}
+        joints = joint_configs(config)
+        self.channels = {name: joint['mux_channel'] for name, joint in joints.items()}
         self.driver = Driver(config, encoders, pwm, watchdog_s)
         self.report = None
 
@@ -74,7 +76,7 @@ class PiDriverNode(Node):
         self.get_logger().info(
             f"{'ΠΡΟΣΟΜΟΙΩΣΗ (fake)' if fake else 'υλικό I²C'} · {rate_hz:g} Hz · "
             f'/{self.segment}/joint_states, /{self.segment}/joint_commands · '
-            f'αρθρώσεις {", ".join(config["joints"])}')
+            f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)}')
 
     def on_command(self, msg: JointState) -> None:
         """Στόχοι θέσης: ακτίνια από το ROS 2 → μοίρες για τον Driver."""

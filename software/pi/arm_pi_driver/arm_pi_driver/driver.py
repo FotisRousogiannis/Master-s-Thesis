@@ -1,5 +1,8 @@
 """Η λογική του driver χωρίς ROS: encoders → θέσεις, εντολές → παλμοί, με ελέγχους ασφαλείας.
 
+Ο Driver έχει μια λίστα από Controller (control/), έναν ανά ομάδα αρθρώσεων του YAML, και δεν ξέρει
+ποιος είναι ποιος. Η ασφάλεια είναι κοινή: πρόβλημα σε ΜΙΑ ομάδα σταματά ΟΛΕΣ (ένας βραχίονας).
+
 Κάθε tick (π.χ. 50 Hz):
   1. διαβάζει κάθε encoder· η θέση (μοίρες) με unwrapping από το arm_calibration (ADR-0019)
   2. κινεί τα μοτέρ ΜΟΝΟ αν: ήρθε εντολή πρόσφατα (watchdog), όλες οι αρθρώσεις έχουν έγκυρη
@@ -13,7 +16,7 @@
 from dataclasses import dataclass
 
 from arm_calibration.encoders import EncoderJump, Tracker
-from arm_pi_driver.control import DifferentialController, LimitError
+from arm_pi_driver.control import build_controllers, joint_configs, LimitError
 
 USABLE = ('OK', 'TOO_WEAK', 'TOO_STRONG')   # η γωνία μετρά, ίσως λιγότερο αξιόπιστα
 JUMP = 'JUMP'                               # η ένδειξη άλλαξε πιο πολύ απ' όσο γίνεται: βλάβη
@@ -46,14 +49,17 @@ class Report:
 
 
 class Driver:
-    """Ένα διαφορικό (δύο αρθρώσεις, δύο μοτέρ): encoders, PwmOutput, έλεγχος και ασφάλεια."""
+    """Όλες οι ομάδες αρθρώσεων ενός ελεγκτή: encoders, PwmOutput, controllers και ασφάλεια."""
 
-    def __init__(self, config: dict, encoders: dict, pwm, watchdog_s: float = 0.2):
+    def __init__(self, config: dict, encoders: dict, pwm, watchdog_s: float = 0.2,
+                 controllers: list | None = None):
         self.config, self.encoders, self.pwm = config, encoders, pwm
         self.watchdog_s = watchdog_s
-        self.controller = DifferentialController(config)
-        self.trackers = {name: self._new_tracker(name) for name in config['joints']}
-        self.channels = [m['channel'] for m in config['motors'].values()]
+        self.joints = joint_configs(config)
+        self.controllers = controllers if controllers is not None else build_controllers(config)
+        self.owner = {joint: c for c in self.controllers for joint in c.joints}
+        self.trackers = {name: self._new_tracker(name) for name in self.joints}
+        self.channels = [channel for c in self.controllers for channel in c.channels]
         self.last_command = None
         self.last_tick = None
         self.written = {}               # {κανάλι: τελευταίος παλμός που γράφτηκε}
@@ -61,7 +67,7 @@ class Driver:
         self._reason = None
 
     def _new_tracker(self, name: str) -> Tracker:
-        joint = self.config['joints'][name]
+        joint = self.joints[name]
         inverted = joint['sign'] < 0
         return Tracker(joint['zero_deg'], inverted, joint['lower_deg'], joint['upper_deg'])
 
@@ -71,16 +77,25 @@ class Driver:
         Άγνωστα ονόματα αγνοούνται· όποια άρθρωση λείπει κρατά τον στόχο της, ή αν δεν έχει,
         μένει εκεί που είναι.
         """
-        targets = {n: t for n, t in targets_deg.items() if n in self.config['joints']}
+        targets = {n: t for n, t in targets_deg.items() if n in self.owner}
         if not targets:
-            return dict(self.controller.targets)
-        for name in self.config['joints']:
+            return self.targets
+        for name, controller in self.owner.items():
             position = self.trackers[name].position
-            has_target = name in targets or name in self.controller.targets
+            has_target = name in targets or name in controller.targets
             if not has_target and position is not None:
                 targets[name] = position
         self.last_command = now
-        return self.controller.set_targets(targets)
+        for controller in self.controllers:
+            mine = {n: t for n, t in targets.items() if n in controller.joints}
+            if mine:
+                controller.set_targets(mine)
+        return self.targets
+
+    @property
+    def targets(self) -> dict:
+        """Οι στόχοι που ισχύουν, από όλες τις ομάδες."""
+        return {n: t for c in self.controllers for n, t in c.targets.items()}
 
     def read_joints(self) -> dict:
         """{άρθρωση: JointReport} από μία ανάγνωση κάθε encoder."""
@@ -111,13 +126,15 @@ class Driver:
             if joint.position_deg is None:
                 return stop, f'{name}: {joint.status}', WARNING
         angles = {name: joint.position_deg for name, joint in joints.items()}
+        pulses = {}
         try:
-            speeds, _ = self.controller.axis_speeds(angles, dt)
+            for controller in self.controllers:
+                pulses.update(controller.step({n: angles[n] for n in controller.joints}, dt))
         except LimitError as exc:
             return stop, str(exc), WARNING
-        if not any(speeds.values()):
+        if all(pulse is None for pulse in pulses.values()):
             return stop, AT_TARGET, IDLE
-        return self.controller.pulses(speeds), MOVING, IDLE
+        return pulses, MOVING, IDLE
 
     def write(self, pulses: dict) -> str | None:
         """Γράφει όσους παλμούς άλλαξαν· None αν πέτυχε, αλλιώς το σφάλμα."""
@@ -149,10 +166,8 @@ class Driver:
             # Στάση ασφαλείας (watchdog, encoder, όρια, PCA): οι στόχοι ξεχνιούνται. Μετά τη
             # διακοπή, όποια άρθρωση δεν αναφέρει η επόμενη εντολή μένει εκεί που είναι ΤΟΤΕ,
             # όχι εκεί που της είχαν πει πριν (μπορεί να μετακινήθηκε με το χέρι στο μεταξύ).
-            self.controller.clear_targets()
-        elif not moving:
-            for pid in self.controller.pids.values():
-                pid.reset()
+            for controller in self.controllers:
+                controller.clear_targets()
         return Report(joints, moving, reason, level, self._events(joints, reason, level))
 
     def _events(self, joints: dict, reason: str, level: str) -> list:

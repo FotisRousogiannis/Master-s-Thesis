@@ -1,5 +1,5 @@
-# Βάση του βραχίονα: διαφορικό joint_1 (yaw) + joint_2 (roll) στο Pi (ADR-0021).
-# Τιμές από software/tools/wrist_bench/base_calibration.json (μετρήσεις πάγκου, 2026-11-14).
+# Ο βραχίονας στο Pi (ADR-0021): σήμερα μόνο η βάση (διαφορικό joint_1 + joint_2).
+# Τιμές της βάσης από software/tools/wrist_bench/base_calibration.json (πάγκος, 2026-11-14).
 # Γωνίες σε μοίρες εδώ· στο ROS 2 (topics) σε ακτίνια.
 segment: base               # topics: /base/joint_states, /base/joint_commands (ADR-0007)
 i2c_bus: 1
@@ -12,49 +12,60 @@ pca:
   osc_hz: 25000000
   pulse_min_us: 500         # προδιαγραφή του servo, δεν ξεπερνιέται ποτέ
   pulse_max_us: 2500
-  max_offset_us: 900        # όριο ασφαλείας του πάγκου γύρω από το νεκρό σημείο
+  max_offset_us: 900        # όριο ασφαλείας γύρω από το νεκρό σημείο
 
-# axis: together = τα δύο μοτέρ μαζί («pitch» του teleop, πλήκτρα W/S)
-#       opposed  = τα μοτέρ αντίθετα («roll» του teleop, πλήκτρα A/D)
-joints:
-  joint_1:                  # yaw (στροφή της βάσης)
-    axis: together
-    mux_channel: 2
-    sign: 1
-    zero_deg: 267.891
-    lower_deg: -30.0
-    upper_deg: 50.0
-    deadband_pos: 0.05      # μικρότερη εντολή που κινεί την άρθρωση, ανά φορά (teleop [9])
-    deadband_neg: 0.05
-  joint_2:                  # roll του διαφορικού: σηκώνει τον βραχίονα (pitch στο URDF)
-    axis: opposed
-    mux_channel: 1
-    sign: -1
-    zero_deg: 112.676
-    lower_deg: -90.0
-    upper_deg: 90.0
-    deadband_pos: 0.07
-    deadband_neg: 0.07
-
-motors:
-  a:
-    channel: 0
-    neutral_us: 1630                  # πραγματικό νεκρό σημείο (teleop [10])
-    deadband_edges_us: [1420, 1840]   # κάτω/πάνω όριο της νεκρής ζώνης
-    mirrored: false
-  b:
-    channel: 1
-    neutral_us: 1605
-    deadband_edges_us: [1510, 1700]
-    mirrored: true                    # κατοπτρικό: ίδια εντολή, αντίθετη φορά
-
-pid:                        # αρχικές τιμές του πάγκου, ΟΧΙ ρυθμισμένες
-  kp: 0.02                  # κλάσμα ταχύτητας ανά μοίρα σφάλματος
-  ki: 0.0
-  kd: 0.0
-  max_speed: 0.5
-  min_speed: 0.3            # όταν δεν υπάρχει μετρημένη νεκρή ζώνη
+control:                    # κοινά για ΟΛΕΣ τις αρθρώσεις και ΟΛΟΥΣ τους νόμους (ιδιότητες υλικού)
+  max_speed: 0.5            # μέγιστη εντολή (κλάσμα ταχύτητας)
+  min_speed: 0.3            # ελάχιστη εντολή όταν δεν υπάρχει μετρημένη νεκρή ζώνη
   tolerance_deg: 1.0        # μέσα σε αυτό η άρθρωση «έφτασε»: έξοδος 0
   limit_margin_deg: 5.0     # πέρα από τα όρια + αυτό: στάση
   deadband_margin: 0.03     # προστίθεται στη μετρημένη νεκρή ζώνη
   motor_compensation: true  # κάθε μοτέρ ξεκινά από την άκρη της δικής του νεκρής ζώνης
+
+# Ομάδες: αρθρώσεις και τα μοτέρ που τις κινούν. Κάθε μοτέρ: mix = πόσο συμμετέχει σε κάθε
+# άρθρωση (ταχύτητα μοτέρ = Σ mix × ταχύτητα άρθρωσης· × −1 αν mirrored).
+# Νόμος ελέγχου ανά άρθρωση: law: {type: pid, kp, ki, kd} ή {type: bang_bang, speed} (laws.py).
+groups:
+  base:                     # διαφορικό
+    joints:
+      joint_1:              # yaw (στροφή της βάσης)
+        mux_channel: 2      # κανάλι του TCA9548A όπου είναι ο ENCODER της άρθρωσης
+        sign: 1
+        zero_deg: 267.891
+        lower_deg: -30.0
+        upper_deg: 50.0
+        deadband_pos: 0.05  # μικρότερη εντολή που κινεί την άρθρωση, ανά φορά (teleop [9])
+        deadband_neg: 0.05
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}    # τιμές πάγκου, ΟΧΙ ρυθμισμένες
+      joint_2:              # roll του διαφορικού: σηκώνει τον βραχίονα (pitch στο URDF)
+        mux_channel: 1
+        sign: -1
+        zero_deg: 112.676
+        lower_deg: -90.0
+        upper_deg: 90.0
+        deadband_pos: 0.07
+        deadband_neg: 0.07
+        law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
+    motors:
+      a:
+        channel: 0                        # κανάλι του PCA9685 όπου είναι το SERVO
+        neutral_us: 1630                  # πραγματικό νεκρό σημείο (teleop [10])
+        deadband_edges_us: [1420, 1840]   # κάτω/πάνω όριο της νεκρής ζώνης
+        mirrored: false
+        mix: {joint_1: 1, joint_2: 1}     # μαζί → joint_1, αντίθετα → joint_2
+      b:
+        channel: 1
+        neutral_us: 1605
+        deadband_edges_us: [1510, 1700]
+        mirrored: true                    # κατοπτρικό: ίδια εντολή, αντίθετη φορά
+        mix: {joint_1: 1, joint_2: -1}
+
+# Παράδειγμα (όταν συνδεθεί): joint_3 με δύο κατοπτρικά servo που κάνουν μία κίνηση.
+#  joint_3:
+#    joints:
+#      joint_3: {mux_channel: 3, sign: 1, zero_deg: 0.0, lower_deg: -90.0, upper_deg: 90.0,
+#                law: {type: pid, kp: 0.02}}
+#    motors:
+#      a: {channel: 2, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1}}
+#      b: {channel: 3, neutral_us: 1600, deadband_edges_us: [1550, 1650], mix: {joint_3: 1},
+#          mirrored: true}

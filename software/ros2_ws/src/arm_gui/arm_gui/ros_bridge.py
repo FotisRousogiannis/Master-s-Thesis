@@ -15,7 +15,13 @@ from control_msgs.action import FollowJointTrajectory
 from controller_manager_msgs.srv import ListControllers
 from diagnostic_msgs.msg import DiagnosticArray
 from rcl_interfaces.msg import ParameterType
-from rcl_interfaces.srv import DescribeParameters, GetParameters, ListParameters, SetParameters
+from rcl_interfaces.srv import (
+    DescribeParameters,
+    GetParameters,
+    ListParameters,
+    SetParameters,
+    SetParametersAtomically,
+)
 from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
@@ -31,6 +37,7 @@ from .qt import QtCore, Signal
 ARM_CONTROLLER = "arm_controller"
 JOINT_STATE_MAX_RATE_HZ = 20.0
 SERVICE_TIMEOUT_S = 3.0
+RESPONSE_TIMEOUT_S = 5.0
 PARAM_TYPES = {
     ParameterType.PARAMETER_BOOL: "bool",
     ParameterType.PARAMETER_INTEGER: "integer",
@@ -38,6 +45,8 @@ PARAM_TYPES = {
     ParameterType.PARAMETER_STRING: "string",
 }
 ACTION_SUFFIX = "/_action/send_goal"
+IDENTIFY_REQUEST = "/arm_pi_driver/identify/request"  # identification mode of the Pi (ADR-0023)
+IDENTIFY_REPLY = "/arm_pi_driver/identify/reply"
 
 
 def _full_name(name, namespace):
@@ -72,6 +81,7 @@ class RosBridge(QtCore.QObject):
     parameters_set = Signal(str, object)  # node, [(name, ok, reason)]
     service_result = Signal(str, bool, str)  # service, success, message
     diagnostics = Signal(object)  # [{"name", "level" 0 ok/1 warn/2 error/3 stale, "message", "hardware_id", "values"}]
+    identify_reply = Signal(object)  # one JSON reply of the Pi's identification mode (dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -86,6 +96,8 @@ class RosBridge(QtCore.QObject):
         self._trajectory_pub = self._node.create_publisher(JointTrajectory, f"/{ARM_CONTROLLER}/joint_trajectory", 10)
         self._list_controllers = self._node.create_client(ListControllers, "/controller_manager/list_controllers")
         self._node.create_timer(1.0, self._poll_graph)
+        self._identify_pub = self._node.create_publisher(String, IDENTIFY_REQUEST, 10)
+        self._node.create_subscription(String, IDENTIFY_REPLY, self._on_identify_reply, 10)
 
         self._param_clients = {}
         self._goal_handle = None
@@ -119,6 +131,12 @@ class RosBridge(QtCore.QObject):
 
     def _on_diagnostics(self, msg):
         self.diagnostics.emit([diagnostic_dict(s) for s in msg.status])
+
+    def _on_identify_reply(self, msg):
+        try:
+            self.identify_reply.emit(json.loads(msg.data))
+        except ValueError:
+            self.log.emit(f"αναγνώριση: μη έγκυρη απάντηση {msg.data[:80]}")
 
     def _poll_graph(self):
         nodes = sorted(_full_name(n, ns) for n, ns in self._node.get_node_names_and_namespaces())
@@ -174,11 +192,29 @@ class RosBridge(QtCore.QObject):
             on_error(f"Η υπηρεσία {service} δεν απαντά")
             return
 
+        finished = threading.Event()
+
         def done(future):
+            if finished.is_set() or future.cancelled():
+                return
+            finished.set()
             exc = future.exception()
             on_error(str(exc)) if exc else on_done(future.result())
 
-        client.call_async(request).add_done_callback(done)
+        future = client.call_async(request)
+        future.add_done_callback(done)
+
+        def give_up():
+            # DDS can drop a response to a client that was just created ("failed to send response
+            # (timeout)" in the server's log): without this the caller would wait forever.
+            if not finished.is_set():
+                finished.set()
+                future.cancel()
+                on_error(f"Η υπηρεσία {service} δεν απάντησε (χάθηκε η απάντηση· ξαναδοκίμασε)")
+
+        timer = threading.Timer(RESPONSE_TIMEOUT_S, give_up)
+        timer.daemon = True
+        timer.start()
 
     def request_parameters(self, node: str):
         def fail(msg):
@@ -239,6 +275,28 @@ class RosBridge(QtCore.QObject):
             ),
             daemon=True,
         ).start()
+
+    def set_parameters_atomically(self, node: str, values: dict):
+        """All or none: the node validates them together (e.g. two joints exchanging encoders)."""
+        names = list(values)
+        request = SetParametersAtomically.Request(
+            parameters=[Parameter(n, value=v).to_parameter_msg() for n, v in values.items()]
+        )
+        threading.Thread(
+            target=self._call,
+            args=(
+                SetParametersAtomically, f"{node}/set_parameters_atomically", request,
+                lambda r: self.parameters_set.emit(
+                    node, [(n, r.result.successful, r.result.reason) for n in names]
+                ),
+                lambda msg: self.parameters_set.emit(node, [(n, False, msg) for n in names]),
+            ),
+            daemon=True,
+        ).start()
+
+    def identify(self, request: dict):
+        """One request to the Pi's identification mode (arm_pi_driver/identify.py)."""
+        self._identify_pub.publish(String(data=json.dumps(request, ensure_ascii=False)))
 
     def call_trigger(self, service: str):
         threading.Thread(

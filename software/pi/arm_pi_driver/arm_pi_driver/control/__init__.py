@@ -57,5 +57,5 @@ def force_sensor_configs(config: dict) -> dict:
 
 
 __all__ = ['BangBang', 'Controller', 'ControlLaw', 'GripperController', 'LAWS', 'LimitError',
-           'MixController', 'PID', 'build_controllers', 'force_sensor_configs', 'joint_configs',
-           'make_law']
+           'MixController', 'PID', 'build_controllers', 'force_sensor_configs',
+           'joint_configs', 'make_law']

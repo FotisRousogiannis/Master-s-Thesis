@@ -30,7 +30,7 @@ cd software/pi/docker && docker compose up -d --build --force-recreate      # Χ
 docker compose logs -f
 ```
 Αναμένεται: `υλικό I²C · 50 Hz …`, `encoder joint_1: …`, `encoder joint_2: …`, `έξοδοι: χωρίς εντολή`.
-- `NO_RESPONSE` σε encoder → λάθος κανάλι mux στο `config/base.yaml` ή καλώδιο· `docker compose exec pi i2cdetect -y 1`.
+- `NO_RESPONSE` σε encoder → λάθος κανάλι encoder στο `arm.yaml` (`encoders`, σελίδα «Παράμετροι») ή καλώδιο· `docker compose exec pi i2cdetect -y 1`.
 - `PCA9685 δεν απαντά` → κανάλι 0 του mux / τροφοδοσία λογικής του PCA.
 - `TOO_WEAK` στο joint_1 (μαγνήτης mux2): αναμενόμενο σήμερα· μετρά, με επιφύλαξη.
 
@@ -74,7 +74,7 @@ ros2 topic pub -r 10 /base/joint_commands sensor_msgs/msg/JointState "{name: [jo
   /diagnostics -o ~/bags/base_step_20deg` (ή το «● REC» του Arm Studio). Από αυτά: χρόνος ανόδου, υπερακόντιση,
   σφάλμα μόνιμης κατάστασης, σύζευξη της άλλης άρθρωσης (όπως το run5 του πάγκου).
 - Επαναληψιμότητα: ίδιος στόχος 10 φορές από διαφορετικές αρχικές θέσεις· διασπορά του τελικού σφάλματος.
-- Ρύθμιση PID (`config/base.yaml`, `law`): μόνο μετά από αυτές τις μετρήσεις, μία αλλαγή τη φορά.
+- Ρύθμιση PID (`arm.yaml`, `joints.<άρθρωση>.law`): μόνο μετά από αυτές τις μετρήσεις, μία αλλαγή τη φορά.
 
 ---
 

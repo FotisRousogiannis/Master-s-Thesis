@@ -28,6 +28,12 @@ class FakeBus:
         self._ack(address)
         self.writes.append((address, value))
 
+    def read_byte(self, address: int) -> int:
+        """Όπως το smbus2: ένα byte χωρίς καταχωρητή (το i2cdetect το χρησιμοποιεί για ACK)."""
+        self.calls.append(('read_byte', address))
+        self._ack(address)
+        return 0
+
     def read_byte_data(self, address: int, register: int) -> int:
         """Όπως το smbus2: ένα byte από έναν καταχωρητή."""
         self.calls.append(('read_byte_data', address, register))
@@ -119,7 +125,7 @@ class SimulatedArm:
     def motor_speed(self, motor: dict) -> float:
         """−1..1 από τον παλμό του μοτέρ (0 μέσα στη νεκρή ζώνη ή χωρίς παλμό)."""
         pulse = self.pwm.pulses.get(motor['channel'])
-        down, up = motor['deadband_edges_us']
+        down, up = motor.get('deadband_edges_us') or (motor['neutral_us'], motor['neutral_us'])
         if pulse is None or down <= pulse <= up:
             return 0.0
         speed = (pulse - up) if pulse > up else (pulse - down)

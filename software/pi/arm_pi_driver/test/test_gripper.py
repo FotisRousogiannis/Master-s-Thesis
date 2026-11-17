@@ -1,7 +1,6 @@
 import copy
 import math
 
-from arm_pi_driver.calibration import gripper_limits
 from arm_pi_driver.control import build_controllers, GripperController
 from arm_pi_driver.driver import Driver
 from arm_pi_driver.hardware import ADS1115, ForceSensor, NO_RESPONSE, TCA9548A, ZD10
@@ -13,10 +12,11 @@ DT = 0.02
 GRIPPER = {
     'controller': 'gripper',
     'joints': {'gripper': {'mux_channel': 7, 'zero_deg': 0.0, 'sign': 1,
-                           'law': {'type': 'pid', 'kp': 0.02}, **gripper_limits(60.0)}},
+                           'law': {'type': 'pid', 'kp': 0.02},
+                           'lower_deg': 0.0, 'upper_deg': 60.0}},
     'motors': {'a': {'channel': 8, 'neutral_us': 1600, 'deadband_edges_us': [1560, 1640],
                      'mix': {'gripper': 1}}},
-    'contact': 1.3,
+    'contact': {'finger_1': 1.3, 'finger_2': 1.3},
     'adc': {'mux_channel': 7},
     'force_sensors': {'finger_1': {'input': 0}, 'finger_2': {'input': 1}},
 }
@@ -124,7 +124,7 @@ def test_gripper_does_not_close_with_a_faulty_sensor(arm):
 
 
 def test_uncalibrated_gripper_does_not_open(arm):
-    arm['groups']['gripper']['joints']['gripper'].update(gripper_limits(0.0))   # open_deg = 0
+    arm['groups']['gripper']['joints']['gripper'].update(lower_deg=0.0, upper_deg=0.0)
     sim = SimulatedArm(arm)
     driver = Driver(arm, sim.encoders, sim.pwm, force_sensors=fingers())
     run(sim, driver, 2.0, {'gripper': 40.0})

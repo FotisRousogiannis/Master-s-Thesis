@@ -12,17 +12,26 @@ except ImportError:
     sys.path.insert(0, str(SOURCE))
 
 PACKAGE = Path(__file__).resolve().parents[1]
-CALIBRATION = (PACKAGE.parents[1] / 'ros2_ws' / 'src' / 'arm_calibration' / 'config'
-               / 'calibration.yaml')
+ARM_FILE = PACKAGE.parents[1] / 'ros2_ws' / 'src' / 'arm_calibration' / 'config' / 'arm.yaml'
+
+
+def arm_data() -> dict:
+    """Τα δεδομένα του arm.yaml του repo (καινούργιο αντίγραφο κάθε φορά)."""
+    from arm_pi_driver import arm_file
+    return arm_file.load(ARM_FILE)
 
 
 def bench_config() -> dict:
-    """Το base.yaml με τη βαθμονόμηση του calibration.yaml, όπως το φτιάχνει το node."""
-    import yaml
+    """Η ρύθμιση του driver από το arm.yaml, όπως τη φτιάχνει το node."""
+    from arm_pi_driver import arm_file
+    config, _ = arm_file.driver_config(arm_data())
+    return config
 
-    from arm_pi_driver.calibration import apply_calibration, load_calibration
-    config = yaml.safe_load((PACKAGE / 'config' / 'base.yaml').read_text(encoding='utf-8'))
-    return apply_calibration(config, load_calibration(CALIBRATION))
+
+@pytest.fixture
+def data():
+    """Τα δεδομένα του arm.yaml (τα tests μπορούν να τα αλλάζουν)."""
+    return arm_data()
 
 
 @pytest.fixture

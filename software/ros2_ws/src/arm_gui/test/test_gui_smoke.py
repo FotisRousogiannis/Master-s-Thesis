@@ -28,12 +28,20 @@ class FakeBridge(QtCore.QObject):
     parameters_set = Signal(str, object)
     service_result = Signal(str, bool, str)
     diagnostics = Signal(object)
+    identify_reply = Signal(object)
 
     def __init__(self):
         super().__init__()
         self.goals, self.stops = [], 0
         self.param_requests, self.param_sets, self.triggers = [], [], []
         self.events = []
+        self.identify_requests, self.atomic_sets = [], []
+
+    def identify(self, request):
+        self.identify_requests.append(request)
+
+    def set_parameters_atomically(self, node, values):
+        self.atomic_sets.append((node, values))
 
     def log_event(self, event):
         self.events.append(event)
@@ -196,14 +204,18 @@ def test_saved_layout_round_trip(window):
 
 
 CAL_PARAMS = [
-    {"name": "file", "type": "string", "value": "/x/calibration.yaml", "description": "Αρχείο", "read_only": True,
+    {"name": "file", "type": "string", "value": "/x/arm.yaml", "description": "Αρχείο", "read_only": True,
      "min": None, "max": None},
-    {"name": "servos.wrist_diff_a.neutral_us", "type": "integer", "value": 1600, "description": "Νεκρό σημείο",
+    {"name": "servos.servo_7.neutral_us", "type": "integer", "value": 1600, "description": "Νεκρό σημείο",
      "read_only": False, "min": 500, "max": 2500},
-    {"name": "servos.wrist_diff_a.invert", "type": "bool", "value": False, "description": "Αντίστροφη φορά",
+    {"name": "servos.servo_7.description", "type": "string", "value": "καρπός", "description": "Περιγραφή",
      "read_only": False, "min": None, "max": None},
     {"name": "safety.max_duration_s", "type": "double", "value": 3.0, "description": "Διάρκεια",
      "read_only": False, "min": 0.1, "max": 30.0},
+    *({"name": f"joints.{j}.zero_deg", "type": "double", "value": 0.0, "description": "Μηδέν",
+       "read_only": False, "min": 0.0, "max": 360.0} for j in ("joint_1", "joint_2", "joint_3")),
+    *({"name": f"joints.{j}.encoder", "type": "string", "value": f"enc_{j[-1]}", "description": "Encoder",
+       "read_only": False, "min": None, "max": None} for j in ("joint_1", "joint_2", "joint_3")),
 ]
 
 
@@ -213,35 +225,44 @@ def test_calibration_node_is_opened_automatically_and_edits_are_applied(window):
     assert b.param_requests == ["/arm_calibration"]
     b.parameters_loaded.emit("/arm_calibration", CAL_PARAMS)
     panel = window.parameters
-    editor = panel._editors["servos.wrist_diff_a.neutral_us"]
+    editor = panel._editors["servos.servo_7.neutral_us"]
     assert editor.widget.suffix() == " µs" and editor.widget.maximum() == 2500
     assert not panel._editors["file"].widget.isEnabled()  # read-only
     editor.widget.setValue(1605)
     assert panel._apply.isEnabled() and not panel._save.isEnabled()  # apply before saving
     panel.apply()
-    assert b.param_sets[-1] == ("/arm_calibration", {"servos.wrist_diff_a.neutral_us": 1605})
-    b.parameters_set.emit("/arm_calibration", [("servos.wrist_diff_a.neutral_us", True, "")])
+    assert b.param_sets[-1] == ("/arm_calibration", {"servos.servo_7.neutral_us": 1605})
+    b.parameters_set.emit("/arm_calibration", [("servos.servo_7.neutral_us", True, "")])
     assert not panel._apply.isEnabled() and panel._save.isEnabled()
     panel._save.click()
     assert b.triggers == ["/arm_calibration/save"]
 
 
-def test_encoder_zeros_are_set_only_after_confirmation_and_then_reloaded(window):
+def test_encoder_zeros_for_the_ticked_joints_then_reloaded(window):
     b, panel = window._bridge, window.parameters
     b.nodes_changed.emit(["/arm_calibration"])
     b.parameters_loaded.emit("/arm_calibration", CAL_PARAMS)
     assert panel._set_zero.isVisibleTo(panel)
-    answers = [False, True]
-    panel.confirm = lambda _title, _text: answers.pop(0)
-    panel._set_zero.click()  # "no": nothing is sent
+    joints = panel.zero_joints()
+    assert joints and all(not j.startswith("servos") for j in joints)
+    b.diagnostics.emit([{"name": f"encoder/{joints[0]}", "level": 0, "message": "OK", "hardware_id": "",
+                         "values": {"raw_deg": "10.0"}}])
+    seen = {}
+    choices = [None, joints, [joints[0]]]
+    panel.choose_joints = lambda js, states: seen.update(states) or choices.pop(0)
+    panel._set_zero.click()  # cancelled: nothing is sent
     assert b.triggers == []
-    panel._set_zero.click()
+    assert seen[joints[0]] == "ok" and all(seen[j] == "silent" for j in joints[1:])
+    panel._set_zero.click()  # every joint: one all-or-none call
     assert b.triggers == ["/arm_calibration/set_zero"]
     panel.show_service_result("/arm_calibration/set_zero", False, "Δεν άλλαξε κανένα μηδέν: joint_1: ο encoder δεν έχει αναφέρει")
     assert "joint_1" in panel._status.text() and b.param_requests == ["/arm_calibration"]
-    panel.show_service_result("/arm_calibration/set_zero", True, "Νέα μηδενικά: …")
+    panel._set_zero.click()  # only the joints that report (before every encoder is connected)
+    assert b.triggers[-1] == f"/arm_calibration/set_zero/{joints[0]}"
+    panel.show_service_result(f"/arm_calibration/set_zero/{joints[0]}", True, "Νέα μηδενικά: …")
+    assert panel._status.text().startswith(f"✔ {joints[0]}:")
     assert b.param_requests == ["/arm_calibration", "/arm_calibration"]  # shows the new zeros
-    panel._editors["servos.wrist_diff_a.neutral_us"].widget.setValue(1605)
+    panel._editors["servos.servo_7.neutral_us"].widget.setValue(1605)
     assert not panel._set_zero.isEnabled()  # unapplied edits first
 
 
@@ -290,8 +311,10 @@ def test_devices_panel_shows_which_devices_are_active(window):
         {"name": f"servos.{s}.channel", "type": "integer", "value": 9, "description": "", "read_only": False,
          "min": 0, "max": 15}
         for s in ("wrist_diff_a", "wrist_diff_b")
-    ] + [{"name": "encoders.joint_5.zero_deg", "type": "double", "value": 0.0, "description": "", "read_only": False,
-          "min": 0.0, "max": 360.0}]
+    ] + [{"name": "joints.joint_5.encoder", "type": "string", "value": "enc_5", "description": "", "read_only": False,
+          "min": None, "max": None},
+         {"name": "joints.joint_5.enabled", "type": "bool", "value": True, "description": "", "read_only": False,
+          "min": None, "max": None}]
     window.parameters._node = "/arm_calibration"
     b.parameters_loaded.emit("/arm_calibration", params)
     assert panel.counts() == {"Servos": (0, 2), "Encoders": (0, 1)}  # configured, never reported

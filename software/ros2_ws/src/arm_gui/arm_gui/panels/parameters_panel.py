@@ -2,13 +2,18 @@
 
 For /arm_calibration (servo pulse widths, channels, encoder zeros, safety limits) it also saves
 the values to the calibration file in the repository, reloads them from it, and sets the encoder
-zeros from the arm in its reference pose (ADR-0019).
+zeros from the arm in its reference pose (ADR-0019): for the joints the user ticks, by default the
+ones whose encoder reports now; all of them at once through ~/set_zero (all or none), a subset
+through ~/set_zero/<joint> (so it works before every encoder is connected).
 """
+
+import time
 
 from .. import theme
 from ..qt import Qt, QtWidgets, Signal
 
 CALIBRATION_NODE = "/arm_calibration"
+REPORT_MAX_AGE_S = 2.0  # an encoder report older than this does not count as "reporting now"
 INT_LIMIT = 2**31 - 1
 UNITS = {"_us": " µs", "_hz": " Hz", "_s": " s", "_deg": " °", "_mm": " mm", "_m": " m"}
 
@@ -94,9 +99,12 @@ class ParametersPanel(QtWidgets.QWidget):
     apply_requested = Signal(str, object)  # node, {name: value}
     service_requested = Signal(str)  # Trigger service
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, clock=time.monotonic):
         super().__init__(parent)
+        self._clock = clock
         self._editors: dict[str, _Editor] = {}
+        self._encoders = {}  # joint -> (time, level, has raw_deg) of its last encoder/<joint> report
+        self._keep_status = False  # a service result stays visible while the values are re-read
         self._node = None
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -107,7 +115,7 @@ class ParametersPanel(QtWidgets.QWidget):
         self._nodes.activated.connect(lambda _i: self.reload())
         top.addWidget(self._nodes, 1)
         self._reload = QtWidgets.QPushButton("Ανάγνωση")
-        self._reload.clicked.connect(self.reload)
+        self._reload.clicked.connect(lambda: self.reload())
         top.addWidget(self._reload)
         layout.addLayout(top)
 
@@ -127,13 +135,13 @@ class ParametersPanel(QtWidgets.QWidget):
         self._revert = QtWidgets.QPushButton("Αναίρεση αλλαγών")
         self._revert.clicked.connect(self.revert)
         self._save = QtWidgets.QPushButton("Αποθήκευση στο αρχείο")
-        self._save.setToolTip("Γράφει τις τρέχουσες τιμές στο arm_calibration/config/calibration.yaml")
+        self._save.setToolTip("Γράφει τις τρέχουσες τιμές στο arm_calibration/config/arm.yaml")
         self._save.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/save"))
         self._load_file = QtWidgets.QPushButton("Επαναφόρτωση από αρχείο")
         self._load_file.clicked.connect(lambda: self.service_requested.emit(f"{CALIBRATION_NODE}/reload"))
         self._set_zero = QtWidgets.QPushButton("Μηδέν = τρέχουσα θέση")
         self._set_zero.setToolTip(
-            "Ο βραχίονας πρέπει να είναι στη στάση αναφοράς. Οι ενδείξεις όλων των encoders γίνονται τα νέα μηδενικά."
+            "Ο βραχίονας στη στάση αναφοράς. Οι ενδείξεις των encoders που επιλέγεις γίνονται τα νέα μηδενικά."
         )
         self._set_zero.clicked.connect(self.set_zero)
         for b in (self._apply, self._revert):
@@ -188,7 +196,9 @@ class ParametersPanel(QtWidgets.QWidget):
             self._tree.setItemWidget(item, 1, editor.widget)
         for key, item in groups.items():
             item.setExpanded(node == CALIBRATION_NODE or "." not in key and key not in ("qos_overrides",))
-        self._status.setText(f"{len(params)} παράμετροι του {node}")
+        if not self._keep_status:
+            self._status.setText(f"{len(params)} παράμετροι του {node}")
+        self._keep_status = False
         self._update_buttons()
 
     def show_set_results(self, node, results):
@@ -204,17 +214,35 @@ class ParametersPanel(QtWidgets.QWidget):
         self._status.setText("Εφαρμόστηκαν." if not rejected else "Απορρίφθηκαν:\n" + "\n".join(rejected))
         self._update_buttons()
 
+    def update_diagnostics(self, statuses):
+        """Remember which encoders report now (encoder/<joint> in /diagnostics), for «Μηδέν»."""
+        now = self._clock()
+        for s in statuses:
+            if s["name"].startswith("encoder/"):
+                self._encoders[s["name"].split("/", 1)[1]] = (now, s["level"], "raw_deg" in s["values"])
+
+    def encoder_state(self, joint) -> str:
+        """'ok', 'problem' or 'silent' for the encoder of this joint, from the last reports."""
+        report = self._encoders.get(joint)
+        if report is None or self._clock() - report[0] > REPORT_MAX_AGE_S:
+            return "silent"
+        _, level, has_raw = report
+        return "ok" if level == 0 and has_raw else "problem"
+
     def show_service_result(self, service, ok, message):
         if service.startswith(CALIBRATION_NODE):
-            self._status.setText(("✔ " if ok else "✖ ") + message)
-            if ok and service.endswith(("/reload", "/set_zero")):
-                self.reload()
+            prefix = "" if "/set_zero/" not in service else f"{service.rsplit('/', 1)[1]}: "
+            self._status.setText(("✔ " if ok else "✖ ") + prefix + message)
+            if ok and (service.endswith("/reload") or "/set_zero" in service):
+                self.reload(keep_status=True)
 
     # ------------------------------------------------------------------ actions
-    def reload(self):
+    def reload(self, keep_status=False):
         self._node = self._nodes.currentText() or None
+        self._keep_status = keep_status
         if self._node:
-            self._status.setText(f"Ανάγνωση παραμέτρων του {self._node}…")
+            if not keep_status:
+                self._status.setText(f"Ανάγνωση παραμέτρων του {self._node}…")
             self.load_requested.emit(self._node)
         self._update_buttons()
 
@@ -224,15 +252,49 @@ class ParametersPanel(QtWidgets.QWidget):
             self._status.setText(f"Εφαρμογή {len(changed)} αλλαγών…")
             self.apply_requested.emit(self._node, changed)
 
+    def zero_joints(self) -> list:
+        """The joints that have an encoder and a zero in arm.yaml (joints.<joint>.zero_deg)."""
+        return sorted(n.split(".")[1] for n in self._editors
+                      if n.startswith("joints.") and n.endswith(".zero_deg")
+                      and f"joints.{n.split('.')[1]}.encoder" in self._editors)
+
     def set_zero(self):
-        if self.confirm(
-            "Μηδενικά encoders",
-            "Είναι ο βραχίονας στη στάση αναφοράς (όλες οι αρθρώσεις στο 0);\n\n"
-            "Οι τωρινές ενδείξεις όλων των encoders θα γίνουν τα νέα μηδενικά. "
-            "Αν λείπει ή έχει πρόβλημα έστω ένας encoder, δεν αλλάζει κανένα.",
-        ):
-            self._status.setText("Ορισμός μηδενικών…")
-            self.service_requested.emit(f"{CALIBRATION_NODE}/set_zero")
+        joints = self.zero_joints()
+        chosen = self.choose_joints(joints, {j: self.encoder_state(j) for j in joints})
+        if not chosen:
+            return
+        self._status.setText("Ορισμός μηδενικών: " + ", ".join(chosen) + "…")
+        if sorted(chosen) == joints:
+            self.service_requested.emit(f"{CALIBRATION_NODE}/set_zero")  # all or none, in one step
+        else:
+            for joint in chosen:
+                self.service_requested.emit(f"{CALIBRATION_NODE}/set_zero/{joint}")
+
+    def choose_joints(self, joints, states):
+        """Dialog: tick the joints whose current reading becomes their zero. None = cancelled."""
+        labels = {"ok": "μετρά", "problem": "πρόβλημα στον encoder", "silent": "δεν αναφέρει"}
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Μηδέν = τρέχουσα θέση")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text = QtWidgets.QLabel(
+            "Ο βραχίονας στη στάση αναφοράς: οι επιλεγμένες αρθρώσεις στο 0.\n"
+            "Η τωρινή ένδειξη του encoder τους γίνεται το νέο μηδέν· οι άλλες δεν αλλάζουν.\n"
+            "Αν κάποια επιλεγμένη δεν μετρά, δεν αλλάζει (μήνυμα ανά άρθρωση).")
+        text.setWordWrap(True)
+        layout.addWidget(text)
+        boxes = {}
+        for joint in joints:
+            box = QtWidgets.QCheckBox(f"{joint}  ({labels[states[joint]]})")
+            box.setChecked(states[joint] == "ok")
+            layout.addWidget(box)
+            boxes[joint] = box
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return None
+        return [j for j, box in boxes.items() if box.isChecked()]
 
     def confirm(self, title, text) -> bool:
         answer = QtWidgets.QMessageBox.question(self, title, text)
@@ -257,7 +319,7 @@ class ParametersPanel(QtWidgets.QWidget):
         self._set_zero.setEnabled(n == 0)
         self._save.setEnabled(n == 0)  # apply first, so the file gets what the node really holds
         self._save.setToolTip(
-            "Γράφει τις τρέχουσες τιμές στο calibration.yaml" if n == 0 else "Πρώτα «Εφαρμογή» των αλλαγών"
+            "Γράφει τις τρέχουσες τιμές στο arm.yaml" if n == 0 else "Πρώτα «Εφαρμογή» των αλλαγών"
         )
         self._reload.setEnabled(self._nodes.count() > 0)
         theme.repolish(self._apply)

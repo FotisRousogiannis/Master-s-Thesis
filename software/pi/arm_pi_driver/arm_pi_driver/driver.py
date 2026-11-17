@@ -16,6 +16,7 @@
 from dataclasses import dataclass
 
 from arm_calibration.encoders import EncoderJump, Tracker
+from arm_pi_driver.arm_file import Change, GRIPPER_GROUP, JOINT, RESTART, SERVO
 from arm_pi_driver.control import build_controllers, joint_configs, LimitError
 
 USABLE = ('OK', 'TOO_WEAK', 'TOO_STRONG')   # η γωνία μετρά, ίσως λιγότερο αξιόπιστα
@@ -94,6 +95,46 @@ class Driver:
             controller.clear_targets()
         text = ', '.join(f'{k} = {v:g}' for k, v in fields.items())
         self._pending.append((WARNING, f'νέα βαθμονόμηση {name}: {text} · στόχοι μηδενίστηκαν'))
+        return True
+
+    def apply_change(self, change: Change) -> bool:
+        """Μια αλλαγή του arm.yaml (από το Arm Studio) ενώ τρέχει· True αν εφαρμόστηκε."""
+        if change.kind == JOINT:
+            return self.update_joint(change.name, change.fields)
+        if change.kind == SERVO:
+            return self.update_servo(change.name, change.fields)
+        if change.kind == GRIPPER_GROUP:
+            groups = [g for g in self.config['groups'].values()
+                      if 'force_sensors' in g and change.name in g['joints']]
+            for group in groups:
+                group.update(change.fields)
+            if groups:
+                levels = ', '.join(f'{n} {v:.2f} V' for n, v in change.fields['contact'].items())
+                self._pending.append((IDLE, f'αρπάγη: όρια επαφής {levels or "κανένα"}'))
+            return bool(groups)
+        if change.kind == RESTART:
+            # Κανάλια, servo/encoder μιας άρθρωσης, enabled, νόμοι ελέγχου: αλλάζουν τη δομή·
+            # ζωντανά θα έστελναν παλμούς σε άλλο servo. Ισχύουν μετά από επανεκκίνηση.
+            self._pending.append((WARNING, f'{change.name}: άλλαξε στο arm.yaml· ισχύει μετά από '
+                                           f'επανεκκίνηση του driver'))
+            return True
+        return False
+
+    def update_servo(self, servo: str, fields: dict) -> bool:
+        """Νέο νεκρό σημείο / νεκρή ζώνη ενός servo ενώ τρέχει.
+
+        Για ασφάλεια ξεχνιούνται όλοι οι στόχοι, όπως στις αρθρώσεις.
+        """
+        motors = [m for g in self.config['groups'].values() for m in g['motors'].values()
+                  if m.get('servo') == servo]
+        if not motors or not fields:
+            return False
+        for motor in motors:
+            motor.update(fields)
+        for controller in self.controllers:
+            controller.clear_targets()
+        self.written = {}                   # ο παλμός στάσης μπορεί να άλλαξε: ξαναγράφεται
+        self._pending.append((WARNING, f'νέα βαθμονόμηση servo {servo} · στόχοι μηδενίστηκαν'))
         return True
 
     def command(self, targets_deg: dict, now: float) -> dict:

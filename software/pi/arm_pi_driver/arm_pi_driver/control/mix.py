@@ -1,5 +1,8 @@
 """MixController: ομάδα αρθρώσεων που κινείται από μοτέρ με γραμμική μίξη (από τον πάγκο).
 
+Χωρίς μετρημένη νεκρή ζώνη σε κάποιο μοτέρ της ομάδας (arm.yaml), οι παλμοί βγαίνουν χωρίς
+αντιστάθμιση (νεκρό σημείο ± ταχύτητα × εύρος).
+
 Κάθε μοτέρ γράφει στο YAML πόσο συμμετέχει σε κάθε άρθρωση της ομάδας (`mix`):
 
     ταχύτητα μοτέρ = Σ mix[άρθρωση] × ταχύτητα άρθρωσης      (× −1 αν είναι κατοπτρικό)
@@ -127,7 +130,8 @@ class MixController(Controller):
         # γυρίζει το άλλο μέσα από τη μηχανική σύνδεση (πάγκος, 2026-11-14).
         lo, hi = self.pca['pulse_min_us'], self.pca['pulse_max_us']
         offset = self.pca['max_offset_us']
-        if self.cfg.get('motor_compensation', True):
+        measured = all(m.get('deadband_edges_us') for m in self.motors.values())
+        if self.cfg.get('motor_compensation', True) and measured:
             span = compensation_span([(m['neutral_us'], m['deadband_edges_us'])
                                       for m in self.motors.values()], lo, hi, offset)
             return {m['channel']: compensated_pulse(motor_speeds[name], m['neutral_us'],

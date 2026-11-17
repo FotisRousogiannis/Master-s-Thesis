@@ -1,5 +1,6 @@
 import copy
 
+from arm_pi_driver import arm_file
 from arm_pi_driver.control import (BangBang, build_controllers, ControlLaw, Controller, LAWS,
                                    make_law, MixController, PID)
 from arm_pi_driver.driver import Driver
@@ -97,7 +98,8 @@ def test_a_problem_in_one_group_stops_all_groups(arm):
 
 
 def test_a_joint_in_two_groups_is_refused(arm):
-    arm['groups']['joint_3']['joints']['joint_1'] = arm['groups']['base']['joints']['joint_1']
+    base = arm['groups']['joint_1+joint_2']
+    arm['groups']['joint_3']['joints']['joint_1'] = base['joints']['joint_1']
     arm['groups']['joint_3']['motors']['a']['mix']['joint_1'] = 1
     with pytest.raises(ValueError):
         build_controllers(arm)
@@ -107,3 +109,16 @@ def test_a_joint_without_a_motor_is_refused(arm):
     arm['groups']['tool']['motors']['a']['mix'] = {'tool': 0}
     with pytest.raises(ValueError):
         build_controllers(arm)
+
+
+def test_only_enabled_joints_are_driven(data):
+    config, disabled = arm_file.driver_config(data)
+    assert list(config['groups']) == ['joint_1+joint_2']
+    assert set(disabled) == {'joint_3', 'joint_4', 'joint_5', 'joint_6', 'gripper'}
+
+
+def test_no_enabled_joint_is_refused(data):
+    for joint in data['joints'].values():
+        joint['enabled'] = False
+    with pytest.raises(ValueError):
+        arm_file.driver_config(data)

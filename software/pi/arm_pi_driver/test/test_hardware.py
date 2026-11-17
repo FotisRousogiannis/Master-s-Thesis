@@ -86,3 +86,11 @@ def test_mux_resends_the_channel_after_a_failure():
     bus.absent = set()
     mux.select(2)                            # πρέπει να ξαναστείλει, δεν ξέρει τι είναι ανοιχτό
     assert bus.writes == [(0x70, 0b0000_0100)]
+
+
+def test_mux_probe_finds_only_what_answers():
+    bus = FakeBus()
+    bus.absent = {0x48}
+    mux = TCA9548A(bus)
+    assert mux.probe(3, [0x40, 0x36, 0x48]) == [0x40, 0x36]
+    assert bus.writes[0] == (0x70, 0b0000_1000)

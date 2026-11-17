@@ -1,6 +1,8 @@
 """AS5600: μαγνητικός encoder 12 bit (διεύθυνση πάντα 0x36, γι' αυτό ένας ανά κανάλι του mux)."""
 
-from arm_pi_driver.hardware.interfaces import Encoder
+import math
+
+from arm_pi_driver.hardware.interfaces import Encoder, NO_RESPONSE
 from arm_pi_driver.hardware.tca9548a import Mux
 
 AS5600_ADDRESS = 0x36
@@ -31,11 +33,14 @@ class AS5600(Encoder):
         return 'OK'
 
     def read(self) -> tuple[float, str]:
-        """(γωνία 0–360°, κατάσταση μαγνήτη), από μία ανάγνωση του αισθητήρα."""
-        self.mux.select(self.channel)
-        # Τα δύο bytes σε ΜΙΑ συναλλαγή: αλλιώς μπορεί να είναι από δύο διαφορετικές μετρήσεις.
-        hi, lo = self.bus.read_i2c_block_data(AS5600_ADDRESS, RAW_ANGLE, 2)
+        """(γωνία 0–360°, κατάσταση μαγνήτη)· (nan, NO_RESPONSE) αν δεν απαντά ο mux ή ο AS5600."""
+        try:
+            self.mux.select(self.channel)
+            # Τα δύο bytes σε ΜΙΑ συναλλαγή: αλλιώς μπορεί να είναι από δύο διαφορετικές μετρήσεις.
+            hi, lo = self.bus.read_i2c_block_data(AS5600_ADDRESS, RAW_ANGLE, 2)
+            status = self.bus.read_byte_data(AS5600_ADDRESS, STATUS)
+        except OSError:     # κανείς δεν έδωσε ACK: χωρίς ρεύμα, αποσυνδεδεμένο, λάθος κανάλι
+            return math.nan, NO_RESPONSE
         raw = ((hi & 0x0F) << 8) | lo
         angle = raw * 360 / 4096
-        status = self.bus.read_byte_data(AS5600_ADDRESS, STATUS)
         return angle, self.magnet_status(status)

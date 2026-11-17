@@ -1,6 +1,8 @@
+import math
+
 import pytest
 
-from arm_pi_driver.hardware import AS5600, Encoder, Mux
+from arm_pi_driver.hardware import AS5600, Encoder, Mux, NO_RESPONSE
 from arm_pi_driver.hardware.as5600 import AS5600_ADDRESS, RAW_ANGLE, STATUS
 from arm_pi_driver.hardware.fake import FakeBus, FakeEncoder
 
@@ -57,3 +59,31 @@ def test_encoders_share_one_contract():
         assert encoder.read() == (pytest.approx(90.0), 'OK')
     with pytest.raises(TypeError):
         Encoder()
+
+
+def test_nothing_connected_is_reported_not_raised():
+    bus = FakeBus(encoder_registers(1024, 0x20))
+    bus.absent = {0x70}                      # ούτε ο mux: όπως στο Pi χωρίς τίποτα συνδεδεμένο
+    angle, status = AS5600(bus, Mux(bus), 2).read()
+    assert math.isnan(angle) and status == NO_RESPONSE
+
+
+def test_encoder_unplugged_then_plugged_back():
+    bus = FakeBus(encoder_registers(1024, 0x20))
+    mux = Mux(bus)
+    encoder = AS5600(bus, mux, 2)
+    bus.absent = {AS5600_ADDRESS}           # ο mux απαντά, ο encoder όχι
+    assert encoder.read()[1] == NO_RESPONSE
+    bus.absent = set()                       # ξανασυνδέθηκε: χωρίς επανεκκίνηση του προγράμματος
+    assert encoder.read() == (pytest.approx(90.0), 'OK')
+
+
+def test_mux_resends_the_channel_after_a_failure():
+    bus = FakeBus()
+    mux = Mux(bus)
+    bus.absent = {0x70}
+    with pytest.raises(OSError):
+        mux.select(2)
+    bus.absent = set()
+    mux.select(2)                            # πρέπει να ξαναστείλει, δεν ξέρει τι είναι ανοιχτό
+    assert bus.writes == [(0x70, 0b0000_0100)]

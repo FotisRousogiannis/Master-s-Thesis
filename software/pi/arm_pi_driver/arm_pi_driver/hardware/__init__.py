@@ -7,7 +7,7 @@
 """
 
 from arm_pi_driver.hardware.as5600 import AS5600
-from arm_pi_driver.hardware.interfaces import Encoder
+from arm_pi_driver.hardware.interfaces import Encoder, NO_RESPONSE
 from arm_pi_driver.hardware.tca9548a import Mux
 
-__all__ = ['AS5600', 'Encoder', 'Mux']
+__all__ = ['AS5600', 'Encoder', 'Mux', 'NO_RESPONSE']

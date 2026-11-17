@@ -7,26 +7,35 @@ class FakeBus:
     """Ένας δίαυλος I²C στη μνήμη: θυμάται κάθε κλήση και απαντά από ένα λεξικό καταχωρητών.
 
     registers: {(διεύθυνση, καταχωρητής): byte}. Ό,τι γράφεται με write_byte μπαίνει στο `writes`.
+    Διευθύνσεις στο `absent` συμπεριφέρονται σαν αποσυνδεδεμένες (OSError, όπως στο Pi).
     """
 
     def __init__(self, registers: dict | None = None):
         self.registers = dict(registers or {})
         self.writes = []
         self.calls = []
+        self.absent = set()     # διευθύνσεις που «δεν είναι συνδεδεμένες»: δεν δίνουν ACK
+
+    def _ack(self, address: int) -> None:
+        if address in self.absent:
+            raise OSError(5, 'Input/output error')     # ό,τι κάνει το smbus2 χωρίς ACK
 
     def write_byte(self, address: int, value: int) -> None:
         """Όπως το smbus2: ένα byte χωρίς καταχωρητή (π.χ. το κανάλι του TCA9548A)."""
         self.calls.append(('write_byte', address, value))
+        self._ack(address)
         self.writes.append((address, value))
 
     def read_byte_data(self, address: int, register: int) -> int:
         """Όπως το smbus2: ένα byte από έναν καταχωρητή."""
         self.calls.append(('read_byte_data', address, register))
+        self._ack(address)
         return self.registers[(address, register)]
 
     def read_i2c_block_data(self, address: int, register: int, length: int) -> list[int]:
         """Όπως το smbus2: `length` διαδοχικά bytes, ξεκινώντας από τον `register`."""
         self.calls.append(('read_i2c_block_data', address, register, length))
+        self._ack(address)
         return [self.registers[(address, register + i)] for i in range(length)]
 
 

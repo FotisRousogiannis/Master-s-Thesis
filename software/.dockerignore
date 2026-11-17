@@ -1,0 +1,5 @@
+# Για το χτίσιμο του image του Pi (software/pi/docker/compose.yaml): στείλε στο Docker ΜΟΝΟ αυτά.
+*
+!pi/docker/Dockerfile
+!pi/arm_pi_driver/package.xml
+!ros2_ws/src/arm_calibration/package.xml

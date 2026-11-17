@@ -5,7 +5,9 @@
 #   docker compose down              # σταμάτημα
 services:
   pi:
-    build: .
+    build:
+      context: ../..                    # ο φάκελος software/: εκεί είναι τα package.xml
+      dockerfile: pi/docker/Dockerfile  # σχετικά με το context
     image: arm-pi:jazzy
     container_name: arm-pi
     network_mode: host                  # το ROS 2 (DDS) βρίσκει το PC στο καλώδιο

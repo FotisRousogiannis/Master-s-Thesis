@@ -144,3 +144,25 @@ def test_real_hardware_missing_is_reported(config):
     assert {j.status for j in report.joints.values()} == {NO_RESPONSE}
     assert report.reason == 'PCA9685 δεν απαντά'
     driver.stop()   # δεν σκάει χωρίς υλικό
+
+
+def test_after_a_safety_stop_old_targets_are_forgotten(config):
+    sim = SimulatedBase(config)
+    driver = Driver(config, sim.encoders, sim.pwm, watchdog_s=0.2)
+    report, now = run(sim, driver, 3.0, {'joint_1': 10.0, 'joint_2': 0.0})
+    report, now = run(sim, driver, 0.5, None, start=now)        # διακοπή: watchdog
+    assert 'watchdog' in report.reason
+    sim.angles['joint_2'] = 30.0                                  # μετακινήθηκε με το χέρι,
+    report, now = run(sim, driver, 0.2, None, start=now)          # ενώ ο driver διαβάζει
+    report, _ = run(sim, driver, 3.0, {'joint_1': 20.0}, start=now)   # εντολή ΜΟΝΟ joint_1
+    assert sim.angles['joint_2'] == pytest.approx(30.0, abs=config['pid']['tolerance_deg'] + 0.5)
+    assert sim.angles['joint_1'] == pytest.approx(20.0, abs=config['pid']['tolerance_deg'] + 0.5)
+
+
+def test_targets_are_kept_while_holding_at_the_target(config):
+    sim = SimulatedBase(config)
+    driver = Driver(config, sim.encoders, sim.pwm)
+    report, now = run(sim, driver, 5.0, {'joint_1': 10.0, 'joint_2': 5.0})
+    assert report.reason == 'στον στόχο'
+    report, _ = run(sim, driver, 0.5, {'joint_1': 10.0}, start=now)  # μόνο joint_1
+    assert driver.controller.targets['joint_2'] == pytest.approx(5.0)

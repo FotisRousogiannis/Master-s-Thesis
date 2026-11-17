@@ -11,7 +11,6 @@
 """
 
 from dataclasses import dataclass
-import math
 
 from arm_calibration.encoders import EncoderJump, Tracker
 from arm_pi_driver.control import DifferentialController, LimitError
@@ -22,6 +21,8 @@ IDLE = 'info'                               # επίπεδα γεγονότων,
 WARNING = 'warning'
 ERROR = 'error'
 MOVING = 'κίνηση'
+AT_TARGET = 'στον στόχο'
+NO_COMMAND = 'χωρίς εντολή'
 
 
 @dataclass
@@ -39,7 +40,7 @@ class Report:
 
     joints: dict                    # {άρθρωση: JointReport}
     moving: bool
-    reason: str                     # MOVING, 'στον στόχο', ή γιατί δεν κινείται
+    reason: str                     # MOVING, AT_TARGET, ή γιατί δεν κινείται
     level: str                      # IDLE, WARNING ή ERROR για το reason
     events: list                    # [(επίπεδο, κείμενο)] μόνο για όσα άλλαξαν
 
@@ -103,7 +104,7 @@ class Driver:
         """(παλμοί, λόγος, επίπεδο): κίνηση μόνο αν όλα είναι ασφαλή."""
         stop = {channel: None for channel in self.channels}
         if self.last_command is None:
-            return stop, 'χωρίς εντολή', IDLE
+            return stop, NO_COMMAND, IDLE
         if now - self.last_command > self.watchdog_s:
             return stop, f'καμία εντολή για > {self.watchdog_s:g} s (watchdog)', IDLE
         for name, joint in joints.items():
@@ -115,7 +116,7 @@ class Driver:
         except LimitError as exc:
             return stop, str(exc), WARNING
         if not any(speeds.values()):
-            return stop, 'στον στόχο', IDLE
+            return stop, AT_TARGET, IDLE
         return self.controller.pulses(speeds), MOVING, IDLE
 
     def write(self, pulses: dict) -> str | None:
@@ -144,7 +145,12 @@ class Driver:
         if failure:
             reason, level = failure, ERROR
         moving = reason == MOVING
-        if not moving:
+        if reason not in (MOVING, AT_TARGET):
+            # Στάση ασφαλείας (watchdog, encoder, όρια, PCA): οι στόχοι ξεχνιούνται. Μετά τη
+            # διακοπή, όποια άρθρωση δεν αναφέρει η επόμενη εντολή μένει εκεί που είναι ΤΟΤΕ,
+            # όχι εκεί που της είχαν πει πριν (μπορεί να μετακινήθηκε με το χέρι στο μεταξύ).
+            self.controller.clear_targets()
+        elif not moving:
             for pid in self.controller.pids.values():
                 pid.reset()
         return Report(joints, moving, reason, level, self._events(joints, reason, level))
@@ -173,8 +179,3 @@ class Driver:
         except OSError:
             pass
         self.written = {}
-
-    @staticmethod
-    def angle_or_none(value: float) -> float | None:
-        """Για εμφάνιση: None αντί για nan."""
-        return None if value is None or math.isnan(value) else value

@@ -106,6 +106,12 @@ class DifferentialController:
             self.targets[name] = clamped
         return dict(self.targets)
 
+    def clear_targets(self) -> None:
+        """Ξεχνά όλους τους στόχους (μετά από στάση ασφαλείας)."""
+        self.targets = {}
+        for pid in self.pids.values():
+            pid.reset()
+
     def check_limits(self, angles: dict) -> None:
         """Σκάει με LimitError αν κάποια άρθρωση είναι πέρα από τα όρια της + το περιθώριο."""
         margin = self.cfg['limit_margin_deg']

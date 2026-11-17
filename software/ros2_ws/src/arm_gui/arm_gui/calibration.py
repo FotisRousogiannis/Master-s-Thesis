@@ -20,6 +20,12 @@ def natural(name: str):
     return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
 
 
+READ_PREFIX = "Ανάγνωση · "
+MAGNET_NOTES = {   # what the AS5600 status means for the user (AS5600 datasheet: AGC out of range)
+    "TOO_WEAK": " (μαγνήτης μακριά ή μικρός: η γωνία μετρά, με θόρυβο· φέρ' τον πιο κοντά, ~0.5–3 mm)",
+    "TOO_STRONG": " (μαγνήτης πολύ κοντά: η γωνία μετρά, με θόρυβο· απομάκρυνέ τον λίγο)",
+    "NO_MAGNET": " (δεν βλέπει μαγνήτη: η γωνία δεν ισχύει)",
+}
 ORDER = {"joints": lambda n: (n == "gripper", natural(n))}      # the gripper last, as in arm.yaml
 
 
@@ -81,8 +87,13 @@ class Wizard:
         return self._request("read", {"op": "read"})
 
     def keepalive(self) -> dict | None:
-        """A read every few seconds keeps the Pi in identification mode (it leaves after 5 s)."""
-        return self.read() if self.active and not self.busy else None
+        """A read every few seconds keeps the Pi in identification mode (it leaves after 5 s).
+
+        Its readings refresh the pages quietly; only «Ανάγνωση» writes them into the findings.
+        """
+        if not self.active or self.busy:
+            return None
+        return self._request("keepalive", {"op": "read"})
 
     def jog_joint(self, joint: str) -> dict:
         self.mapping = None
@@ -128,8 +139,12 @@ class Wizard:
         if kind == "scan":
             self.readings = {int(ch): v["encoder"] for ch, v in result.items() if v.get("encoder")}
             self.findings = procedure.check_scan(self.data, result)
+        elif kind == "keepalive":
+            self.readings = {int(ch): v for ch, v in result.items()}
         elif kind == "read":
             self.readings = {int(ch): v for ch, v in result.items()}
+            self.findings = [f for f in self.findings if not f.text.startswith(READ_PREFIX)]
+            self.findings += self.reading_findings()
         elif kind == "joint":
             self.mapping = procedure.analyze_jog(self.data, argument, result)
             self.findings += self.mapping.findings
@@ -148,6 +163,29 @@ class Wizard:
             self.findings.append(procedure.Finding(procedure.INFO, text))
             self.sweep = None
         return []
+
+    def reading_findings(self) -> list:
+        """One finding per channel that has an encoder: angle, magnet, and whose it is in the file."""
+        owner = {}
+        for joint, j in (self.data or {}).get("joints", {}).items():
+            channel = self.data["encoders"].get(j.get("encoder"), {}).get("channel") if j.get("encoder") else None
+            if channel is not None:
+                owner[channel] = joint
+        result = []
+        for channel, r in sorted(self.readings.items()):
+            if r.get("status") == "NO_RESPONSE":
+                continue
+            raw = "—" if r.get("raw_deg") is None else f"{r['raw_deg']:.1f}°"
+            status = r.get("status", "?")
+            note = MAGNET_NOTES.get(status, "")
+            level = procedure.INFO if status == "OK" else (procedure.WARNING if status in procedure.USABLE
+                                                           else procedure.ERROR)
+            whose = owner.get(channel, "χωρίς άρθρωση")
+            text = f"{READ_PREFIX}κανάλι {channel} ({whose}): {raw} · μαγνήτης {status}{note}"
+            result.append(procedure.Finding(level, text))
+        if not result:
+            result.append(procedure.Finding(procedure.ERROR, f"{READ_PREFIX}κανένας encoder δεν απαντά"))
+        return result
 
     # ---------------------------------------------------------------- user answers
     def add(self, proposals: list) -> None:

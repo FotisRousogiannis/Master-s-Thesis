@@ -214,3 +214,21 @@ def test_apply_button_counts_the_approved(panel, window):
     assert panel.step_buttons[3].text() == "4 · Έλεγχος (1)"
     panel.proposals.item(0, 0).setCheckState(2)
     assert panel.apply_proposals_button.text() == "Εφαρμογή (1)"
+
+
+def test_read_writes_the_readings_into_the_findings_once(wizard):
+    request = wizard.read()
+    result = {"1": {"raw_deg": 165.3, "status": "OK"}, "2": {"raw_deg": 117.4, "status": "TOO_WEAK"},
+              "5": {"raw_deg": None, "status": "NO_RESPONSE"}}
+    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
+    texts = [f.text for f in wizard.findings]
+    assert any("κανάλι 1 (joint_2): 165.3° · μαγνήτης OK" in t for t in texts)
+    weak = next(f for f in wizard.findings if "κανάλι 2 (joint_1)" in f.text)
+    assert weak.level == "warning" and "πιο κοντά" in weak.text
+    assert not any("κανάλι 5" in t for t in texts)                      # nothing there
+    request = wizard.read()
+    wizard.handle({"id": request["id"], "op": "read", "ok": True, "result": result})
+    assert len([t for t in (f.text for f in wizard.findings) if "κανάλι 1 (" in t]) == 1   # replaced
+    keep = wizard.keepalive()
+    wizard.handle({"id": keep["id"], "op": "read", "ok": True, "result": {"1": {"raw_deg": 1.0, "status": "OK"}}})
+    assert wizard.readings == {1: {"raw_deg": 1.0, "status": "OK"}} and len(wizard.findings) == 2

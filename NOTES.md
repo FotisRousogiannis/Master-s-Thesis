@@ -136,6 +136,9 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   (όπως [6]) → έλεγχος έναντι αρχείου → θετική φορά → νεκρές ζώνες → μηδέν → αρπάγη, με επιβεβαίωση.
   **Υλοποίηση 1–5 στο `draft`** (`arm.yaml`, driver, αναγνώριση στο Pi, `procedure.py`, πάνελ «Βαθμονόμηση»): δοκιμή
   σε προσομοίωση στο Pi ✅. Μένουν: 6 (πάγκος, μετά τον μαγνήτη του joint_1) και το 8β (αργό κλείσιμο με πίεση στο Pi).
+  **Arm Studio (2026-11-22, `feature/studio-layout`):** 4 ενότητες, οδηγός όπως το teleop (διαδικασίες στο Pi), κλειδαριά
+  I²C. Εμπόδιο τώρα: **encoders του πάγκου** (joint_1 «δεν απαντά» στο κανάλι 3, joint_2 χωρίς μαγνήτη). Περιμένουν
+  τον Φώτη: `motion` των joint_3–6, απόφαση για το στάδιο D (πώς το `ros2_control` μιλά με το Pi).
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

@@ -140,6 +140,8 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   I²C. Εμπόδιο τώρα: **encoders του πάγκου** (joint_1 «δεν απαντά» στο κανάλι 3, joint_2 χωρίς μαγνήτη). Στάδιο D
   (ADR-0024): `hardware:=real` με `topic_based_ros2_control` → **προς δοκιμή** (ξαναχτίσιμο του Docker του PC, Pi με
   τον driver, εκκίνηση «Πραγματικός βραχίονας» από το Arm Studio).
+  **MoveIt 2 (ADR-0025, 2026-11-22):** `arm_moveit_config`, `move_group` στο bringup, θέσεις/σημείο εργαλείου από το
+  Arm Studio → **προς δοκιμή σε mock**. Επόμενο κατά το ADR-0016: όραση (ADR-0008).
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

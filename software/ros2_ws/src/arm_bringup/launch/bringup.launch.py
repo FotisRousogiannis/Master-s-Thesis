@@ -4,6 +4,7 @@ Usage:
     ros2 launch arm_bringup bringup.launch.py                      # mock hardware + RViz
     ros2 launch arm_bringup bringup.launch.py hardware:=gazebo     # Gazebo Harmonic + RViz
     ros2 launch arm_bringup bringup.launch.py hardware:=real       # the arm: arm_pi_driver on the Pi (ADR-0024)
+    ros2 launch arm_bringup bringup.launch.py moveit:=false        # without MoveIt (move_group, ADR-0025)
     ros2 launch arm_bringup bringup.launch.py rviz:=false gui:=false   # no windows (Arm Studio opens them itself
                                                                        # with rviz.launch.py / gazebo_gui.launch.py)
 
@@ -21,7 +22,6 @@ from launch.actions import (
     RegisterEventHandler,
 )
 from launch.event_handlers import OnProcessExit
-from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
@@ -144,15 +144,32 @@ def _stack(context):
     else:
         actions.append(_spawner("arm_controller", sim))
 
-    actions.append(
-        Node(
-            package="rviz2",
-            executable="rviz2",
-            arguments=["-d", f"{description_share}/rviz/display.rviz"],
-            parameters=[{"use_sim_time": sim}],
-            condition=IfCondition(LaunchConfiguration("rviz")),
+    moveit = LaunchConfiguration("moveit").perform(context).lower() == "true"
+    rviz = LaunchConfiguration("rviz").perform(context).lower() == "true"
+    if moveit:
+        # move_group, and RViz with the MotionPlanning panel (ADR-0025)
+        actions.append(
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    [FindPackageShare("arm_moveit_config").perform(context), "/launch/moveit.launch.py"]
+                ),
+                launch_arguments={
+                    "hardware": hardware,
+                    "use_sim_time": str(sim).lower(),
+                    "move_group": "true",
+                    "rviz": str(rviz).lower(),
+                }.items(),
+            )
         )
-    )
+    elif rviz:
+        actions.append(
+            Node(
+                package="rviz2",
+                executable="rviz2",
+                arguments=["-d", f"{description_share}/rviz/display.rviz"],
+                parameters=[{"use_sim_time": sim}],
+            )
+        )
     return actions
 
 
@@ -165,6 +182,7 @@ def generate_launch_description():
                 description="Hardware behind ros2_control: mock | gazebo | real (the Pi, ADR-0024).",
             ),
             DeclareLaunchArgument("rviz", default_value="true", description="Open RViz."),
+            DeclareLaunchArgument("moveit", default_value="true", description="Start MoveIt 2 (move_group)."),
             DeclareLaunchArgument("gui", default_value="true", description="Open the Gazebo window (hardware:=gazebo)."),
             OpaqueFunction(function=_stack),
         ]

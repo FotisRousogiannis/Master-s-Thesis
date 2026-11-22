@@ -29,6 +29,8 @@ class FakeBridge(QtCore.QObject):
     service_result = Signal(str, bool, str)
     diagnostics = Signal(object)
     identify_reply = Signal(object)
+    semantic_received = Signal(str)
+    moveit_status = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -36,6 +38,7 @@ class FakeBridge(QtCore.QObject):
         self.param_requests, self.param_sets, self.triggers = [], [], []
         self.events = []
         self.identify_requests, self.atomic_sets = [], []
+        self.moveit_goals = []
 
     def identify(self, request):
         self.identify_requests.append(request)
@@ -60,6 +63,9 @@ class FakeBridge(QtCore.QObject):
 
     def send_joint_goal(self, targets, duration):
         self.goals.append((targets, duration))
+
+    def move_with_moveit(self, goal):
+        self.moveit_goals.append(goal)
 
     def stop(self):
         self.stops += 1
@@ -539,3 +545,31 @@ def test_expected_devices_are_the_driven_ones():
 
     names = expected_devices(arm_config.parameters(arm_config.load()))
     assert names == ["encoder/joint_1", "encoder/joint_2", "servo/servo_1", "servo/servo_2"]
+
+
+def test_moveit_poses_from_the_srdf_and_a_tool_target(window):
+    """Named poses come from the SRDF that move_group publishes; the tool target is a point (ADR-0025)."""
+    from pathlib import Path
+
+    srdf = (Path(__file__).resolve().parents[2] / "arm_moveit_config" / "config" / "arm.srdf").read_text()
+    b, panel = window._bridge, window.moveit
+    b.semantic_received.emit(srdf)
+    assert list(panel.poses) == ["home", "ready"]
+    panel.speed.setValue(50)
+    panel.move_to_pose("ready")
+    assert b.moveit_goals[-1] == {"kind": "joints", "speed": 0.5, "joints": {
+        "joint_1": 0.0, "joint_2": 0.5, "joint_3": 1.0, "joint_4": 0.0, "joint_5": 0.5, "joint_6": 0.0}}
+    panel.xyz[0].setValue(0.25)
+    panel.move_tool.click()
+    assert b.moveit_goals[-1] == {"kind": "position", "xyz": (0.25, 0.0, 0.5), "speed": 0.5}
+    b.moveit_status.emit("MoveIt: ολοκληρώθηκε")
+    assert panel.status.text() == "MoveIt: ολοκληρώθηκε"
+    b.semantic_received.emit("<not xml")
+    assert panel.status.text().startswith("SRDF:") and list(panel.poses) == ["home", "ready"]
+
+
+def test_moveit_error_codes_and_speed():
+    from arm_gui import moveit_goals as g
+
+    assert g.error_text(-31).startswith("δεν υπάρχει λύση") and g.error_text(42) == "κωδικός MoveIt 42"
+    assert g.clamp_speed(0) == 0.01 and g.clamp_speed(3) == 1.0

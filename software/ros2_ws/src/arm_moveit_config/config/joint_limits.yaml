@@ -1,0 +1,13 @@
+# Limits MoveIt uses to time trajectories (docs/decisions/0025). The position limits come from the URDF.
+# Velocity = the URDF value (servo 300 °/s through 1:36 ≈ 8.3 °/s = 0.145 rad/s). Acceleration is NOT
+# measured: a conservative guess until the bench gives one.
+default_velocity_scaling_factor: 0.5
+default_acceleration_scaling_factor: 0.5
+
+joint_limits:
+  joint_1: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}
+  joint_2: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}
+  joint_3: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}
+  joint_4: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}
+  joint_5: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}
+  joint_6: {has_velocity_limits: true, max_velocity: 0.145, has_acceleration_limits: true, max_acceleration: 0.3}

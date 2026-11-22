@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  Semantic description of the arm for MoveIt 2 (docs/decisions/0025). Written by hand, not with the
+  Setup Assistant: the model is provisional (ADR-0009) and changes; this file only names things.
+-->
+<robot name="robotic_arm">
+  <!-- The planning group: base to flange. -->
+  <group name="arm">
+    <chain base_link="base_link" tip_link="tool0"/>
+  </group>
+
+  <!-- Poses by name (radians). Provisional, like the model. -->
+  <group_state name="home" group="arm">
+    <joint name="joint_1" value="0"/>
+    <joint name="joint_2" value="0"/>
+    <joint name="joint_3" value="0"/>
+    <joint name="joint_4" value="0"/>
+    <joint name="joint_5" value="0"/>
+    <joint name="joint_6" value="0"/>
+  </group_state>
+  <group_state name="ready" group="arm">
+    <joint name="joint_1" value="0"/>
+    <joint name="joint_2" value="0.5"/>
+    <joint name="joint_3" value="1.0"/>
+    <joint name="joint_4" value="0"/>
+    <joint name="joint_5" value="0.5"/>
+    <joint name="joint_6" value="0"/>
+  </group_state>
+
+  <end_effector name="tool" parent_link="tool0" group="arm"/>
+  <virtual_joint name="fixed_base" type="fixed" parent_frame="world" child_link="world"/>
+
+  <!-- Only neighbours are skipped: they touch at every joint by construction. Every other pair can
+       really collide (e.g. the forearm folded back onto the base), so it stays checked. -->
+  <disable_collisions link1="base_link" link2="link_1" reason="Adjacent"/>
+  <disable_collisions link1="link_1" link2="link_2" reason="Adjacent"/>
+  <disable_collisions link1="link_2" link2="link_3" reason="Adjacent"/>
+  <disable_collisions link1="link_3" link2="link_4" reason="Adjacent"/>
+  <disable_collisions link1="link_4" link2="link_5" reason="Adjacent"/>
+  <disable_collisions link1="link_5" link2="link_6" reason="Adjacent"/>
+</robot>

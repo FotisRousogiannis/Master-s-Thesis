@@ -6,7 +6,9 @@
   plugin selected by the "hardware" argument:
     mock   - mock_components/GenericSystem: commands are echoed back as state (no physics)
     gazebo - gz_ros2_control/GazeboSimSystem: joints driven by Gazebo Harmonic
-    real   - arm_hardware (micro-ROS -> ESP32), not implemented yet
+    real   - topic_based_ros2_control/TopicBasedSystem (docs/decisions/0024): commands on
+             /base/joint_commands, positions from /base/joint_states, as JointState in radians.
+             Today the Raspberry Pi (arm_pi_driver) answers there; later the ESP32, unchanged.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -39,7 +41,12 @@
           <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </xacro:if>
         <xacro:if value="${hardware == 'real'}">
-          <plugin>arm_hardware/ArmSystem</plugin>
+          <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+          <param name="joint_commands_topic">/base/joint_commands</param>
+          <param name="joint_states_topic">/base/joint_states</param>
+          <!-- Publish every cycle, also when holding still: the Pi stops after 0.2 s without
+               commands (watchdog), so silence must mean "connection lost", never "at target". -->
+          <param name="trigger_joint_command_threshold">-1</param>
         </xacro:if>
       </hardware>
 

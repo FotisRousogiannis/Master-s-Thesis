@@ -179,9 +179,9 @@ def test_windows_open_and_close_without_stopping_the_system(window):
     assert procs.alive == set() and not rviz.isChecked() and not rviz.isEnabled()
 
 
-def test_real_hardware_is_not_selectable_yet(window):
+def test_real_hardware_is_selectable(window):
     combo = window.system._hardware
-    assert not combo.model().item(2).isEnabled()
+    assert combo.itemData(2) == "real" and combo.model().item(2).isEnabled()
 
 
 def test_external_windows_are_placed_once_when_they_appear(window):

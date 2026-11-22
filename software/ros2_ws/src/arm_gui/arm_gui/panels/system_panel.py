@@ -7,7 +7,7 @@ HARDWARE = [
     # (key, label, available)
     ("mock", "Προσομοίωση χωρίς φυσική (mock)", True),
     ("gazebo", "Προσομοίωση Gazebo", True),
-    ("real", "Πραγματικός βραχίονας (επόμενη φάση)", False),
+    ("real", "Πραγματικός βραχίονας (Pi)", True),
 ]
 WINDOWS = [("rviz", "RViz"), ("gazebo", "Gazebo")]  # same keys as layouts.py
 # The transport to the ESP32 boards (micro-ROS over WiFi/USB, ADR-0016) is chosen here once they exist.

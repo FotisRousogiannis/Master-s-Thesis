@@ -41,7 +41,7 @@ def ask(sim, session, request):
     while True:
         sim.step(DT)
         now += DT
-        done = session.tick(now)
+        done = [r for r in session.tick(now) if r['op'] != 'live']
         if done:
             assert done[0]['ok'], done
             return done[0]['result']

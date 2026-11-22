@@ -4,7 +4,8 @@
     Αισθητήρες   encoders, force_sensors: where each is                    + live reading / status
     Αρθρώσεις    joints:         enabled, servos with sign, encoder, zero, direction, limits, deadband
                                                                            + live position / status
-    Οδηγός       the procedure: scan, jog per joint, direction, deadbands, zero, gripper -> proposals
+    Οδηγός       teleop on screen: live angles, arrows that move while held (or W/A/S/D), and the
+                 bench procedures [6] [10] [9] run on the Pi, each ending in «Σωστό · αποθήκευση»
 
 Values come from /arm_calibration (flat parameters of arm.yaml); «Εφαρμογή» sends the edited ones
 all at once, and the node validates the whole file. «Αποθήκευση» is the Parameters panel's.
@@ -12,11 +13,14 @@ all at once, and the node validates the whole file. «Αποθήκευση» is 
 
 import time
 
-from ..calibration import Wizard, nest
+from .. import theme
+from ..calibration import Bench, nest
+from ..icons import motion_icon
 from ..qt import QtCore, QtWidgets, Signal
 
 CALIBRATION_NODE = "/arm_calibration"
 KEEPALIVE_MS = 2000      # the Pi leaves identification mode after 5 s without a request
+DRIVE_MS = 100           # an arrow held: a drive request this often (the Pi stops 0.3 s after the last)
 RELOAD_AFTER_S = 6.0     # no values yet while /arm_calibration runs: ask again (a reply can be lost)
 NONE = "—"
 
@@ -122,13 +126,15 @@ class CalibrationPanel(QtWidgets.QWidget):
     load_requested = Signal(str)                  # node
     apply_requested = Signal(str, object)         # node, {parameter: value}: all at once
     identify_requested = Signal(object)           # request to the Pi (dict)
+    service_requested = Signal(str)               # Trigger service (save the file)
 
     def __init__(self, parent=None, confirm=None, clock=time.monotonic):
         super().__init__(parent)
         self.data = None
         self._clock = clock
         self._asked = None                         # when values were last requested
-        self.wizard = Wizard()
+        self.bench = Bench()
+        self._groups, self._saving = [], False
         self._confirm = confirm or self._ask
         layout = QtWidgets.QVBoxLayout(self)
         self.tabs = QtWidgets.QTabWidget()
@@ -141,29 +147,45 @@ class CalibrationPanel(QtWidgets.QWidget):
                               "Κατάσταση"])
         self.joints = _Table(["Άρθρωση", "Ενεργή", "Περιγραφή", "Servo (πρόσημο)", "Encoder", "Μηδέν [°]",
                               "Αντίθετη φορά", "Όριο κάτω [°]", "Όριο πάνω [°]", "Ζώνη +", "Ζώνη −",
-                              "Θέση [°]", "Κατάσταση"])
+                              "Θέση [°]", "Κατάσταση", "Κίνηση"])
         sensors = QtWidgets.QWidget()
         sl = QtWidgets.QVBoxLayout(sensors)
         sl.addWidget(QtWidgets.QLabel("Encoders (AS5600)"))
         sl.addWidget(self.encoders)
         sl.addWidget(QtWidgets.QLabel("Αισθητήρες πίεσης (ZD10 μέσω ADS1115)"))
         sl.addWidget(self.forces)
+        joints = QtWidgets.QWidget()
+        jl = QtWidgets.QVBoxLayout(joints)
+        jl.setContentsMargins(0, 0, 0, 0)
+        self.details = QtWidgets.QCheckBox("Λεπτομέρειες (μηδέν, φορά, όρια, νεκρή ζώνη)")
+        self.details.toggled.connect(self._show_details)
+        jl.addWidget(self.details)
+        jl.addWidget(self.joints)
+        self.tabs.addTab(self._build_wizard(), "Οδηγός")
         self.tabs.addTab(self.servos, "Servo")
         self.tabs.addTab(sensors, "Αισθητήρες")
-        self.tabs.addTab(self.joints, "Αρθρώσεις")
-        self.tabs.addTab(self._build_wizard(), "Οδηγός")
+        self.tabs.addTab(joints, "Αρθρώσεις")
+        self._show_details(False)
 
-        buttons = QtWidgets.QHBoxLayout()
+        self.page_buttons = QtWidgets.QWidget()          # for the three pages, not the wizard
+        buttons = QtWidgets.QHBoxLayout(self.page_buttons)
+        buttons.setContentsMargins(0, 0, 0, 0)
         self.apply_button = QtWidgets.QPushButton("Εφαρμογή αλλαγών")
         self.apply_button.setToolTip("Στέλνει όσα κελιά άλλαξες στο /arm_calibration (όλα μαζί)· "
                                      "«Αποθήκευση στο αρχείο» από το πάνελ «Παράμετροι»")
         self.apply_button.clicked.connect(self.apply_edits)
         reload_button = QtWidgets.QPushButton("Ανανέωση")
         reload_button.clicked.connect(lambda: self.load_requested.emit(CALIBRATION_NODE))
+        save_button = QtWidgets.QPushButton("Αποθήκευση στο αρχείο")
+        save_button.setToolTip("Γράφει τις τιμές που ισχύουν στο arm.yaml")
+        save_button.clicked.connect(self.save_file)
         buttons.addWidget(self.apply_button)
+        buttons.addWidget(save_button)
         buttons.addWidget(reload_button)
         buttons.addStretch(1)
-        layout.addLayout(buttons)
+        layout.addWidget(self.page_buttons)
+        self.tabs.currentChanged.connect(lambda i: self.page_buttons.setVisible(i in (1, 2, 3)))
+        self.page_buttons.setVisible(False)
         self.status = QtWidgets.QLabel("Περιμένω το /arm_calibration…")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -172,203 +194,406 @@ class CalibrationPanel(QtWidgets.QWidget):
         self._keepalive.timeout.connect(self._send_keepalive)
         self._keepalive.start(KEEPALIVE_MS)
 
-    # ---------------------------------------------------------------- wizard page
+    # ---------------------------------------------------------------- wizard page (teleop on screen)
+    # (short name, title, what to do, servo power on)
+    STEPS = (
+        ("Σάρωση", "Τι υπάρχει στο I²C",
+         "Ελέγχει τι απαντά σε κάθε κανάλι και αν κάθε encoder βλέπει μαγνήτη. Οι γωνίες πάνω ενημερώνονται "
+         "συνέχεια.", False),
+        ("Αναγνώριση", "Ποιος encoder, ποια φορά (teleop [6])",
+         "Κάθε άρθρωση της ομάδας κινείται λίγο με «θετική» εντολή μέχρι να κινηθεί ένας encoder 3°, και "
+         "γυρίζει πίσω. Μετά: «Σωστό · αποθήκευση», ή διόρθωσε.", True),
+        ("Μηδέν", "Μηδέν και όρια (teleop [6])",
+         "Φέρε την άρθρωση με τα βελάκια σε γνωστή γωνία (π.χ. κάθετα με αλφάδι), γράψε τη "
+         "γωνία και τα όρια, «Μηδέν εδώ · αποθήκευση».", True),
+        ("Νεκρή ζώνη servo", "Νεκρή ζώνη κάθε servo (teleop [10])",
+         "Κάθε servo μόνο του, ο παλμός ανεβαίνει ανά 10 µs μέχρι να κινηθεί ένας encoder, και προς τις δύο "
+         "φορές· τα άλλα φρενάρουν.", True),
+        ("Νεκρή ζώνη άρθρωσης", "Ελάχιστη εντολή κάθε άρθρωσης (teleop [9])",
+         "Η εντολή μεγαλώνει ανά 0.02 μέχρι η άρθρωση να κινηθεί 0.5° προς τη σωστή μεριά, + και −. "
+         "Κάνε πρώτα τη νεκρή ζώνη servo.", True),
+        ("Αρπάγη", "Όρια της αρπάγης",
+         "Κλείσε τελείως → «Κλειστή», άνοιξε τελείως → «Ανοιχτή». Κλειστή = 0°.", True),
+    )
+    # six arrows, one per motion and direction; the joint of the group with that `motion` moves
+    MOTIONS = (("yaw", "Yaw · στροφή", "A / D"), ("pitch", "Pitch · πάνω-κάτω", "W / S"),
+               ("roll", "Roll · γύρω από τον άξονα", "Q / E"))
+    KEYS = {QtCore.Qt.Key_D: ("yaw", 1), QtCore.Qt.Key_Right: ("yaw", 1), QtCore.Qt.Key_A: ("yaw", -1),
+            QtCore.Qt.Key_Left: ("yaw", -1), QtCore.Qt.Key_W: ("pitch", 1), QtCore.Qt.Key_Up: ("pitch", 1),
+            QtCore.Qt.Key_S: ("pitch", -1), QtCore.Qt.Key_Down: ("pitch", -1), QtCore.Qt.Key_E: ("roll", 1),
+            QtCore.Qt.Key_Q: ("roll", -1)}
+
+    def _button(self, text, slot, primary=False):
+        button = QtWidgets.QPushButton(text)
+        button.clicked.connect(slot)
+        if primary:
+            button.setProperty("primary", True)
+        return button
+
+    def _arrow(self, motion, direction):
+        """A curved arrow that moves the group's joint with this motion while held (pressed → drive every
+        100 ms, released → stop). Which way the joint really goes shows in the live angle."""
+        button = QtWidgets.QPushButton(" −" if direction < 0 else " +")
+        button.setObjectName("arrow")
+        button.setIcon(motion_icon(motion, direction, theme.current().accent))
+        button.setIconSize(QtCore.QSize(44, 44))
+        button.setMinimumSize(88, 54)
+        button.setAutoRepeat(False)
+        button.pressed.connect(lambda: self.hold(motion, direction))
+        button.released.connect(self.release)
+        return button
+
     def _build_wizard(self):
         page = QtWidgets.QWidget()
+        page.setFocusPolicy(QtCore.Qt.StrongFocus)
         v = QtWidgets.QVBoxLayout(page)
-        warning = QtWidgets.QLabel("⚠ Τα βήματα με κίνηση κινούν το υλικό: E-stop στο χέρι. Όσο τρέχει ο οδηγός, "
-                                   "ο κανονικός έλεγχος του Pi είναι σταματημένος (αναγνώριση).")
-        warning.setWordWrap(True)
-        v.addWidget(warning)
+
+        top = QtWidgets.QHBoxLayout()
+        top.addWidget(QtWidgets.QLabel("Ομάδα:"))
+        self.group_choice = QtWidgets.QComboBox()
+        self.group_choice.currentIndexChanged.connect(self._group_changed)
+        top.addWidget(self.group_choice)
+        top.addStretch(1)
+        self.power = QtWidgets.QLabel()
+        self.power.setProperty("pill", True)
         self.mode = QtWidgets.QLabel("Pi: κανονικός έλεγχος")
-        v.addWidget(self.mode)
+        self.mode.setProperty("pill", True)
+        top.addWidget(self.power)
+        top.addWidget(self.mode)
+        v.addLayout(top)
 
-        row = QtWidgets.QHBoxLayout()
-        for text, slot in (("1–2 · Σάρωση I²C", self.do_scan), ("Ανάγνωση encoders", self.do_read),
-                           ("Έξοδος από αναγνώριση", self.do_exit)):
-            button = QtWidgets.QPushButton(text)
-            button.clicked.connect(slot)
-            row.addWidget(button)
-        v.addLayout(row)
+        live_row = QtWidgets.QHBoxLayout()
+        self.live_table = QtWidgets.QTableWidget(0, 5)
+        self.live_table.setHorizontalHeaderLabels(["Άρθρωση", "Encoder", "Ένδειξη [°]", "Θέση [°]", "Μαγνήτης"])
+        self.live_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.live_table.horizontalHeader().setStretchLastSection(True)
+        self.live_table.verticalHeader().setVisible(False)
+        self.live_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.live_table.setMaximumHeight(150)
+        live_row.addWidget(self.live_table, 1)
 
-        row = QtWidgets.QHBoxLayout()
-        self.joint_choice = QtWidgets.QComboBox()
-        self.jog_button = QtWidgets.QPushButton("3 · Κίνηση άρθρωσης")
-        self.jog_button.clicked.connect(self.do_jog)
-        self.actual_choice = QtWidgets.QComboBox()
-        # «Κινήθηκε η» starts as the joint that was moved: the user changes it only if another moved
-        self.joint_choice.currentTextChanged.connect(self.actual_choice.setCurrentText)
-        relabel = QtWidgets.QPushButton("Κινήθηκε αυτή")
-        relabel.setToolTip("Αν κινήθηκε άλλη άρθρωση από αυτή που διάλεξες (π.χ. διαφορικό με ανάποδα ονόματα)")
-        relabel.clicked.connect(lambda: self._answer(lambda: self.wizard.relabel(self.actual_choice.currentText())))
-        row.addWidget(QtWidgets.QLabel("Άρθρωση:"))
-        row.addWidget(self.joint_choice)
-        row.addWidget(self.jog_button)
-        row.addWidget(QtWidgets.QLabel("Κινήθηκε η:"))
-        row.addWidget(self.actual_choice)
-        row.addWidget(relabel)
-        v.addLayout(row)
+        pad = QtWidgets.QGridLayout()
+        self.motion_rows = {}
+        for row, (motion, title, keys) in enumerate(self.MOTIONS):
+            label = QtWidgets.QLabel()
+            label.setToolTip(f"Πλήκτρα {keys}")
+            minus, plus = self._arrow(motion, -1), self._arrow(motion, 1)
+            pad.addWidget(label, row, 0)
+            pad.addWidget(minus, row, 1)
+            pad.addWidget(plus, row, 2)
+            self.motion_rows[motion] = (title, keys, label, minus, plus)
+        self.unassigned = QtWidgets.QLabel()
+        self.unassigned.setWordWrap(True)
+        self.unassigned.setProperty("muted", True)
+        pad.addWidget(self.unassigned, 3, 0, 1, 3)
+        self.speed = QtWidgets.QDoubleSpinBox()
+        self.speed.setRange(0.05, 1.0)
+        self.speed.setSingleStep(0.05)
+        self.speed.setValue(0.4)
+        self.speed.setPrefix("ταχύτητα ")
+        pad.addWidget(self.speed, 4, 0, 1, 3)
+        live_row.addLayout(pad)
+        v.addLayout(live_row)
 
-        row = QtWidgets.QHBoxLayout()
-        row.addWidget(QtWidgets.QLabel("5 · Η κίνηση ήταν προς τα:"))
-        for text, positive in (("θετικά", True), ("αρνητικά", False)):
-            button = QtWidgets.QPushButton(text)
-            button.clicked.connect(lambda _=False, p=positive: self._answer(lambda: self.wizard.direction(p)))
-            row.addWidget(button)
-        row.addStretch(1)
-        v.addLayout(row)
+        steps = QtWidgets.QHBoxLayout()
+        self.step_buttons = []
+        for i, step in enumerate(self.STEPS):
+            button = self._button(f"{i + 1} · {step[0]}", lambda _=False, n=i: self.go_step(n))
+            self.step_buttons.append(button)
+            steps.addWidget(button)
+        steps.addStretch(1)
+        v.addLayout(steps)
+        self.step_title = QtWidgets.QLabel()
+        self.step_title.setObjectName("step_title")
+        self.step_hint = QtWidgets.QLabel()
+        self.step_hint.setWordWrap(True)
+        v.addWidget(self.step_title)
+        v.addWidget(self.step_hint)
 
-        row = QtWidgets.QHBoxLayout()
-        self.servo_choice = QtWidgets.QComboBox()
-        servo_sweep = QtWidgets.QPushButton("6 · Νεκρή ζώνη servo")
-        servo_sweep.clicked.connect(lambda: self._move(self.wizard.servo_deadband, self.servo_choice.currentText()))
-        joint_sweep = QtWidgets.QPushButton("Νεκρή ζώνη άρθρωσης")
-        joint_sweep.clicked.connect(lambda: self._move(self.wizard.joint_deadband, self.joint_choice.currentText()))
-        stop = QtWidgets.QPushButton("Διακοπή")
-        stop.clicked.connect(lambda: self.identify_requested.emit(self.wizard.stop()))
-        for w in (QtWidgets.QLabel("Servo:"), self.servo_choice, servo_sweep, joint_sweep, stop):
-            row.addWidget(w)
-        v.addLayout(row)
-
-        row = QtWidgets.QHBoxLayout()
-        zero = QtWidgets.QPushButton("7 · Μηδέν = τωρινή θέση")
-        zero.setToolTip("Από την τελευταία «Ανάγνωση encoders», για την άρθρωση που επέλεξες")
-        zero.clicked.connect(lambda: self._reading(self.wizard.zero, self.joint_choice.currentText()))
-        closed = QtWidgets.QPushButton("8α · Αρπάγη κλειστή")
-        closed.clicked.connect(lambda: self._reading(lambda j: self.wizard.gripper(j, True), "gripper"))
-        opened = QtWidgets.QPushButton("Αρπάγη ανοιχτή")
-        opened.clicked.connect(lambda: self._reading(lambda j: self.wizard.gripper(j, False), "gripper"))
-        pressure = QtWidgets.QPushButton("8β · Μέγιστη πίεση")
-        pressure.setEnabled(False)
-        pressure.setToolTip("Θέλει αργό κλείσιμο με ζωντανή πίεση στο Pi: δεν υπάρχει ακόμα")
-        for w in (zero, closed, opened, pressure):
-            row.addWidget(w)
-        v.addLayout(row)
+        self.step_pages = QtWidgets.QStackedWidget()
+        self.save_button = self._button("Σωστό · αποθήκευση", self.save_changes, primary=True)
+        self.save_button.setEnabled(False)
+        self.zero_joint = QtWidgets.QComboBox()
+        self.zero_angle, self.lower, self.upper = (QtWidgets.QDoubleSpinBox() for _ in range(3))
+        for box in (self.zero_angle, self.lower, self.upper):
+            box.setRange(-360.0, 360.0)
+            box.setSuffix("°")
+        self.flip_joint = QtWidgets.QComboBox()
+        self.zero_joint.currentTextChanged.connect(self._zero_joint_changed)
+        pages = (
+            [self._button("Σάρωση I²C", self.do_scan, primary=True)],
+            [self._button("Αυτόματη αναγνώριση", self.do_identify, primary=True),
+             self._button("Ανάποδα ονόματα", lambda: self._act(self.bench.swap_names)),
+             QtWidgets.QLabel("Αντίθετη φορά:"), self.flip_joint,
+             self._button("Αντιστροφή", lambda: self._act(lambda: self.bench.flip(self.flip_joint.currentText())))],
+            [QtWidgets.QLabel("Άρθρωση:"), self.zero_joint, QtWidgets.QLabel("γωνία τώρα:"), self.zero_angle,
+             QtWidgets.QLabel("όρια:"), self.lower, self.upper,
+             self._button("Μηδέν εδώ", self.do_zero, primary=True)],
+            [self._button("Μέτρηση", lambda: self._routine(self.bench.servo_deadbands), primary=True)],
+            [self._button("Μέτρηση", lambda: self._routine(self.bench.joint_deadbands), primary=True)],
+            [self._button("Κλειστή", lambda: self._gripper(True)),
+             self._button("Ανοιχτή", lambda: self._gripper(False))],
+        )
+        for widgets in pages:
+            w = QtWidgets.QWidget()
+            box = QtWidgets.QHBoxLayout(w)
+            box.setContentsMargins(0, 0, 0, 0)
+            for item in widgets:
+                box.addWidget(item)
+            box.addStretch(1)
+            self.step_pages.addWidget(w)
+        v.addWidget(self.step_pages)
 
         self.findings = QtWidgets.QListWidget()
-        v.addWidget(QtWidgets.QLabel("Ευρήματα"))
         v.addWidget(self.findings, 1)
-        self.proposals = QtWidgets.QTableWidget(0, 5)
-        self.proposals.setHorizontalHeaderLabels(["Έγκριση", "Παράμετρος", "Αρχείο", "Μετρήθηκε", "Γιατί"])
-        self.proposals.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        self.proposals.horizontalHeader().setStretchLastSection(True)
-        self.proposals.verticalHeader().setVisible(False)
-        self.proposals.itemChanged.connect(self._on_approval)
-        v.addWidget(QtWidgets.QLabel("Προτάσεις (αρχείο → μετρήθηκε)"))
-        v.addWidget(self.proposals, 1)
-        row = QtWidgets.QHBoxLayout()
-        apply = QtWidgets.QPushButton("Εφαρμογή εγκεκριμένων")
-        apply.clicked.connect(self.apply_proposals)
-        clear = QtWidgets.QPushButton("Καθαρισμός")
-        clear.clicked.connect(self._clear)
-        row.addWidget(apply)
-        row.addWidget(clear)
-        row.addStretch(1)
-        v.addLayout(row)
+        foot = QtWidgets.QHBoxLayout()
+        foot.addWidget(self._button("◀ Πίσω", lambda: self.go_step(self.step - 1)))
+        stop = self._button("■ Διακοπή", self.do_stop)
+        stop.setObjectName("stop_button")
+        foot.addWidget(stop)
+        foot.addStretch(1)
+        foot.addWidget(self._button("Έξοδος από αναγνώριση", self.do_exit))
+        foot.addWidget(self.save_button)
+        foot.addWidget(self._button("Επόμενο ▶", lambda: self.go_step(self.step + 1)))
+        v.addLayout(foot)
+
+        self._held = None                               # (joint, +1 / −1) while an arrow is held
+        self._motions = {}
+        self._drive_timer = QtCore.QTimer(self)
+        self._drive_timer.timeout.connect(self._send_drive)
+        self._gripper_raw = {}
+        self.step = 0
+        self.go_step(0)
         return page
+
+    def go_step(self, n: int):
+        self.step = max(0, min(len(self.STEPS) - 1, n))
+        short, title, hint, power = self.STEPS[self.step]
+        self.step_pages.setCurrentIndex(self.step)
+        self.step_title.setText(f"Βήμα {self.step + 1} από {len(self.STEPS)} · {title}")
+        self.step_hint.setText(hint)
+        self.power.setText("Ρεύμα servo: ΑΝΑΜΜΕΝΟ · διακόπτης στο χέρι" if power else "Ρεύμα servo: σβηστό")
+        self.power.setProperty("state", "on" if power else "ok")
+        theme.repolish(self.power)
+        for i, button in enumerate(self.step_buttons):
+            button.setProperty("step", "current" if i == self.step else ("done" if i < self.step else ""))
+            theme.repolish(button)
+
+    def _show_details(self, shown: bool):
+        for column in self.DETAIL_COLUMNS:
+            self.joints.setColumnHidden(column, not shown)
+
+    DETAIL_COLUMNS = range(5, 11)          # zero, direction, limits, deadband of the joints page
 
     def _ask(self, text) -> bool:
         answer = QtWidgets.QMessageBox.question(self, "Κίνηση", text)
         return answer == QtWidgets.QMessageBox.Yes
 
+    # ---------------------------------------------------------------- the group and its arrows
+    @property
+    def group(self):
+        index = self.group_choice.currentIndex()
+        return self._groups[index] if 0 <= index < len(self._groups) else None
+
+    def _group_changed(self, _index=None):
+        group = self.group
+        joints = list(group.joints) if group else []
+        self._motions = {}                           # {motion: joint of this group}
+        for joint in joints:
+            motion = self.data["joints"][joint].get("motion") if self.data else None
+            if motion in self.motion_rows and motion not in self._motions:
+                self._motions[motion] = joint
+        for motion, (title, keys, label, minus, plus) in self.motion_rows.items():
+            joint = self._motions.get(motion)
+            label.setText(f"{title}\n{joint or '—'} · {keys}")
+            minus.setEnabled(joint is not None)
+            plus.setEnabled(joint is not None)
+        loose = [j for j in joints if j not in self._motions.values()]
+        self.unassigned.setText(f"{', '.join(loose)}: όρισε «Κίνηση» (yaw/pitch/roll) στη σελίδα «Αρθρώσεις»"
+                                if loose else "")
+        for combo in (self.zero_joint, self.flip_joint):
+            combo.clear()
+            combo.addItems(joints)
+        self._refresh()
+
+    def _zero_joint_changed(self, joint: str):
+        """The limits shown are the chosen joint's (else «Μηδέν εδώ» would save another joint's)."""
+        limits = (self.data or {}).get("joints", {}).get(joint, {}).get("limits_deg")
+        if limits:
+            self.lower.setValue(limits[0])
+            self.upper.setValue(limits[1])
+
+    def keyPressEvent(self, event):
+        key = self.KEYS.get(event.key())
+        if key and self.tabs.currentIndex() == 0 and not event.isAutoRepeat():
+            self.hold(*key)
+            return
+        if event.key() == QtCore.Qt.Key_Space:
+            self.do_stop()
+            return
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if self.KEYS.get(event.key()) and not event.isAutoRepeat():
+            self.release()
+            return
+        super().keyReleaseEvent(event)
+
+    def hold(self, motion: str, direction: int):
+        """The group's joint with this motion moves (+1 / −1) while held."""
+        joint = self._motions.get(motion)
+        if self.data is None or joint is None or self.bench.running:
+            return
+        self._held = (joint, direction)
+        self._send_drive()
+        self._drive_timer.start(DRIVE_MS)
+
+    def release(self):
+        self._held = None
+        self._drive_timer.stop()              # the Pi stops by itself 0.3 s after the last drive
+
+    def _send_drive(self):
+        if self._held:
+            joint, direction = self._held
+            self.identify_requested.emit(self.bench.drive({joint: direction * self.speed.value()}))
+
+    # ---------------------------------------------------------------- actions
     def _ready(self) -> bool:
         if self.data is None:
             self.status.setText("Δεν έχουν φορτωθεί τιμές από το /arm_calibration.")
-        elif self.wizard.busy:
-            self.status.setText("Τρέχει ήδη κίνηση· περίμενε ή «Διακοπή».")
+        elif self.bench.running:
+            self.status.setText("Τρέχει διαδικασία· περίμενε ή «Διακοπή».")
         else:
             return True
         return False
 
     def _send(self, request) -> None:
-        self.identify_requested.emit(request)
-        self._refresh_wizard()
+        if request is not None:
+            self.identify_requested.emit(request)
+        self._refresh()
 
     def do_scan(self):
         if self._ready():
-            self._send(self.wizard.scan())
-
-    def do_read(self):
-        if self._ready():
-            self._send(self.wizard.read())
+            self._send(self.bench.scan())
 
     def do_exit(self):
-        self._send(self.wizard.exit())
+        self._held = None
+        self._drive_timer.stop()
+        self._send(self.bench.exit())
 
-    def do_jog(self):
-        self._move(self.wizard.jog_joint, self.joint_choice.currentText())
+    def do_stop(self):
+        self._held = None
+        self._drive_timer.stop()
+        self._send(self.bench.stop())
 
-    def _move(self, make_request, name):
-        if not name or not self._ready():
-            return
-        if not self._confirm(f"Θα κινηθεί λίγο ({name}). E-stop στο χέρι, ελεύθερη διαδρομή;"):
-            return
-        try:
-            request = make_request(name)
-        except (KeyError, ValueError) as exc:
-            self.status.setText(f"Δεν ξεκίνησε: {exc}")
-            return
-        self._send(request)
+    def do_identify(self):
+        self._routine(self.bench.identify)
 
-    def _reading(self, action, joint):
-        if self.data is None or joint not in self.data.get("joints", {}):
+    def _routine(self, start):
+        if not self._ready() or self.group is None:
             return
-        if not action(joint):
-            self.status.setText(f"{joint}: καμία έγκυρη ένδειξη· πρώτα «Ανάγνωση encoders».")
-        self._refresh_wizard()
+        if not self._confirm(f"Θα κινηθεί η ομάδα {' + '.join(self.group.joints)}. Διακόπτης ρεύματος των servo "
+                             "στο χέρι, ελεύθερη διαδρομή;"):
+            return
+        self._send(start(self.group))
 
-    def _answer(self, action):
+    def _act(self, action):
         action()
-        self._refresh_wizard()
+        self._refresh()
 
-    def _clear(self):
-        self.wizard.findings, self.wizard.proposals = [], []
-        self._refresh_wizard()
+    def do_zero(self):
+        joint = self.zero_joint.currentText()
+        if joint and self.data is not None:
+            self.bench.zero(joint, self.zero_angle.value(), self.lower.value(), self.upper.value())
+            self._refresh()
+
+    def _gripper(self, closed: bool):
+        reading = self.bench.live.get(self.bench.channel_of("gripper")) if self.data else None
+        if not reading or reading.get("raw_deg") is None:
+            self.bench.log.append(("error", "αρπάγη: ο encoder δεν μετρά τώρα"))
+        else:
+            self._gripper_raw[closed] = reading["raw_deg"]
+            self.bench.log.append(("info", f"αρπάγη {'κλειστή' if closed else 'ανοιχτή'}: {reading['raw_deg']}°"))
+            if len(self._gripper_raw) == 2:
+                self.bench.gripper(self._gripper_raw[True], self._gripper_raw[False])
+                self._gripper_raw = {}
+        self._refresh()
+
+    def save_changes(self):
+        """«Σωστό · αποθήκευση»: the values go to /arm_calibration together, then to arm.yaml."""
+        if self.bench.changes:
+            self._saving = True
+            self.apply_requested.emit(CALIBRATION_NODE, dict(self.bench.changes))
+            self.note("info", f"Στάλθηκαν {len(self.bench.changes)} τιμές…")
+
+    def save_file(self):
+        self.service_requested.emit(f"{CALIBRATION_NODE}/save")
+
+    def show_service_result(self, service, ok, message):
+        if service.startswith(CALIBRATION_NODE):
+            self.note("info" if ok else "error", ("✓ " if ok else "") + message)
+
+    def note(self, level: str, text: str):
+        self.bench.log.append((level, text))
+        self.status.setText(text)
+        self._refresh()
 
     def _send_keepalive(self):
-        request = self.wizard.keepalive()
+        request = self.bench.ping()
         if request is not None:
             self.identify_requested.emit(request)
 
     def on_identify_reply(self, reply: dict):
-        for request in self.wizard.handle(reply):
+        for request in self.bench.handle(reply):
             self.identify_requested.emit(request)
-        if self.wizard.readings:
-            self._show_readings()
-        self._refresh_wizard()
+        if reply.get("op") == "live":
+            self._show_live()
+            return
+        self._refresh()
 
-    def _on_approval(self, item):
-        if item.column() == 0 and item.row() < len(self.wizard.proposals):
-            self.wizard.proposals[item.row()][1] = item.checkState() == QtCore.Qt.Checked
+    def _show_live(self):
+        if self.data is None:
+            return
+        rows = []
+        for joint in self.data["joints"]:
+            channel = self.bench.channel_of(joint)
+            reading = self.bench.live.get(channel) if channel is not None else None
+            if reading is None or reading.get("status") == "NO_RESPONSE":
+                continue
+            raw = reading.get("raw_deg") if reading.get("status") != "NO_MAGNET" else None   # χωρίς μαγνήτη: θόρυβος
+            position = self.bench.position(joint)
+            rows.append((joint, f"κανάλι {channel}", NONE if raw is None else f"{raw:.1f}",
+                         NONE if position is None else f"{position:+.1f}", reading.get("status", NONE)))
+        self.live_table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, text in enumerate(row):
+                item = self.live_table.item(r, c)
+                if item is None:
+                    self.live_table.setItem(r, c, QtWidgets.QTableWidgetItem(text))
+                elif item.text() != text:
+                    item.setText(text)
+        for name, e in self.data["encoders"].items():
+            reading = self.bench.live.get(e.get("channel"))
+            if reading:
+                raw = reading.get("raw_deg") if reading.get("status") != "NO_MAGNET" else None
+                self.encoders.set_live(name, "raw", NONE if raw is None else f"{raw:.2f}")
+                self.encoders.set_live(name, "status", reading.get("status", NONE))
 
-    def apply_proposals(self):
-        values, manual = self.wizard.approved()
-        if manual:
-            self.status.setText("Θέλουν αλλαγή στο αρχείο με το χέρι (αφαίρεση): " + ", ".join(manual))
-        if values:
-            self.apply_requested.emit(CALIBRATION_NODE, values)
-        elif not manual:
-            self.status.setText("Καμία εγκεκριμένη πρόταση.")
-
-    def _refresh_wizard(self):
-        self.mode.setText("Pi: αναγνώριση" + (" · κίνηση…" if self.wizard.busy else "") if self.wizard.active
+    def _refresh(self):
+        running = self.bench.running
+        self.mode.setText(("Pi: αναγνώριση" + (f" · {running}…" if running else "")) if self.bench.active
                           else "Pi: κανονικός έλεγχος")
-        self.findings.clear()
+        self.mode.setProperty("state", "warn" if self.bench.active else "off")
+        theme.repolish(self.mode)
+        self.save_button.setEnabled(bool(self.bench.changes) and not running)
+        self.save_button.setText(f"Σωστό · αποθήκευση ({len(self.bench.changes)})" if self.bench.changes
+                                 else "Σωστό · αποθήκευση")
         marks = {"info": "•", "warning": "⚠", "error": "✖"}
-        for f in self.wizard.findings:
-            self.findings.addItem(f"{marks.get(f.level, '•')} {f.text}")
-        self.proposals.blockSignals(True)
-        self.proposals.setRowCount(len(self.wizard.proposals))
-        for r, (p, ok) in enumerate(self.wizard.proposals):
-            check = QtWidgets.QTableWidgetItem()
-            check.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
-            check.setCheckState(QtCore.Qt.Checked if ok else QtCore.Qt.Unchecked)
-            self.proposals.setItem(r, 0, check)
-            for c, text in enumerate((p.name, _text(p.old), _text(p.new), p.why), start=1):
-                item = QtWidgets.QTableWidgetItem(text)
-                item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
-                self.proposals.setItem(r, c, item)
-        self.proposals.blockSignals(False)
+        if self.findings.count() > len(self.bench.log):
+            self.findings.clear()
+        for level, text in self.bench.log[self.findings.count():]:
+            self.findings.addItem(f"{marks.get(level, '•')} {text}")
+        self.findings.scrollToBottom()
 
     # ---------------------------------------------------------------- pages
     def set_nodes(self, nodes):
@@ -392,7 +617,7 @@ class CalibrationPanel(QtWidgets.QWidget):
         if not any(name.startswith("joints.") for name in values):
             return
         self.data = nest(values)
-        self.wizard.data = self.data
+        self.bench.data = self.data
         self._fill()
         self.status.setText(f"{len(values)} τιμές από το {CALIBRATION_NODE}")
 
@@ -437,15 +662,19 @@ class CalibrationPanel(QtWidgets.QWidget):
                                 ("edit", f"{key}.limits_deg", 0, limits[0]),
                                 ("edit", f"{key}.limits_deg", 1, limits[1]),
                                 ("edit", f"{key}.deadband", 0, band[0]), ("edit", f"{key}.deadband", 1, band[1]),
-                                ("live", NONE, "position"), ("live", NONE, "status")]))
+                                ("live", NONE, "position"), ("live", NONE, "status"),
+                                ("edit", f"{key}.motion", None, j.get("motion"))]))
         self.joints.set_rows(rows)
-        for combo, names in ((self.joint_choice, list(d["joints"])), (self.actual_choice, list(d["joints"])),
-                             (self.servo_choice, list(d["servos"]))):
-            current = combo.currentText()
-            combo.clear()
-            combo.addItems(names)
-            if current in names:
-                combo.setCurrentText(current)
+        current = self.group_choice.currentText()
+        self._groups = self.bench.groups()
+        self.group_choice.blockSignals(True)
+        self.group_choice.clear()
+        self.group_choice.addItems([" + ".join(g.joints) for g in self._groups])
+        if current:
+            self.group_choice.setCurrentText(current)
+        self.group_choice.blockSignals(False)
+        self._group_changed()
+        self._zero_joint_changed(self.zero_joint.currentText())
 
     def apply_edits(self):
         values, errors = {}, []
@@ -464,12 +693,17 @@ class CalibrationPanel(QtWidgets.QWidget):
         if node != CALIBRATION_NODE:
             return
         rejected = sorted({reason for _, ok, reason in results if not ok})
+        saving, self._saving = self._saving, False
         if rejected:
-            self.status.setText("Απορρίφθηκαν (καμία δεν εφαρμόστηκε):\n" + "\n".join(rejected))
+            self.note("error", "Απορρίφθηκαν (καμία δεν εφαρμόστηκε): " + "; ".join(rejected))
             return
-        self.wizard.applied({name for name, ok, _ in results if ok})
-        self.status.setText(f"Εφαρμόστηκαν {len(results)}. «Αποθήκευση στο αρχείο» από το πάνελ «Παράμετροι».")
-        self._refresh_wizard()
+        if saving:                                    # «Σωστό · αποθήκευση»: and to the file
+            self.bench.saved()
+            self.note("info", f"✓ Ισχύουν {len(results)} τιμές· αποθήκευση στο arm.yaml…")
+            self.save_file()
+        else:
+            self.note("info", f"✓ Εφαρμόστηκαν {len(results)} αλλαγές (ισχύουν τώρα). Για να μείνουν: "
+                              "«Αποθήκευση στο αρχείο».")
         self.load_requested.emit(CALIBRATION_NODE)
 
     # ---------------------------------------------------------------- live values
@@ -489,12 +723,3 @@ class CalibrationPanel(QtWidgets.QWidget):
             elif kind == "force":
                 self.forces.set_live(name, "value", values.get("value", NONE))
                 self.forces.set_live(name, "status", s["message"])
-
-    def _show_readings(self):
-        """In identification mode the readings come by channel (all encoders, not only the joints')."""
-        for name, e in self.data["encoders"].items():
-            reading = self.wizard.readings.get(e.get("channel"))
-            if reading:
-                raw = reading.get("raw_deg")
-                self.encoders.set_live(name, "raw", NONE if raw is None else f"{raw:.2f}")
-                self.encoders.set_live(name, "status", reading.get("status", NONE))

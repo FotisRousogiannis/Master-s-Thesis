@@ -67,6 +67,7 @@ def test_scan_and_magnets(config):
     assert tele.encoder_channels_found() == [2, 4]
     result = tele.read_magnets()
     assert result[2][1] == "NO_MAGNET" and result[4][1] == "OK"
+    assert any(l.startswith("  mux2:       —°") for l in lines)      # no magnet: no angle shown
 
 
 def test_choose_validates_and_keeps_defaults(config):

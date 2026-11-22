@@ -1,7 +1,5 @@
 """System panel: choose the hardware, start/stop the stack, see what is running."""
 
-import glob
-
 from .. import theme
 from ..qt import QtGui, QtWidgets, Signal
 
@@ -12,13 +10,7 @@ HARDWARE = [
     ("real", "Πραγματικός βραχίονας (επόμενη φάση)", False),
 ]
 WINDOWS = [("rviz", "RViz"), ("gazebo", "Gazebo")]  # same keys as layouts.py
-CONNECTIONS = [("wifi", "WiFi (micro-ROS / UDP)"), ("usb", "USB (micro-ROS / σειριακό)")]
-DEFAULT_AGENT_PORT = 8888
-
-
-def serial_devices() -> list[str]:
-    """USB serial ports the ESP32-S3 may appear as (native USB: ttyACM; USB-UART bridge: ttyUSB)."""
-    return sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))
+# The transport to the ESP32 boards (micro-ROS over WiFi/USB, ADR-0016) is chosen here once they exist.
 
 
 class SystemPanel(QtWidgets.QWidget):
@@ -36,7 +28,6 @@ class SystemPanel(QtWidgets.QWidget):
         for key, label, available in HARDWARE:
             self._hardware.addItem(label, key)
             self._hardware.model().item(self._hardware.count() - 1).setEnabled(available)
-        self._hardware.currentIndexChanged.connect(self._update_connection_enabled)
         hw_layout.addWidget(self._hardware)
         layout.addWidget(hw_box)
 
@@ -56,26 +47,6 @@ class SystemPanel(QtWidgets.QWidget):
         self._auto_open.setChecked(True)
         win_layout.addWidget(self._auto_open)
         layout.addWidget(win_box)
-
-        # Connection to the real arm (ADR-0016): both are micro-ROS transports; used once hardware:=real exists.
-        self._conn_box = QtWidgets.QGroupBox("Σύνδεση με τον βραχίονα")
-        conn = QtWidgets.QFormLayout(self._conn_box)
-        self._connection = QtWidgets.QComboBox()
-        for key, label in CONNECTIONS:
-            self._connection.addItem(label, key)
-        self._port = QtWidgets.QSpinBox()
-        self._port.setRange(1024, 65535)
-        self._port.setValue(DEFAULT_AGENT_PORT)
-        self._device = QtWidgets.QComboBox()
-        refresh = QtWidgets.QPushButton("Ανανέωση")
-        refresh.clicked.connect(self._refresh_devices)
-        device_row = QtWidgets.QHBoxLayout()
-        device_row.addWidget(self._device, 1)
-        device_row.addWidget(refresh)
-        conn.addRow("Τρόπος", self._connection)
-        conn.addRow("Θύρα UDP", self._port)
-        conn.addRow("Συσκευή USB", device_row)
-        layout.addWidget(self._conn_box)
 
         buttons = QtWidgets.QHBoxLayout()
         self._start = QtWidgets.QPushButton("▶  Εκκίνηση")
@@ -101,8 +72,6 @@ class SystemPanel(QtWidgets.QWidget):
         QtWidgets.QVBoxLayout(ctrl_box).addWidget(self._controllers)
         layout.addWidget(ctrl_box, 1)
 
-        self._refresh_devices()
-        self._update_connection_enabled()
         self.set_running(False)
 
     @property
@@ -144,12 +113,3 @@ class SystemPanel(QtWidgets.QWidget):
             item = QtWidgets.QTableWidgetItem(f"●  {state}")
             item.setForeground(QtGui.QColor(colours.get(state, t.muted)))
             self._controllers.setItem(row, 1, item)
-
-    def _refresh_devices(self):
-        self._device.clear()
-        self._device.addItems(serial_devices() or ["(καμία συσκευή)"])
-
-    def _update_connection_enabled(self):
-        is_real = self.hardware == "real"
-        self._conn_box.setEnabled(is_real)
-        self._conn_box.setToolTip("" if is_real else "Μόνο για τον πραγματικό βραχίονα")

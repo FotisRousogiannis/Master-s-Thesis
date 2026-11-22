@@ -43,6 +43,9 @@ def test_no_command_no_pulse(config):
     report, _ = run(sim, driver, 0.5)
     assert not report.moving and report.reason == 'χωρίς εντολή'
     assert sim.pwm.pulses == braking(config)
+    servos = {name: (level, values) for name, level, _, values in report.extra}
+    neutral = base(config)['motors']['servo_1']['neutral_us']
+    assert servos['servo/servo_1'] == ('info', {'channel': 0, 'pulse_us': f'{neutral:.0f}'})
 
 
 def test_reaches_targets_in_simulation(config):
@@ -148,6 +151,8 @@ def test_real_hardware_missing_is_reported(config):
     report = driver.tick(0.0)
     assert {j.status for j in report.joints.values()} == {NO_RESPONSE}
     assert report.reason == 'PCA9685 δεν απαντά'
+    servos = {name: (level, message) for name, level, message, _ in report.extra}
+    assert servos['servo/servo_1'] == ('error', 'PCA9685 δεν απαντά')
     driver.stop()   # δεν σκάει χωρίς υλικό
 
 

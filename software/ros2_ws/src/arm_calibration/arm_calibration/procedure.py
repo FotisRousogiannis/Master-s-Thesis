@@ -124,11 +124,15 @@ class JointMapping:
     proposals: list = field(default_factory=list)
 
 
-def joint_jog(data: dict, joint: str, speed: float = JOG_SPEED) -> dict:
-    """The identify request that moves `joint` with the servo signs of the file."""
+def joint_jog(data: dict, joint: str, speed: float = JOG_SPEED, duration_s: float = JOG_DURATION_S) -> dict:
+    """The identify request that moves `joint` with the servo signs of the file.
+
+    The Pi refuses a duration over controller.bench.max_duration_s (3 s); it stops at the first
+    encoder change of JOG_STOP_DEG anyway.
+    """
     signs = data["joints"][joint]["servos"]
     return {"op": "jog", "servos": {s: sign * speed for s, sign in signs.items()},
-            "duration_s": JOG_DURATION_S, "stop_deg": JOG_STOP_DEG}
+            "duration_s": duration_s, "stop_deg": JOG_STOP_DEG}
 
 
 def _kind(data: dict, joint: str) -> str:

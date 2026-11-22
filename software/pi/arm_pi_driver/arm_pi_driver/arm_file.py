@@ -22,7 +22,7 @@ from pathlib import Path
 JOINT, SERVO, GRIPPER_GROUP, RESTART = 'joint', 'servo', 'gripper', 'restart'
 LIVE_JOINT = {'zero_deg', 'invert', 'limits_deg', 'deadband', 'travel_margin'}
 LIVE_SERVO = {'neutral_us', 'deadband_us'}
-IGNORED = {'description'}
+IGNORED = {'description', 'motion'}       # για το Arm Studio μόνο
 
 
 @dataclass(frozen=True)

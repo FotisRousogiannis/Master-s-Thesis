@@ -92,6 +92,21 @@ QLabel[pill="true"][state="ok"] {{ background: {t.ok}; color: #ffffff; }}
 QLabel[pill="true"][state="warn"] {{ background: {t.warn}; color: #1b1205; }}
 QLabel[pill="true"][state="off"] {{ background: {t.raised}; color: {t.muted}; }}
 QLabel[muted="true"] {{ color: {t.muted}; }}
+QLabel[pill="true"][state="error"] {{ background: {t.error}; color: #ffffff; }}
+QLabel[pill="true"][state="on"] {{ background: {t.warn}; color: #1b1205; }}
+
+QWidget#section_bar {{ background: {t.surface}; border-right: 1px solid {t.border}; }}
+QPushButton#section_button {{ text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid transparent;
+                              background: transparent; color: {t.fg}; }}
+QPushButton#section_button:hover {{ background: {t.bg}; }}
+QPushButton#section_button:checked {{ background: {t.raised}; border: 1px solid {t.accent}; color: {t.fg}; font-weight: 600; }}
+QPushButton#arrow {{ font-size: 20px; font-weight: 700; background: {t.raised}; border: 1px solid {t.border};
+                     border-radius: 8px; }}
+QPushButton#arrow:pressed {{ background: {t.accent}; color: {t.accent_fg}; }}
+QLabel#step_title {{ font-size: 18px; font-weight: 700; }}
+QLabel#step_number {{ color: {t.muted}; font-weight: 600; }}
+QPushButton[step="current"] {{ border: 1px solid {t.accent}; color: {t.accent}; font-weight: 700; }}
+QPushButton[step="done"] {{ color: {t.ok}; }}
 
 QDockWidget {{ color: {t.fg}; font-weight: 600; titlebar-close-icon: none; }}
 QDockWidget::title {{ background: {t.raised}; padding: 6px 10px; border: 1px solid {t.border}; border-bottom: 2px solid {t.accent}; }}

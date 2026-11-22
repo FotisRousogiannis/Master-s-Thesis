@@ -495,6 +495,26 @@ def parse_channels(text):
     return channels
 
 
+I2C_LOCK = Path(__file__).resolve().parents[3] / ".local" / "i2c.lock"   # the same file as arm_pi_driver
+
+
+def hold_i2c(path=I2C_LOCK):
+    """One program at a time on the I2C (arm_pi_driver/hardware/i2c_lock.py): the TCA9548A has one open
+    channel, and two programs switching it read wrong angles or "no answer" (bench, 2026-11-22).
+    Returns the lock (kept until the program ends) or exits with a message."""
+    import fcntl
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        sys.exit("✖ Το I²C το χρησιμοποιεί ο driver (arm-pi). Σταμάτησέ τον πρώτα:\n"
+                 "    cd ~/Master-s-Thesis/software/pi/docker && docker compose stop")
+    return fd
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -541,6 +561,7 @@ def main(argv=None):
     config = json.loads(Path(args.config).read_text())
     from smbus2 import SMBus  # imported here so the tests run without hardware
 
+    hold_i2c()
     with SMBus(config["i2c_bus"]) as bus:
         bench = Bench(config, bus)
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))

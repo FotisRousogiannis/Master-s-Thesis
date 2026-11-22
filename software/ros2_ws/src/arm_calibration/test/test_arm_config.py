@@ -132,3 +132,9 @@ def test_unknown_keys_are_refused(data):
     """`{description: βάση, κινητήρας A}` without quotes gives a key «κινητήρας A»."""
     msg = errors_after(data, lambda d: d["servos"]["servo_1"].update({"κινητήρας A": None}))
     assert "άγνωστα κλειδιά κινητήρας A" in msg
+
+
+def test_motion_is_optional_and_checked(data):
+    assert data["joints"]["joint_1"]["motion"] == "yaw" and "motion" not in data["joints"]["joint_3"]
+    assert "motion 'twist'" in errors_after(data, lambda d: d["joints"]["joint_3"].update(motion="twist"))
+    assert errors_after(data, lambda d: d["joints"]["joint_3"].update(motion="roll")) == ""

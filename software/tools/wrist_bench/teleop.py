@@ -157,7 +157,8 @@ class Teleop:
                 try:
                     angle, raw, status, agc = wb.AS5600(self.bench.bus, self.bench.mux, ch).read()
                     result[ch] = (angle, status, agc)
-                    self.out(f"  mux{ch}: {angle:7.2f}°  raw {raw:4d}  μαγνήτης {status:10s}  AGC {agc}")
+                    shown = "      —" if status == "NO_MAGNET" else f"{angle:7.2f}"   # no magnet: the angle is noise
+                    self.out(f"  mux{ch}: {shown}°  raw {raw:4d}  μαγνήτης {status:10s}  AGC {agc}")
                 except OSError:
                     result[ch] = None
                     self.out(f"  mux{ch}: δεν απαντά")
@@ -750,6 +751,7 @@ def main(argv=None):
     config = json.loads(Path(args.config).read_text())
     from smbus2 import SMBus  # imported here so the tests run without hardware
 
+    wb.hold_i2c()
     with SMBus(config["i2c_bus"]) as bus:
         bench = wb.Bench(config, bus)
         tele = Teleop(bench, args.a, args.b, not args.no_invert_b, parse_list(args.enc, MUX_CHANNELS),

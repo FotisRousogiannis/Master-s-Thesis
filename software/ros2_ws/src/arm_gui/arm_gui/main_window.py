@@ -1,4 +1,11 @@
-"""Main window: dockable panels, toolbar with STOP, and the layout of the three windows (ADR-0016)."""
+"""Main window: five sections in a side bar, toolbar with STOP, messages strip, and the layout of the
+three windows (ADR-0016; sections instead of dockable panels: ADR-0016 supplement 2026-11-17).
+
+    Χειρισμός          Σύστημα + Αρθρώσεις
+    Βαθμονόμηση        the calibration panel (ADR-0023) and the devices that are alive
+    Pi                 connection to the Pi
+    Για προχωρημένους  Παράμετροι, ROS 2, Εργαλεία, Log
+"""
 
 import json
 import os
@@ -14,12 +21,12 @@ from .panels.devices_panel import DevicesPanel
 from .panels.graph_panel import GraphPanel
 from .panels.joints_panel import JointsPanel
 from .panels.log_panel import LogPanel
+from .panels.messages import MessagesStrip
 from .panels.parameters_panel import CALIBRATION_NODE, ParametersPanel
-from .panels.sensors_panel import SensorsPanel
 from .panels.system_panel import SystemPanel
 from .panels.tools_panel import ToolsPanel
 from .processes import ProcessManager
-from .qt import QtCore, QtGui, QtWidgets, Qt
+from .qt import QtCore, QtGui, QtWidgets, Qt, Signal
 from .tools import PiTarget, command_for
 
 SYSTEM_PROCESS = "system"
@@ -46,8 +53,61 @@ def data_dir() -> Path:
     return Path(os.environ.get("ARM_DATA_DIR", Path.home() / ".local" / "share" / "arm_studio"))
 
 
+class SectionBar(QtWidgets.QWidget):
+    """The side bar: one button per section (title + a line of what is in it), one checked."""
+
+    currentRowChanged = Signal(int)
+
+    def __init__(self, sections, parent=None):
+        super().__init__(parent)
+        self.setObjectName("section_bar")
+        self.setFixedWidth(240)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(8, 10, 8, 10)
+        layout.setSpacing(4)
+        self._group = QtWidgets.QButtonGroup(self)
+        self._group.setExclusive(True)
+        for i, (label, sub) in enumerate(sections):
+            button = QtWidgets.QPushButton(f"{label}\n{sub}")
+            button.setObjectName("section_button")
+            button.setCheckable(True)
+            button.setToolTip(f"{label} (Ctrl+{i + 1})")
+            self._group.addButton(button, i)
+            layout.addWidget(button)
+        layout.addStretch(1)
+        self._group.idClicked.connect(self.setCurrentRow)
+        self._current = -1
+
+    def count(self) -> int:
+        return len(self._group.buttons())
+
+    def currentRow(self) -> int:
+        return self._current
+
+    def setCurrentRow(self, row: int):
+        self._group.button(row).setChecked(True)
+        if row != self._current:
+            self._current = row
+            self.currentRowChanged.emit(row)
+
+
 def _rect(q) -> Rect:
     return Rect(q.x(), q.y(), q.width(), q.height())
+
+
+def expected_devices(values: dict) -> list:
+    """servo/<servo> and encoder/<joint> of the enabled joints, from the /arm_calibration parameters.
+    A servo of a disabled joint, or one without a channel (-1), is not driven, so it never reports."""
+    expected = set()
+    for name, value in values.items():
+        parts = name.split(".")
+        if parts[0] != "joints" or not values.get(f"joints.{parts[1]}.enabled", True):
+            continue
+        if len(parts) == 3 and parts[2] == "encoder":
+            expected.add(f"encoder/{parts[1]}")
+        if len(parts) == 4 and parts[2] == "servos" and values.get(f"servos.{parts[3]}.channel", -1) != -1:
+            expected.add(f"servo/{parts[3]}")
+    return sorted(expected)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -68,7 +128,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.system = SystemPanel()
         self.joints = JointsPanel()
-        self.sensors = SensorsPanel()
         self.devices = DevicesPanel()
         self.parameters = ParametersPanel()
         self.calibration = CalibrationPanel()
@@ -76,8 +135,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.log = LogPanel()
         self.tools = ToolsPanel()
         self.connection = ConnectionPanel(data_dir() / "ssh")
-        self._docks = {}
-        self._build_docks()
+        self.messages = MessagesStrip()
+        self._build_sections()
         self._build_toolbar()
         self._build_menus()
         self._connect()
@@ -89,45 +148,51 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_pi()
 
     # ------------------------------------------------------------------ construction
-    def _build_docks(self):
-        self.setDockOptions(
-            QtWidgets.QMainWindow.AnimatedDocks
-            | QtWidgets.QMainWindow.AllowNestedDocks
-            | QtWidgets.QMainWindow.AllowTabbedDocks
-            | QtWidgets.QMainWindow.GroupedDragging
-        )
-        for key, title, widget in [
-            ("system", "Σύστημα", self.system),
-            ("joints", "Αρθρώσεις", self.joints),
-            ("sensors", "Αισθητήρες", self.sensors),
-            ("devices", "Συσκευές", self.devices),
-            ("parameters", "Παράμετροι", self.parameters),
-            ("calibration", "Βαθμονόμηση", self.calibration),
-            ("graph", "ROS 2", self.graph),
-            ("connection", "Σύνδεση", self.connection),
-            ("tools", "Εργαλεία", self.tools),
-            ("log", "Log", self.log),
-        ]:
-            dock = QtWidgets.QDockWidget(title, self)
-            dock.setObjectName(f"dock_{key}")  # needed by saveState/restoreState
-            dock.setWidget(widget)
-            self._docks[key] = dock
-        self._default_dock_arrangement()
+    SECTIONS = (
+        ("run", "Χειρισμός", "σύστημα, αρθρώσεις"),
+        ("cal", "Βαθμονόμηση", "οδηγός, ρυθμίσεις"),
+        ("pi", "Pi", "σύνδεση με το Pi"),
+        ("adv", "Για προχωρημένους", "παράμετροι, ROS 2, log"),
+    )
 
-    def _default_dock_arrangement(self):
-        d = self._docks
-        for dock in d.values():
-            dock.setFloating(False)
-            dock.show()
-            self.removeDockWidget(dock)
-        self.addDockWidget(Qt.LeftDockWidgetArea, d["system"])
-        self.splitDockWidget(d["system"], d["joints"], Qt.Horizontal)
-        self.splitDockWidget(d["joints"], d["sensors"], Qt.Horizontal)
-        for key in ("devices", "parameters", "calibration", "graph", "connection", "tools", "log"):
-            self.tabifyDockWidget(d["sensors"], d[key])
-        for dock in d.values():
-            dock.show()
-        d["sensors"].raise_()
+    def _build_sections(self):
+        run = QtWidgets.QSplitter(Qt.Horizontal)
+        run.addWidget(self.system)
+        run.addWidget(self.joints)
+        run.setStretchFactor(1, 1)
+        self.advanced = QtWidgets.QTabWidget()
+        for widget, title in ((self.parameters, "Παράμετροι"), (self.graph, "ROS 2"), (self.tools, "Εργαλεία"),
+                              (self.log, "Log")):
+            self.advanced.addTab(widget, title)
+        self.calibration.tabs.addTab(self.devices, "Συσκευές")       # what is alive: part of setting up
+        pages = {"run": run, "cal": self.calibration, "pi": self.connection, "adv": self.advanced}
+
+        self.stack = QtWidgets.QStackedWidget()
+        self.nav = SectionBar([(label, sub) for _key, label, sub in self.SECTIONS])
+        self._section_keys = [key for key, _label, _sub in self.SECTIONS]
+        for key in self._section_keys:
+            self.stack.addWidget(pages[key])
+        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.setCurrentRow(0)
+
+        body = QtWidgets.QWidget()
+        h = QtWidgets.QHBoxLayout(body)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.addWidget(self.nav)
+        h.addWidget(self.stack, 1)
+        central = QtWidgets.QSplitter(Qt.Vertical)
+        central.addWidget(body)
+        central.addWidget(self.messages)
+        central.setStretchFactor(0, 1)
+        central.setCollapsible(0, False)
+        self.setCentralWidget(central)
+
+    @property
+    def section(self) -> str:
+        return self._section_keys[self.nav.currentRow()]
+
+    def show_section(self, key: str):
+        self.nav.setCurrentRow(self._section_keys.index(key))
 
     def _build_toolbar(self):
         bar = QtWidgets.QToolBar("Κύρια")
@@ -154,8 +219,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._system_pill = self._pill()
         self._ros_pill = self._pill()
+        self._warn_pill = self._pill()
         bar.addWidget(self._system_pill)
         bar.addWidget(self._ros_pill)
+        bar.addWidget(self._warn_pill)
         self._motion_status = QtWidgets.QLabel("")
         self._motion_status.setProperty("muted", True)
         bar.addWidget(self._motion_status)
@@ -182,6 +249,12 @@ class MainWindow(QtWidgets.QMainWindow):
         bar.addWidget(self.stop_button)
         self._set_pill(self._system_pill, "off", "Σύστημα σταματημένο")
         self._set_pill(self._ros_pill, "off", "ROS 2: —")
+        self._set_warnings(0)
+
+    def _set_warnings(self, count: int):
+        self._set_pill(self._warn_pill, "warn" if count else "ok",
+                       ("1 προειδοποίηση" if count == 1 else f"{count} προειδοποιήσεις") if count
+                       else "Καμία προειδοποίηση")
 
     @staticmethod
     def _pill():
@@ -201,10 +274,8 @@ class MainWindow(QtWidgets.QMainWindow):
         file_menu.addAction("Έξοδος", self.close, QtGui.QKeySequence.Quit)
 
         view = self.menuBar().addMenu("&Προβολή")
-        for dock in self._docks.values():
-            view.addAction(dock.toggleViewAction())
-        view.addSeparator()
-        view.addAction("Επαναφορά πάνελ", self._default_dock_arrangement)
+        for number, (key, label, _sub) in enumerate(self.SECTIONS, start=1):
+            view.addAction(label, lambda k=key: self.show_section(k), QtGui.QKeySequence(f"Ctrl+{number}"))
         view.addSeparator()
         themes = QtWidgets.QActionGroup(self)
         for key, label in (("dark", "Σκούρο θέμα"), ("light", "Ανοιχτό θέμα")):
@@ -240,7 +311,6 @@ class MainWindow(QtWidgets.QMainWindow):
         b = self._bridge
         b.description_received.connect(self._on_description)
         b.joint_state.connect(self.joints.set_current)
-        b.joint_state.connect(self.sensors.set_joint_state)
         b.controllers_changed.connect(self.system.set_controllers)
         b.nodes_changed.connect(self.parameters.set_nodes)
         b.nodes_changed.connect(self._on_nodes)
@@ -258,13 +328,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calibration.load_requested.connect(b.request_parameters)
         self.calibration.apply_requested.connect(b.set_parameters_atomically)
         self.calibration.identify_requested.connect(b.identify)
+        self.calibration.service_requested.connect(b.call_trigger)
+        b.service_result.connect(self.calibration.show_service_result)
         b.service_result.connect(self.parameters.show_service_result)
         b.service_result.connect(lambda srv, ok, msg: self.log.append("υπηρεσία", f"{srv}: {msg}"))
+        b.service_result.connect(lambda srv, ok, msg: self.messages.add("info" if ok else "error", f"{srv}: {msg}"))
+        b.diagnostics.connect(self.messages.update_diagnostics)
+        self.messages.warnings_changed.connect(self._set_warnings)
         self.parameters.load_requested.connect(b.request_parameters)
         self.parameters.apply_requested.connect(b.set_parameters)
         self.parameters.service_requested.connect(b.call_trigger)
         b.goal_status.connect(self._on_goal_status)
         b.log.connect(lambda line: self.log.append("app", line))
+        b.log.connect(lambda line: self.messages.add("info", line))
         self.joints.goal_requested.connect(b.send_joint_goal)
         self.system.start_requested.connect(self.start_system)
         self.system.window_requested.connect(self.set_window)
@@ -364,6 +440,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.system.set_running(running)
             self._set_pill(self._system_pill, "ok" if running else "off",
                            "Σύστημα σε λειτουργία" if running else "Σύστημα σταματημένο")
+            self.messages.add("info", "Σύστημα σε λειτουργία" if running else "Σύστημα σταματημένο")
             self.rec_button.setEnabled(running)
             if not running:
                 for key in (*WINDOW_PROCESSES, RECORD_PROCESS):
@@ -376,19 +453,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_pill(self._ros_pill, "ok" if others else "off", f"ROS 2: {len(others)} nodes")
 
     def _on_parameters(self, node, params):
-        """Devices we expect to hear from (arm.yaml, ADR-0023): servos with a channel, and the
-        encoder of every enabled joint (the Pi reports it as encoder/<joint>)."""
+        """Devices we expect to hear from (arm.yaml, ADR-0023): the servos and the encoder of every
+        enabled joint (the Pi reports them as servo/<servo> and encoder/<joint>)."""
         if node == CALIBRATION_NODE and not isinstance(params, str):
-            values = {p["name"]: p["value"] for p in params}
-            expected = set()
-            for name in values:
-                parts = name.split(".")
-                if len(parts) == 3 and parts[0] == "servos" and parts[2] == "channel":
-                    expected.add(f"servo/{parts[1]}")
-                if len(parts) == 3 and parts[0] == "joints" and parts[2] == "encoder":
-                    if values.get(f"joints.{parts[1]}.enabled", True):
-                        expected.add(f"encoder/{parts[1]}")
-            self.devices.set_expected(sorted(expected))
+            self.devices.set_expected(expected_devices({p["name"]: p["value"] for p in params}))
 
     def set_theme(self, name: str):
         theme.apply(name)
@@ -405,6 +473,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._motion_status.setText(text)
         self.joints.set_status(text)
         self.log.append("κίνηση", text)
+        self.messages.add("info", text)
 
     # ------------------------------------------------------------------ layouts
     def screens(self) -> list[Rect]:
@@ -448,12 +517,12 @@ class MainWindow(QtWidgets.QMainWindow):
         return {
             "app": _rect(self.frameGeometry()).to_dict(),
             "external": external,
-            "docks": bytes(self.saveState().toBase64()).decode(),
+            "section": self.section,
         }
 
     def _apply_layout(self, data: dict):
-        if data.get("docks"):
-            self.restoreState(QtCore.QByteArray.fromBase64(data["docks"].encode()))
+        if data.get("section") in self._section_keys:   # older layouts had "docks": ignored
+            self.show_section(data["section"])
         targets = {k: Rect.from_dict(v) for k, v in data.get("external", {}).items()}
         if "app" in data:
             targets[APP] = Rect.from_dict(data["app"])

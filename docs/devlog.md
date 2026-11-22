@@ -470,3 +470,7 @@
 - **8β (ADR-0023, συμπλήρωμα):** αργό κλείσιμο αρπάγης με ζωντανή πίεση στο Pi· Stop = η μέτρηση → πρόταση `max_v`
   ανά ZD10· στάση στο όριο ασφαλείας 2.4 V ή αν κλείσει τελείως. Βρέθηκε στο test: η τάση στο Stop ήταν του
   προηγούμενου βήματος (0.1 s πίσω) → νέα ανάγνωση στο Stop. Tests arm_pi_driver 87, arm_gui 68 ✅ (ψεύτικη αρπάγη).
+- **Μικρά από το NOTES:** `package.xml` του `arm_gui` με όσα εισάγει (PyQt5, psutil για το `arm_link`, action_msgs,
+  builtin_interfaces): προϋπόθεση για εξαρτήσεις με `rosdep` στο Docker του PC (η αλλαγή του Dockerfile μένει,
+  θέλει ξαναχτίσιμο για δοκιμή). `arm_link`: 10 νέα tests (Ping, LinkStats, LinkProbe με απώλειες/σκουπίδια, UDP echo
+  και εύρεση στο localhost), χωρίς αλλαγή στον κώδικα. Tests arm_link 11 ✅.

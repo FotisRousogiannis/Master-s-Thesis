@@ -20,6 +20,7 @@ from .panels.connection_panel import ConnectionPanel
 from .panels.devices_panel import DevicesPanel
 from .panels.graph_panel import GraphPanel
 from .panels.joints_panel import JointsPanel
+from .panels.moveit_panel import MoveItPanel
 from .panels.log_panel import LogPanel
 from .panels.messages import MessagesStrip
 from .panels.parameters_panel import CALIBRATION_NODE, ParametersPanel
@@ -128,6 +129,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.system = SystemPanel()
         self.joints = JointsPanel()
+        self.moveit = MoveItPanel()
         self.devices = DevicesPanel()
         self.parameters = ParametersPanel()
         self.calibration = CalibrationPanel()
@@ -149,7 +151,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # ------------------------------------------------------------------ construction
     SECTIONS = (
-        ("run", "Χειρισμός", "σύστημα, αρθρώσεις"),
+        ("run", "Χειρισμός", "σύστημα, αρθρώσεις, MoveIt"),
         ("cal", "Βαθμονόμηση", "οδηγός, ρυθμίσεις"),
         ("pi", "Pi", "σύνδεση με το Pi"),
         ("adv", "Για προχωρημένους", "παράμετροι, ROS 2, log"),
@@ -158,7 +160,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_sections(self):
         run = QtWidgets.QSplitter(Qt.Horizontal)
         run.addWidget(self.system)
-        run.addWidget(self.joints)
+        motion = QtWidgets.QWidget()                     # joints directly, or MoveIt (ADR-0025)
+        column = QtWidgets.QVBoxLayout(motion)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.addWidget(self.joints, 1)
+        column.addWidget(self.moveit)
+        run.addWidget(motion)
         run.setStretchFactor(1, 1)
         self.advanced = QtWidgets.QTabWidget()
         for widget, title in ((self.parameters, "Παράμετροι"), (self.graph, "ROS 2"), (self.tools, "Εργαλεία"),
@@ -342,6 +349,10 @@ class MainWindow(QtWidgets.QMainWindow):
         b.log.connect(lambda line: self.log.append("app", line))
         b.log.connect(lambda line: self.messages.add("info", line))
         self.joints.goal_requested.connect(b.send_joint_goal)
+        self.moveit.move_requested.connect(b.move_with_moveit)
+        b.semantic_received.connect(self.moveit.set_semantic)
+        b.moveit_status.connect(self.moveit.set_status)
+        b.moveit_status.connect(lambda text: self.messages.add("info", text))
         self.system.start_requested.connect(self.start_system)
         self.system.window_requested.connect(self.set_window)
         self.tools.run_requested.connect(self.run_tool)

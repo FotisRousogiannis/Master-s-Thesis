@@ -474,3 +474,8 @@
   builtin_interfaces): προϋπόθεση για εξαρτήσεις με `rosdep` στο Docker του PC (η αλλαγή του Dockerfile μένει,
   θέλει ξαναχτίσιμο για δοκιμή). `arm_link`: 10 νέα tests (Ping, LinkStats, LinkProbe με απώλειες/σκουπίδια, UDP echo
   και εύρεση στο localhost), χωρίς αλλαγή στον κώδικα. Tests arm_link 11 ✅.
+- **MoveIt 2 (ADR-0025, επιλογή Φώτη):** πακέτο `arm_moveit_config` με το χέρι (SRDF: ομάδα `arm`, θέσεις `home` /
+  `ready`, μόνο γειτονικοί σύνδεσμοι χωρίς έλεγχο συγκρούσεων· KDL· όρια· εκτέλεση μέσω `arm_controller`),
+  `move_group` στο bringup (`moveit:=true`), RViz με MotionPlanning. Arm Studio: πλαίσιο «MoveIt» στον Χειρισμό (θέσεις
+  του SRDF, σημείο εργαλείου x/y/z, ταχύτητα), STOP ακυρώνει και τον στόχο MoveIt. Tests: arm_moveit_config 7,
+  arm_gui 70 ✅. **Δεν δοκιμάστηκε με ROS** (πρώτα `ros2 launch arm_bringup bringup.launch.py` σε mock).

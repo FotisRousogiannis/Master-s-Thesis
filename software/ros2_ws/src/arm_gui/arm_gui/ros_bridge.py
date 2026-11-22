@@ -32,6 +32,7 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
+from . import moveit_goals
 from .qt import QtCore, Signal
 
 ARM_CONTROLLER = "arm_controller"
@@ -82,6 +83,8 @@ class RosBridge(QtCore.QObject):
     service_result = Signal(str, bool, str)  # service, success, message
     diagnostics = Signal(object)  # [{"name", "level" 0 ok/1 warn/2 error/3 stale, "message", "hardware_id", "values"}]
     identify_reply = Signal(object)  # one JSON reply of the Pi's identification mode (dict)
+    semantic_received = Signal(str)  # the SRDF that move_group publishes (ADR-0025)
+    moveit_status = Signal(str)  # human readable status of the last MoveIt goal
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -98,6 +101,10 @@ class RosBridge(QtCore.QObject):
         self._node.create_timer(1.0, self._poll_graph)
         self._identify_pub = self._node.create_publisher(String, IDENTIFY_REQUEST, 10)
         self._node.create_subscription(String, IDENTIFY_REPLY, self._on_identify_reply, 10)
+        self._node.create_subscription(String, "/robot_description_semantic",
+                                       lambda msg: self.semantic_received.emit(msg.data), latched)
+        self._moveit = None              # ActionClient of move_group, made on the first goal
+        self._moveit_handle = None
 
         self._param_clients = {}
         self._goal_handle = None
@@ -326,11 +333,79 @@ class RosBridge(QtCore.QObject):
         self.goal_status.emit(f"Αποστολή κίνησης ({duration_s:.1f} s)…")
         self._action.send_goal_async(goal).add_done_callback(self._on_goal_response)
 
+    def move_with_moveit(self, goal: dict):
+        """A goal of moveit_goals → move_group plans (with collision checking) and executes it."""
+        from geometry_msgs.msg import Pose
+        from moveit_msgs.action import MoveGroup
+        from moveit_msgs.msg import BoundingVolume, Constraints, JointConstraint, PositionConstraint
+        from shape_msgs.msg import SolidPrimitive
+
+        if self._moveit is None:
+            self._moveit = ActionClient(self._node, MoveGroup, "/move_action")
+        if not self._moveit.server_is_ready():
+            self.moveit_status.emit("Το move_group δεν είναι διαθέσιμο (bringup με moveit:=true;)")
+            return
+        constraints = Constraints()
+        if goal["kind"] == "joints":
+            for name, value in goal["joints"].items():
+                constraints.joint_constraints.append(JointConstraint(
+                    joint_name=name, position=value, tolerance_above=moveit_goals.JOINT_TOLERANCE_RAD,
+                    tolerance_below=moveit_goals.JOINT_TOLERANCE_RAD, weight=1.0))
+            text = "θέση αρθρώσεων"
+        else:
+            x, y, z = goal["xyz"]
+            region = BoundingVolume()
+            region.primitives.append(SolidPrimitive(type=SolidPrimitive.SPHERE,
+                                                    dimensions=[moveit_goals.POSITION_TOLERANCE_M]))
+            pose = Pose()
+            pose.position.x, pose.position.y, pose.position.z = x, y, z
+            pose.orientation.w = 1.0
+            region.primitive_poses.append(pose)
+            position = PositionConstraint(link_name=moveit_goals.TOOL_LINK, constraint_region=region, weight=1.0)
+            position.header.frame_id = moveit_goals.FRAME
+            constraints.position_constraints.append(position)
+            text = f"εργαλείο στο ({x:.3f}, {y:.3f}, {z:.3f}) m"
+        request = MoveGroup.Goal()
+        request.request.group_name = moveit_goals.GROUP
+        request.request.num_planning_attempts = 5
+        request.request.allowed_planning_time = 5.0
+        request.request.max_velocity_scaling_factor = goal["speed"]
+        request.request.max_acceleration_scaling_factor = goal["speed"]
+        request.request.start_state.is_diff = True             # from where the arm is now
+        request.request.goal_constraints.append(constraints)
+        request.planning_options.plan_only = False
+        request.planning_options.planning_scene_diff.is_diff = True
+        request.planning_options.planning_scene_diff.robot_state.is_diff = True
+        self.moveit_status.emit(f"MoveIt: σχεδιασμός ({text})…")
+        self._moveit.send_goal_async(request).add_done_callback(self._on_moveit_response)
+
+    def _on_moveit_response(self, future):
+        handle = future.result()
+        if handle is None or not handle.accepted:
+            self.moveit_status.emit("MoveIt: ο στόχος απορρίφθηκε")
+            return
+        with self._goal_lock:
+            self._moveit_handle = handle
+        handle.get_result_async().add_done_callback(self._on_moveit_result)
+
+    def _on_moveit_result(self, future):
+        with self._goal_lock:
+            self._moveit_handle = None
+        response = future.result()
+        if response is None:
+            self.moveit_status.emit("MoveIt: χωρίς απάντηση")
+            return
+        code = response.result.error_code.val
+        self.moveit_status.emit(f"MoveIt: {moveit_goals.error_text(code)}")
+
     def stop(self):
         """Software stop: cancel the running trajectory; the controller holds the current position.
         This is NOT a safety function: the hardware E-stop cuts the servo power."""
         with self._goal_lock:
             handle, self._goal_handle = self._goal_handle, None
+            moveit, self._moveit_handle = self._moveit_handle, None
+        if moveit is not None:
+            moveit.cancel_goal_async()                  # move_group stops executing its plan
         if handle is not None:
             handle.cancel_goal_async()
         # An empty trajectory also makes the controller stop and hold (covers goals sent by others).

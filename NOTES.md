@@ -121,8 +121,8 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   απώλειες, RTT 0.17 ms (max 0.41)· `docs/measurements/link/`. Εύρεση του Pi με broadcast σε όλα τα δίκτυα του PC
   (`python3 -m arm_link.discovery`)· server ως υπηρεσία `arm-link-echo` στο Pi (ξεκινά μόνος του, επιβεβαιωμένο μετά από
   reboot). Πάνελ «Σύνδεση» του Arm Studio: εύρεση UDP και μέτρηση της σύνδεσης (ADR-0022)· με το Pi 0 %, RTT 0.14 ms. Ενώθηκαν στο `draft` (2026-11-16).
-  Εκκρεμούν: WiFi, tests του `arm_link` (μόνο 1 τώρα). Docker του PC: εξαρτήσεις από τα `package.xml` με `rosdep`, όπως
-  στο Pi (πρώτα να συμπληρωθούν τα `package.xml`, π.χ. PyQt5/psutil στο `arm_gui`· ένα πλήρες ξαναχτίσιμο).
+  Εκκρεμούν: WiFi (tests του `arm_link`: 11, 2026-11-22). Docker του PC: εξαρτήσεις από τα `package.xml` με `rosdep`, όπως
+  στο Pi (τα `package.xml` συμπληρώθηκαν 2026-11-22· μένει το Dockerfile και ένα πλήρες ξαναχτίσιμο).
 - **`arm_pi_driver` (2026-11-17, στο `draft`):** node ROS 2 του Pi σε Docker (`software/pi/`: `docker/`, `arm_pi_driver/`),
   αυτόματη εκκίνηση με το Pi. Υλικό πίσω από interfaces (`Encoder`, `PwmOutput`, `ForceSensor`: TCA9548A, AS5600,
   PCA9685, ADS1115, ZD10)· έλεγχος με `Controller`/`ControlLaw` (μίξη ανά μοτέρ στο YAML: διαφορικό, κατοπτρικά, ένα

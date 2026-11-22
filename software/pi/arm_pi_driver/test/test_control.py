@@ -122,3 +122,17 @@ def test_no_enabled_joint_is_refused(data):
         joint['enabled'] = False
     with pytest.raises(ValueError):
         arm_file.driver_config(data)
+
+
+def test_a_moving_target_keeps_the_integral(config):
+    """In a trajectory the target changes every cycle (ADR-0024): the I of the PID must survive it;
+    only a new move (no target before) or a safety stop starts from zero."""
+    [base] = build_controllers(config)
+    law = base.laws['joint_1']
+    base.set_targets({'joint_1': 10.0})
+    law.integral = 0.5
+    base.set_targets({'joint_1': 10.2})
+    assert law.integral == 0.5
+    base.clear_targets()
+    base.set_targets({'joint_1': 10.2})
+    assert law.integral == 0.0

@@ -212,8 +212,10 @@ class CalibrationPanel(QtWidgets.QWidget):
         ("Νεκρή ζώνη άρθρωσης", "Ελάχιστη εντολή κάθε άρθρωσης (teleop [9])",
          "Η εντολή μεγαλώνει ανά 0.02 μέχρι η άρθρωση να κινηθεί 0.5° προς τη σωστή μεριά, + και −. "
          "Κάνε πρώτα τη νεκρή ζώνη servo.", True),
-        ("Αρπάγη", "Όρια της αρπάγης",
-         "Κλείσε τελείως → «Κλειστή», άνοιξε τελείως → «Ανοιχτή». Κλειστή = 0°.", True),
+        ("Αρπάγη", "Όρια και πίεση της αρπάγης (8α, 8β)",
+         "8α: κλείσε τελείως → «Κλειστή», άνοιξε τελείως → «Ανοιχτή» (κλειστή = 0°), αποθήκευση. "
+         "8β: αντικείμενο στην αρπάγη → «Πίεση»: κλείνει αργά· «Διακοπή» (Space) όταν σφίξει αρκετά. "
+         "Η πίεση εκείνη τη στιγμή = η μέγιστη.", True),
     )
     # six arrows, one per motion and direction; the joint of the group with that `motion` moves
     MOTIONS = (("yaw", "Yaw · στροφή", "A / D"), ("pitch", "Pitch · πάνω-κάτω", "W / S"),
@@ -332,7 +334,8 @@ class CalibrationPanel(QtWidgets.QWidget):
             [self._button("Μέτρηση", lambda: self._routine(self.bench.servo_deadbands), primary=True)],
             [self._button("Μέτρηση", lambda: self._routine(self.bench.joint_deadbands), primary=True)],
             [self._button("Κλειστή", lambda: self._gripper(True)),
-             self._button("Ανοιχτή", lambda: self._gripper(False))],
+             self._button("Ανοιχτή", lambda: self._gripper(False)),
+             self._button("Πίεση", self.do_pressure, primary=True)],
         )
         for widgets in pages:
             w = QtWidgets.QWidget()
@@ -496,6 +499,14 @@ class CalibrationPanel(QtWidgets.QWidget):
                              "στο χέρι, ελεύθερη διαδρομή;"):
             return
         self._send(start(self.group))
+
+    def do_pressure(self):
+        if not self._ready():
+            return
+        if not self._confirm("8β: η αρπάγη θα κλείνει αργά πάνω στο αντικείμενο μέχρι «Διακοπή». Διακόπτης "
+                             "ρεύματος των servo στο χέρι;"):
+            return
+        self._send(self.bench.gripper_pressure())
 
     def _act(self, action):
         action()

@@ -3,7 +3,7 @@
     /<segment>/joint_states    (δημοσιεύει)  θέσεις των αρθρώσεων, σε ακτίνια
     /<segment>/joint_commands  (ακούει)      στόχοι θέσης, σε ακτίνια· χωρίς νέα εντολή για
                                              watchdog_s τα μοτέρ σταματούν
-    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, servo/<servo>, pi_driver/<segment>, force/…, 1 Hz
+    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, servo/<servo>, pi_driver/…, force/…
     /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
     ~/identify/request         (ακούει)      αναγνώριση (ADR-0023): JSON {'id', 'op', ...}
     ~/identify/reply           (δημοσιεύει)  οι απαντήσεις, JSON (identify.Session)
@@ -99,8 +99,14 @@ def real_hardware(config: dict):
 def real_identifier(config: dict, data: dict, pwm, mux) -> Identifier:
     """Αναγνώριση στο αληθινό I²C: ένας AS5600 σε ΚΑΘΕ κανάλι (ίδιος mux με τον driver)."""
     encoders = {ch: AS5600(mux.bus, mux, ch) for ch in TCA_CHANNELS}
+    adc = data['controller']['adc']
+
+    def force(channel, analog_input):           # ZD10 για το 8β, σε όποιο κανάλι λέει το αρχείο
+        chip = ADS1115(mux.bus, mux, channel, adc['address'], adc['full_scale_v'], adc['rate_sps'])
+        return ZD10(chip, analog_input)
+
     return Identifier(encoders, pwm, lambda ch: mux.probe(ch, DEVICES), config['pca'],
-                      data['controller']['bench'])
+                      data['controller']['bench'], force)
 
 
 def fake_identifier(config: dict, data: dict, sim: SimulatedArm) -> Identifier:
@@ -113,7 +119,8 @@ def fake_identifier(config: dict, data: dict, sim: SimulatedArm) -> Identifier:
         found = [0x40] if channel == config['pca']['mux_channel'] else []
         return found + ([0x36] if channel in by_channel else [])
 
-    return Identifier(encoders, sim.pwm, probe, config['pca'], data['controller']['bench'])
+    return Identifier(encoders, sim.pwm, probe, config['pca'], data['controller']['bench'],
+                      lambda channel, analog_input: FakeForceSensor())
 
 
 def fake_force_sensors(config: dict) -> dict:

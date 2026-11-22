@@ -66,6 +66,9 @@ def zero_for(raw_deg: float, invert: bool, angle_deg: float) -> float:
     return round((raw_deg - (-1 if invert else 1) * angle_deg) % 360.0, 3)
 
 
+PRESSURE = "Πίεση αρπάγης"
+
+
 class Bench:
     """What the Pi said, and what a finished procedure would save."""
 
@@ -130,6 +133,8 @@ class Bench:
         return self._request({"op": "drive", "servos": servos})
 
     def stop(self) -> dict:
+        if self.running == PRESSURE:                 # 8β: the Stop IS the measurement; wait for it
+            return self._request({"op": "stop"})
         self._queue, self._current, self.running = [], None, None
         return self._request({"op": "stop"})
 
@@ -172,6 +177,10 @@ class Bench:
             steps.append((j, {"name": "joint_deadband", "servos": joint["servos"],
                               "channel": self.channel_of(j), "invert": joint["invert"]}))
         return self._start("Νεκρή ζώνη άρθρωσης", steps)
+
+    def gripper_pressure(self) -> dict:
+        """8β: with an object in the gripper, it closes slowly; «Διακοπή» when the grip is enough."""
+        return self._start(PRESSURE, [("gripper", {"name": "gripper_pressure", "joint": "gripper"})])
 
     # ---------------------------------------------------------------- replies
     def handle(self, reply: dict) -> list:
@@ -223,7 +232,7 @@ class Bench:
     def _finish(self) -> None:
         name, self.running = self.running, None
         {"Αναγνώριση": self._identified, "Νεκρή ζώνη servo": self._servo_bands,
-         "Νεκρή ζώνη άρθρωσης": self._joint_bands}[name]()
+         "Νεκρή ζώνη άρθρωσης": self._joint_bands, PRESSURE: self._pressure}[name]()
         self.log += [("info", line) for line in self.summary]
         if self.changes:
             self.log.append(("info", "Αν είναι σωστά: «Σωστό · αποθήκευση»."))
@@ -306,6 +315,19 @@ class Bench:
                 continue
             self.changes[f"joints.{joint}.deadband"] = [r["pos"], r["neg"]]
             self.summary.append(f"  {joint}: κινείται από {r['pos']} (+) / {r['neg']} (−)")
+
+    def _pressure(self) -> None:
+        """Stop → max_v of every ZD10 = its voltage at that moment; otherwise no proposal (ADR-0023, 8β)."""
+        r = self._results["gripper"]
+        self.changes, self.summary = {}, []
+        volts = "  ".join(f"{n} {v:.2f} V" for n, v in r["volts"].items())
+        if r["reason"] == "stop":
+            self.changes = {f"force_sensors.{n}.max_v": v for n, v in r["volts"].items()}
+            self.summary = [f"  μέγιστη πίεση (στο Stop, αρπάγη {r['position_deg']}°): {volts}"]
+        elif r["reason"] == "safety":
+            self.summary = [f"✖ έφτασε το όριο ασφαλείας του αισθητήρα ({volts}): «Διακοπή» νωρίτερα"]
+        else:
+            self.summary = ["✖ η αρπάγη έκλεισε τελείως χωρίς πίεση: βάλε αντικείμενο ανάμεσα"]
 
     def zero(self, joint: str, angle: float, lower: float, upper: float) -> bool:
         """teleop [6], second part: the joint is at `angle`; its encoder reading becomes that angle."""

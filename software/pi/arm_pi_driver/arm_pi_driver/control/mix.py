@@ -61,7 +61,9 @@ class MixController(Controller):
         for name, value in targets.items():
             joint = self._joints[name]
             clamped = clamp(value, joint['lower_deg'], joint['upper_deg'])
-            if self._targets.get(name) != clamped:
+            # Μόνο στην αρχή μιας κίνησης: σε τροχιά (ADR-0024) ο στόχος αλλάζει κάθε 10 ms, και
+            # ένα reset κάθε φορά θα έσβηνε το I. Η παράγωγος είναι στη μέτρηση: χωρίς «κλωτσιά».
+            if name not in self._targets:
                 self.laws[name].reset()
             self._targets[name] = clamped
         return self.targets

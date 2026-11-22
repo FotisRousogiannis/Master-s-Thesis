@@ -108,6 +108,29 @@ def test_servo_and_joint_deadbands(bench):
     assert any(s.startswith("✖ joint_2") for s in bench.summary)
 
 
+def test_gripper_pressure_stop_is_the_measurement(bench):
+    """8β: «Διακοπή» does not cancel; the Pi answers with the voltages at that moment → max_v."""
+    first = bench.gripper_pressure()
+    assert first["name"] == "gripper_pressure" and bench.running == "Πίεση αρπάγης"
+    assert bench.stop()["op"] == "stop" and bench.running == "Πίεση αρπάγης"      # still waiting
+    routine_done(bench, first, {"reason": "stop", "volts": {"finger_1": 1.8, "finger_2": 1.65},
+                                "position_deg": 12.0})
+    assert bench.changes == {"force_sensors.finger_1.max_v": 1.8, "force_sensors.finger_2.max_v": 1.65}
+    assert bench.running is None
+    first = bench.gripper_pressure()
+    routine_done(bench, first, {"reason": "safety", "volts": {"finger_1": 2.41}, "position_deg": 10.0})
+    assert bench.changes == {} and bench.summary[0].startswith("✖ έφτασε το όριο ασφαλείας")
+    first = bench.gripper_pressure()
+    routine_done(bench, first, {"reason": "closed", "volts": {"finger_1": 0.94}, "position_deg": 0.0})
+    assert bench.changes == {} and "χωρίς πίεση" in bench.summary[0]
+
+
+def test_other_procedures_are_cancelled_by_stop(bench):
+    first = bench.servo_deadbands(bench.groups()[0])
+    bench.stop()
+    assert bench.running is None and routine_done(bench, first, {"down_us": 1, "up_us": 2}) == []
+
+
 def test_live_position_and_zero(bench):
     bench.handle({"op": "live", "ok": True, "result": {"2": {"raw_deg": 277.891, "status": "TOO_WEAK"}}})
     assert bench.position("joint_1") == 10.0

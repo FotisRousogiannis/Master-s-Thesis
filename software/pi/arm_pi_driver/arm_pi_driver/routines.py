@@ -12,6 +12,9 @@ node (50 Hz), ώστε τίποτα να μην «κολλά» το node, και
 
 Ασφάλεια σε ΚΑΘΕ κύκλο: encoder που χάνεται → στάση· μετακίνηση πάνω από max_travel_deg από
 την αρχή της διαδικασίας → στάση. Στο τέλος ή σε διακοπή: κανένας παλμός.
+
+Διακοπή (Runner.stop): η γεννήτρια δέχεται Stopped. Όποια δεν την πιάνει τελειώνει με σφάλμα· όποια
+την πιάνει και επιστρέφει, τελειώνει με αποτέλεσμα (8β: η πίεση στο Stop ΕΙΝΑΙ η μέτρηση).
 """
 
 from dataclasses import dataclass
@@ -48,6 +51,10 @@ class Note:
 
 class RoutineError(Exception):
     """Η διαδικασία δεν μπορεί να συνεχίσει (το μήνυμα πάει στο Arm Studio)."""
+
+
+class Stopped(Exception):
+    """Ο χρήστης πάτησε Stop (μπαίνει στη γεννήτρια με throw)."""
 
 
 class Runner:
@@ -92,10 +99,20 @@ class Runner:
         self._written = set()
 
     def stop(self, reason: str = 'διακοπή από τον χρήστη') -> None:
-        """Διακοπή: κανένας παλμός, τέλος με σφάλμα."""
-        if not self.done:
-            self._off()
-            self.error, self.done = reason, True
+        """Διακοπή: κανένας παλμός· τέλος με σφάλμα, ή με αποτέλεσμα αν η διαδικασία το δίνει."""
+        if self.done:
+            return
+        self._off()
+        try:
+            self.routine.throw(Stopped())
+        except StopIteration as stop:
+            self.result, self.done = stop.value, True
+            return
+        except Exception:                               # noqa: B902 (Stopped ή ό,τι άλλο)
+            pass
+        else:
+            self.routine.close()                        # ζήτησε κι άλλη ενέργεια: όχι
+        self.error, self.done = reason, True
 
     def tick(self, now: float) -> None:
         """Ένας κύκλος: ασφάλεια, και η επόμενη ενέργεια όταν τελειώσει η τωρινή."""
@@ -247,3 +264,53 @@ def joint_deadband(pulses, channel, sign, start=0.05, step=0.02, top=0.6, hold_s
         text = f'κινείται από {value}' if value else f'όχι ως {top}'
         yield Note(f"{'θετικά' if direction > 0 else 'αρνητικά'}: {text}")
     return {'pos': found[1], 'neg': found[-1]}
+
+
+# ---------------------------------------------------------------------------------------- 8β
+
+
+def gripper_pressure(pulses, channel, sign, zero_deg, closed_deg, sensors, safety_v, speed=0.15,
+                     step_s=0.1, note_every=3):
+    """Μέγιστη πίεση της αρπάγης (ADR-0023, βήμα 8β), με αντικείμενο μέσα της.
+
+    Κλείνει αργά (βήματα step_s με −speed) και διαβάζει τους ZD10 σε κάθε βήμα. Τέλος:
+      Stop του χρήστη  → 'stop' με τις τάσεις εκείνη τη στιγμή (= η μέγιστη επιτρεπτή πίεση)
+      τάση ≥ safety_v  → 'safety' (καμία πρόταση: η πίεση ξεπέρασε το όριο του αισθητήρα)
+      θέση ≤ closed_deg → 'closed' (έκλεισε τελείως: δεν υπήρχε αντικείμενο;)
+
+    channel = ο encoder της αρπάγης, sign/zero_deg = invert/zero_deg του αρχείου (0° = κλειστή),
+    sensors = {όνομα: ForceSensor}. Επιστρέφει {'reason', 'volts': {όνομα: V}, 'position_deg'}.
+    """
+    volts, position, count = {}, None, 0
+
+    def read_sensors():
+        for name, sensor in sensors.items():
+            value, status = sensor.read()
+            if status != 'OK':
+                raise RoutineError(f'{name}: {status}')
+            volts[name] = value
+
+    def result(reason):
+        return {'reason': reason, 'volts': {n: round(v, 3) for n, v in volts.items()},
+                'position_deg': None if position is None else round(position, 2)}
+
+    try:
+        while True:
+            read_sensors()
+            if any(v >= safety_v for v in volts.values()):
+                return result('safety')
+            angles = yield Read()
+            position = sign * wrap(angles[channel] - zero_deg)
+            if position <= closed_deg:
+                return result('closed')
+            if count % note_every == 0:
+                text = '  '.join(f'{n} {v:.2f} V' for n, v in volts.items())
+                yield Note(f'{position:+.1f}° · {text}')
+            count += 1
+            yield Pulse(pulses(-speed), step_s)
+    except Stopped:
+        try:
+            read_sensors()                  # η πίεση ΤΩΡΑ, όχι του προηγούμενου βήματος (0.1 s)
+        except (RoutineError, OSError):
+            pass                            # κρατά την τελευταία καλή ένδειξη
+        return result('stop')

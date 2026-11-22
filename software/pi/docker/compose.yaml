@@ -20,6 +20,7 @@ services:
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}   # ίδιο με το PC (software/docker/compose.yaml)
       - ARM_PI_FAKE=${ARM_PI_FAKE:-false}   # true: προσομοίωση χωρίς υλικό
+      - ARM_I2C_LOCK=/root/master-s-thesis/.local/i2c.lock   # ένα πρόγραμμα τη φορά στο I²C
     stdin_open: true
     tty: true
     restart: unless-stopped             # ξεκινά μόνο του με το Pi (και ξανά αν σταματήσει)

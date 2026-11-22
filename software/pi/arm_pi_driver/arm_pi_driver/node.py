@@ -3,7 +3,7 @@
     /<segment>/joint_states    (δημοσιεύει)  θέσεις των αρθρώσεων, σε ακτίνια
     /<segment>/joint_commands  (ακούει)      στόχοι θέσης, σε ακτίνια· χωρίς νέα εντολή για
                                              watchdog_s τα μοτέρ σταματούν
-    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, pi_driver/<segment>, force/…, 1 Hz
+    /diagnostics               (δημοσιεύει)  encoder/<άρθρωση>, servo/<servo>, pi_driver/<segment>, force/…, 1 Hz
     /parameter_events          (ακούει)      αλλαγές βαθμονόμησης του /arm_calibration (PC)
     ~/identify/request         (ακούει)      αναγνώριση (ADR-0023): JSON {'id', 'op', ...}
     ~/identify/reply           (δημοσιεύει)  οι απαντήσεις, JSON (identify.Session)
@@ -23,6 +23,7 @@ servo· πίσω με {'op': 'exit'} ή μόνο του αν δεν έρθει �
 
 import json
 import math
+import os
 from pathlib import Path
 import time
 
@@ -71,7 +72,10 @@ def parameter_value(value):
 
 
 def real_hardware(config: dict):
-    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm, force_sensors, mux)."""
+    """Το αληθινό υλικό στο I²C του Pi: (encoders, pwm, force_sensors, mux).
+
+    Πριν από αυτό ο κόμβος κρατά την κλειδαριά του I²C (hardware/i2c_lock.py).
+    """
     from smbus2 import SMBus     # μόνο εδώ: με fake:=true δεν χρειάζεται καθόλου
 
     bus = SMBus(config['i2c_bus'])
@@ -138,6 +142,7 @@ class PiDriverNode(Node):
             identifier = fake_identifier(config, self.arm, self.sim)
         else:
             self.sim = None
+            self.i2c_lock = self.wait_for_i2c()
             encoders, pwm, sensors, mux = real_hardware(config)
             identifier = real_identifier(config, self.arm, pwm, mux)
         # self.arm είναι ζωντανό: κανάλια που δίνει τώρα το UI ισχύουν και στην αναγνώριση
@@ -167,6 +172,21 @@ class PiDriverNode(Node):
             f'/{self.segment}/joint_states, /{self.segment}/joint_commands · '
             f'ομάδες {", ".join(config["groups"])} · αρθρώσεις {", ".join(joints)} · '
             f'ανενεργές: {", ".join(disabled) or "καμία"} · {path}')
+
+    def wait_for_i2c(self) -> int:
+        """Η κλειδαριά του I²C· όσο την κρατά το teleop.py ή το wrist_bench.py, περιμένει."""
+        from arm_pi_driver.hardware.i2c_lock import hold, I2CBusy
+        path = os.environ.get('ARM_I2C_LOCK', '/root/master-s-thesis/.local/i2c.lock')
+        said = False
+        while True:
+            try:
+                return hold(path)
+            except I2CBusy:
+                if not said:
+                    self.get_logger().error('το I²C το χρησιμοποιεί άλλο πρόγραμμα (teleop.py ή '
+                                            'wrist_bench.py;)· περιμένω να κλείσει')
+                    said = True
+                time.sleep(1.0)
 
     def on_identify(self, msg: String) -> None:
         """Ένα αίτημα αναγνώρισης (JSON)· η πρώτη φορά σταματά τον κανονικό έλεγχο."""
@@ -319,6 +339,8 @@ class PiDriverNode(Node):
         for name, level, message, values in self.report.extra:     # π.χ. αισθητήρες αρπάγης
             status = DiagnosticStatus()
             status.name, status.level, status.message = name, LEVELS[level], message
+            if name.startswith('servo/'):
+                status.hardware_id = f"PCA9685 κανάλι {values['channel']}"
             status.values = [KeyValue(key=k, value=str(v)) for k, v in values.items()]
             array.status.append(status)
         self.diagnostics.publish(array)

@@ -220,6 +220,26 @@ class Driver:
             return 'PCA9685 δεν απαντά'
         return None
 
+    def servo_statuses(self, failure: str | None) -> list:
+        """servo/<όνομα> για τις Συσκευές (ADR-0018): ο παλμός που γράφτηκε, ή το σφάλμα του PCA.
+
+        Το servo δεν απαντά (PWM ένα προς ένα): «ενεργό» σημαίνει μόνο ότι ο PCA9685 δέχτηκε τον
+        παλμό του, όχι ότι το μοτέρ γυρίζει.
+        """
+        out = []
+        for group in self.config['groups'].values():
+            for key, motor in group['motors'].items():
+                name, channel = f"servo/{motor.get('servo', key)}", motor['channel']
+                pulse = self.written.get(channel)
+                shown = 'off' if pulse is None else f'{pulse:.0f}'
+                values = {'channel': channel, 'pulse_us': shown}
+                if failure:
+                    out.append((name, ERROR, failure, values))
+                else:
+                    text = 'χωρίς παλμό' if pulse is None else f'παλμός {pulse:.0f} µs'
+                    out.append((name, IDLE, text, values))
+        return out
+
     def tick(self, now: float) -> Report:
         """Ένας κύκλος: ανάγνωση, απόφαση, έξοδοι."""
         dt = 0.0 if self.last_tick is None else now - self.last_tick
@@ -237,6 +257,7 @@ class Driver:
             for controller in self.controllers:
                 controller.clear_targets()
         extra = [item for controller in self.controllers for item in controller.diagnostics()]
+        extra += self.servo_statuses(failure)
         return Report(joints, moving, reason, level, self._events(joints, reason, level), extra)
 
     def _events(self, joints: dict, reason: str, level: str) -> list:

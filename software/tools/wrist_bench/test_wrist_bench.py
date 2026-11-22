@@ -366,3 +366,20 @@ def test_diffjog_stops_when_an_encoder_disappears(config, monkeypatch, capsys):
     wb.diffjog(wb.Bench(config, bus), "base")
     assert "stopped answering" in capsys.readouterr().out
     assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
+
+
+def test_one_program_at_a_time_on_the_i2c(tmp_path):
+    import fcntl
+    import os
+
+    import pytest
+
+    lock = tmp_path / ".local" / "i2c.lock"
+    lock.parent.mkdir()
+    driver = os.open(lock, os.O_CREAT | os.O_RDWR)
+    fcntl.flock(driver, fcntl.LOCK_EX)               # the driver holds the bus
+    with pytest.raises(SystemExit) as stop:
+        wb.hold_i2c(lock)
+    assert "docker compose stop" in str(stop.value)
+    os.close(driver)
+    assert wb.hold_i2c(lock) >= 0                     # free: the tool goes on

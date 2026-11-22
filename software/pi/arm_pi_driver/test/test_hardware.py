@@ -94,3 +94,13 @@ def test_mux_probe_finds_only_what_answers():
     mux = TCA9548A(bus)
     assert mux.probe(3, [0x40, 0x36, 0x48]) == [0x40, 0x36]
     assert bus.writes[0] == (0x70, 0b0000_1000)
+
+
+def test_one_program_at_a_time_on_the_i2c(tmp_path):
+    from arm_pi_driver.hardware.i2c_lock import hold, I2CBusy, release
+    lock = tmp_path / '.local' / 'i2c.lock'
+    first = hold(lock)
+    with pytest.raises(I2CBusy):
+        hold(lock)                      # e.g. teleop.py while the driver runs
+    release(first)
+    release(hold(lock))                 # free again

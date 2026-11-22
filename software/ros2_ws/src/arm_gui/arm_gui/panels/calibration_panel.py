@@ -560,7 +560,7 @@ class CalibrationPanel(QtWidgets.QWidget):
             reading = self.bench.live.get(channel) if channel is not None else None
             if reading is None or reading.get("status") == "NO_RESPONSE":
                 continue
-            raw = reading.get("raw_deg")
+            raw = reading.get("raw_deg") if reading.get("status") != "NO_MAGNET" else None   # χωρίς μαγνήτη: θόρυβος
             position = self.bench.position(joint)
             rows.append((joint, f"κανάλι {channel}", NONE if raw is None else f"{raw:.1f}",
                          NONE if position is None else f"{position:+.1f}", reading.get("status", NONE)))
@@ -575,7 +575,7 @@ class CalibrationPanel(QtWidgets.QWidget):
         for name, e in self.data["encoders"].items():
             reading = self.bench.live.get(e.get("channel"))
             if reading:
-                raw = reading.get("raw_deg")
+                raw = reading.get("raw_deg") if reading.get("status") != "NO_MAGNET" else None
                 self.encoders.set_live(name, "raw", NONE if raw is None else f"{raw:.2f}")
                 self.encoders.set_live(name, "status", reading.get("status", NONE))
 

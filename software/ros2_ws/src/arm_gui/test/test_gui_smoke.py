@@ -314,7 +314,10 @@ def test_devices_panel_shows_which_devices_are_active(window):
     ] + [{"name": "joints.joint_5.encoder", "type": "string", "value": "enc_5", "description": "", "read_only": False,
           "min": None, "max": None},
          {"name": "joints.joint_5.enabled", "type": "bool", "value": True, "description": "", "read_only": False,
-          "min": None, "max": None}]
+          "min": None, "max": None}] + [
+        {"name": f"joints.joint_5.servos.{s}", "type": "integer", "value": 1, "description": "", "read_only": False,
+         "min": None, "max": None}
+        for s in ("wrist_diff_a", "wrist_diff_b")]
     window.parameters._node = "/arm_calibration"
     b.parameters_loaded.emit("/arm_calibration", params)
     assert panel.counts() == {"Servos": (0, 2), "Encoders": (0, 1)}  # configured, never reported
@@ -527,3 +530,12 @@ def test_messages_show_only_changes_of_devices(window):
     b.diagnostics.emit([{**status, "level": 0, "message": "OK"}])
     assert "encoder/joint_1: εντάξει" in strip.texts()[-1]
     assert window._warn_pill.text() == "Καμία προειδοποίηση"
+
+
+def test_expected_devices_are_the_driven_ones():
+    """Only servos with a channel, of enabled joints, ever report (bench: servo_7..11 waited forever)."""
+    from arm_calibration import arm_config
+    from arm_gui.main_window import expected_devices
+
+    names = expected_devices(arm_config.parameters(arm_config.load()))
+    assert names == ["encoder/joint_1", "encoder/joint_2", "servo/servo_1", "servo/servo_2"]

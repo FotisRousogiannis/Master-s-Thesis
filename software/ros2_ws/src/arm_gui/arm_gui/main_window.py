@@ -95,6 +95,21 @@ def _rect(q) -> Rect:
     return Rect(q.x(), q.y(), q.width(), q.height())
 
 
+def expected_devices(values: dict) -> list:
+    """servo/<servo> and encoder/<joint> of the enabled joints, from the /arm_calibration parameters.
+    A servo of a disabled joint, or one without a channel (-1), is not driven, so it never reports."""
+    expected = set()
+    for name, value in values.items():
+        parts = name.split(".")
+        if parts[0] != "joints" or not values.get(f"joints.{parts[1]}.enabled", True):
+            continue
+        if len(parts) == 3 and parts[2] == "encoder":
+            expected.add(f"encoder/{parts[1]}")
+        if len(parts) == 4 and parts[2] == "servos" and values.get(f"servos.{parts[3]}.channel", -1) != -1:
+            expected.add(f"servo/{parts[3]}")
+    return sorted(expected)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, bridge, processes=None, placer=None, settings_file=None):
         super().__init__()
@@ -438,19 +453,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_pill(self._ros_pill, "ok" if others else "off", f"ROS 2: {len(others)} nodes")
 
     def _on_parameters(self, node, params):
-        """Devices we expect to hear from (arm.yaml, ADR-0023): servos with a channel, and the
-        encoder of every enabled joint (the Pi reports it as encoder/<joint>)."""
+        """Devices we expect to hear from (arm.yaml, ADR-0023): the servos and the encoder of every
+        enabled joint (the Pi reports them as servo/<servo> and encoder/<joint>)."""
         if node == CALIBRATION_NODE and not isinstance(params, str):
-            values = {p["name"]: p["value"] for p in params}
-            expected = set()
-            for name in values:
-                parts = name.split(".")
-                if len(parts) == 3 and parts[0] == "servos" and parts[2] == "channel":
-                    expected.add(f"servo/{parts[1]}")
-                if len(parts) == 3 and parts[0] == "joints" and parts[2] == "encoder":
-                    if values.get(f"joints.{parts[1]}.enabled", True):
-                        expected.add(f"encoder/{parts[1]}")
-            self.devices.set_expected(sorted(expected))
+            self.devices.set_expected(expected_devices({p["name"]: p["value"] for p in params}))
 
     def set_theme(self, name: str):
         theme.apply(name)

@@ -50,9 +50,13 @@ class JogResult:
 class Identifier:
     """Σάρωση, ενδείξεις και κινήσεις αναγνώρισης πάνω από ένα PwmOutput και 8 encoders."""
 
-    def __init__(self, encoders: dict, pwm, probe, pca: dict, bench: dict):
-        """Με encoders = {κανάλι TCA: Encoder} και probe(κανάλι) → [διευθύνσεις που απαντούν]."""
-        self.encoders, self.pwm, self.probe = encoders, pwm, probe
+    def __init__(self, encoders: dict, pwm, probe, pca: dict, bench: dict, force=None):
+        """Με encoders = {κανάλι TCA: Encoder} και probe(κανάλι) → [διευθύνσεις που απαντούν].
+
+        force(κανάλι TCA, είσοδος) → ForceSensor: οι ZD10 της αρπάγης για το 8β, ακόμα κι αν η
+        αρπάγη δεν είναι ενεργή (όπως οι encoders: όλα τα κανάλια).
+        """
+        self.encoders, self.pwm, self.probe, self.force = encoders, pwm, probe, force
         self.pca, self.bench = pca, bench
         self.touched = set()            # κανάλια PCA που έγραψε η αναγνώριση
         self._jog = None
@@ -178,10 +182,13 @@ class Session:
                                                              νεκρής ζώνης, για να μετρηθεί)
         {'op': 'drive', 'servos': {'servo_1': 0.4, ...}}   → κίνηση ΟΣΟ ξαναστέλνεται (≤ 0.3 s,
                                                              όπως το «κράτα το πλήκτρο» του teleop)
-        {'op': 'routine', 'name': 'identify' | 'servo_deadband' | 'joint_deadband', ...}
+        {'op': 'routine', 'name': 'identify' | 'servo_deadband' | 'joint_deadband' |
+                              'gripper_pressure', ...}
                                                            → διαδικασία teleop ([6], [10], [9]):
                                                              πρόοδος {'op': 'progress'} και στο
-                                                             τέλος {'op': 'routine'} (routines.py)
+                                                             τέλος {'op': 'routine'} (routines.py)·
+                                                             gripper_pressure: το stop ΔΙΝΕΙ
+                                                             αποτέλεσμα (8β)
         {'op': 'ping'}                                     → «είμαι εδώ»
         {'op': 'stop'}                                     → στάση κάθε κίνησης
         {'op': 'exit'}                                     → πίσω στον κανονικό έλεγχο
@@ -353,11 +360,42 @@ class Session:
             routine = routines.joint_deadband(pulses_of(request['servos']),
                                               int(request['channel']),
                                               -1 if request.get('invert') else 1)
+        elif name == 'gripper_pressure':
+            routine, travel = self._gripper_pressure(request, pulses_of)
         else:
             raise ValueError(f'άγνωστη διαδικασία {name!r} '
-                             '(identify, servo_deadband, joint_deadband)')
+                             '(identify, servo_deadband, joint_deadband, gripper_pressure)')
+        if name != 'gripper_pressure':
+            travel = self.identifier.bench['max_travel_deg']
         self.runner = routines.Runner(routine, self.identifier.encoders, self.identifier.pwm,
-                                      self.identifier.bench['max_travel_deg'])
+                                      travel)
+
+    def _gripper_pressure(self, request: dict, pulses_of):
+        """8β από το αρχείο: η αρπάγη, οι ZD10 της, το όριο ασφαλείας· όριο διαδρομής = η διαδρομή
+        της αρπάγης (8α) + 5°, όχι τα 30° των άλλων διαδικασιών."""
+        from arm_pi_driver import routines
+        joint = self.data['joints'][request.get('joint', 'gripper')]
+        lower, upper = joint['limits_deg']
+        if upper <= lower:
+            raise ValueError('η αρπάγη δεν έχει όρια ακόμα: πρώτα το 8α (κλειστή / ανοιχτή)')
+        channel = self.data['encoders'].get(joint.get('encoder'), {}).get('channel')
+        if channel is None:
+            raise ValueError('ο encoder της αρπάγης δεν έχει κανάλι')
+        if self.identifier.force is None:
+            raise ValueError('δεν υπάρχουν αισθητήρες πίεσης σε αυτόν τον driver')
+        sensors = {}
+        for name in joint.get('force_sensors', []):
+            sensor = self.data['force_sensors'][name]
+            if sensor.get('adc_channel') is None:
+                raise ValueError(f'ο {name} δεν έχει κανάλι ADC (adc_channel)')
+            sensors[name] = self.identifier.force(sensor['adc_channel'], sensor['input'])
+        if not sensors:
+            raise ValueError('η αρπάγη δεν έχει αισθητήρες πίεσης (force_sensors)')
+        routine = routines.gripper_pressure(
+            pulses_of(joint['servos']), channel, -1 if joint.get('invert') else 1,
+            joint['zero_deg'], lower, sensors, self.data['controller']['adc']['safety_v'],
+            float(request.get('speed', 0.15)))
+        return routine, (upper - lower) + 5.0
 
     def _tick_routine(self, now: float) -> list:
         runner = self.runner

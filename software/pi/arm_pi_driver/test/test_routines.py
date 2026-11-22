@@ -103,3 +103,85 @@ def test_live_readings_and_stop(bench):
     session.handle({'op': 'stop'}, DT)
     end = [r for r in session.tick(2 * DT) if r['op'] == 'routine'][0]
     assert not end['ok'] and 'διακοπή' in end['error']
+
+
+# ---------------------------------------------------------------------------------------- 8β
+class Jaw:
+    """Αρπάγη χωρίς υλικό: κλείνει όσο έχει παλμό κάτω από το νεκρό σημείο· από τα 20° και κάτω
+    υπάρχει αντικείμενο, και η τάση των ZD10 ανεβαίνει όσο σφίγγει."""
+
+    def __init__(self, angle=60.0, contact=20.0):
+        self.angle, self.contact, self.pulses = angle, contact, {}
+        jaw = self
+
+        class Encoder:
+            def read(self):
+                return jaw.angle % 360.0, 'OK'
+
+        class Sensor:
+            def read(self):
+                return 0.94 + max(0.0, jaw.contact - jaw.angle) * 0.2, 'OK'
+
+        self.encoder, self.sensor = Encoder(), Sensor()
+
+    def set_pulse(self, channel, pulse):
+        self.pulses[channel] = pulse
+
+    def off(self, channel):
+        self.pulses[channel] = None
+
+    def step(self):
+        pulse = self.pulses.get(4)
+        if pulse is not None and pulse < 1600:
+            self.angle = max(0.0, self.angle - 0.5)
+
+
+def squeeze(jaw, safety_v=2.4, stop_at=None):
+    from arm_pi_driver import routines
+    routine = routines.gripper_pressure(lambda speed: {4: 1600 + 400 * speed}, 3, 1, 0.0, 0.0,
+                                        {'finger_1': jaw.sensor, 'finger_2': jaw.sensor}, safety_v)
+    runner, now = routines.Runner(routine, {3: jaw.encoder}, jaw, 65.0), 0.0
+    while not runner.done and now < 60:
+        jaw.step()
+        runner.tick(now)
+        now += DT
+        if stop_at is not None and jaw.angle <= stop_at:
+            runner.stop()
+    return runner
+
+
+def test_gripper_pressure_stop_gives_the_pressure_of_that_moment():
+    jaw = Jaw()
+    runner = squeeze(jaw, stop_at=18.0)
+    assert runner.error is None and runner.result['reason'] == 'stop'
+    assert runner.result['volts']['finger_1'] == pytest.approx(0.94 + 0.4, abs=0.25)
+    assert jaw.pulses[4] is None                                        # off μετά το Stop
+
+
+def test_gripper_pressure_stops_at_the_sensor_safety_limit():
+    runner = squeeze(Jaw())
+    assert runner.result['reason'] == 'safety' and runner.result['volts']['finger_1'] >= 2.4
+
+
+def test_gripper_pressure_without_an_object_stops_closed():
+    runner = squeeze(Jaw(contact=-1.0))
+    assert runner.result['reason'] == 'closed' and runner.result['position_deg'] <= 0.0
+
+
+def test_routines_without_a_result_on_stop_still_end_with_an_error():
+    from arm_pi_driver import routines
+    runner = routines.Runner(routines.servo_deadband(0, 1600, {}), {3: Jaw().encoder}, Jaw(), 30)
+    runner.tick(0.0)
+    runner.stop()
+    assert runner.done and runner.result is None and 'διακοπή' in runner.error
+
+
+def test_gripper_pressure_needs_8a_and_the_sensors(bench):
+    _, session = bench
+    reply = session.handle({'op': 'routine', 'name': 'gripper_pressure'}, 0.0)
+    assert not reply['ok'] and '8α' in reply['error']                   # όρια [0, 0]
+    gripper = session.data['joints']['gripper']
+    gripper['limits_deg'] = [0.0, 60.0]
+    session.data['encoders'][gripper['encoder']]['channel'] = 3
+    reply = session.handle({'op': 'routine', 'name': 'gripper_pressure'}, 0.0)
+    assert not reply['ok'] and 'αισθητήρες πίεσης σε αυτόν' in reply['error']

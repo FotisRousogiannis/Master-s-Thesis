@@ -59,6 +59,7 @@ joints:
   joint_3:
     description: δύο κατοπτρικά servo
     enabled: false
+    motion: pitch
     servos: {servo_3: 1, servo_4: -1}
     encoder: enc_3
     zero_deg: 0.0
@@ -68,6 +69,7 @@ joints:
   joint_4:
     description: πιθανότατα δύο κατοπτρικά (προς επιβεβαίωση)
     enabled: false
+    motion: roll
     servos: {servo_5: 1, servo_6: -1}
     encoder: enc_4
     zero_deg: 0.0
@@ -77,6 +79,7 @@ joints:
   joint_5:
     description: καρπός, διαφορικό με το joint_6
     enabled: false
+    motion: pitch
     servos: {servo_7: 1, servo_8: -1}
     encoder: enc_5
     zero_deg: 0.0
@@ -86,6 +89,7 @@ joints:
   joint_6:
     description: καρπός, διαφορικό με το joint_5
     enabled: false
+    motion: roll
     servos: {servo_7: 1, servo_8: 1}
     encoder: enc_6
     zero_deg: 0.0

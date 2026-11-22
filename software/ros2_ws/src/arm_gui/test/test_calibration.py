@@ -259,7 +259,8 @@ def test_wizard_steps_and_power(panel):
 
 
 def test_motion_is_set_from_the_joints_page(panel, window):
-    assert panel.joints.item(0, 13).text() == "yaw" and panel.joints.item(2, 13).text() == "—"
-    panel.joints.item(2, 13).setText("pitch")
+    assert panel.joints.item(0, 13).text() == "yaw" and panel.joints.item(2, 13).text() == "pitch"
+    assert panel.joints.item(6, 13).text() == "—"                        # gripper: no motion
+    panel.joints.item(2, 13).setText("roll")
     panel.apply_edits()
-    assert window._bridge.atomic_sets[-1][1] == {"joints.joint_3.motion": "pitch"}
+    assert window._bridge.atomic_sets[-1][1] == {"joints.joint_3.motion": "roll"}

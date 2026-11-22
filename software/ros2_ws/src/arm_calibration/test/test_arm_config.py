@@ -135,6 +135,8 @@ def test_unknown_keys_are_refused(data):
 
 
 def test_motion_is_optional_and_checked(data):
-    assert data["joints"]["joint_1"]["motion"] == "yaw" and "motion" not in data["joints"]["joint_3"]
+    motions = {j: data["joints"][j].get("motion") for j in data["joints"]}
+    assert motions == {"joint_1": "yaw", "joint_2": "pitch", "joint_3": "pitch", "joint_4": "roll",
+                       "joint_5": "pitch", "joint_6": "roll", "gripper": None}     # axes of the URDF
     assert "motion 'twist'" in errors_after(data, lambda d: d["joints"]["joint_3"].update(motion="twist"))
-    assert errors_after(data, lambda d: d["joints"]["joint_3"].update(motion="roll")) == ""
+    assert errors_after(data, lambda d: d["joints"]["joint_3"].pop("motion")) == ""   # optional

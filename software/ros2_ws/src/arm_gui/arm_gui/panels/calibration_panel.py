@@ -184,7 +184,7 @@ class CalibrationPanel(QtWidgets.QWidget):
         buttons.addWidget(reload_button)
         buttons.addStretch(1)
         layout.addWidget(self.page_buttons)
-        self.tabs.currentChanged.connect(lambda i: self.page_buttons.setVisible(i != 0))
+        self.tabs.currentChanged.connect(lambda i: self.page_buttons.setVisible(i in (1, 2, 3)))
         self.page_buttons.setVisible(False)
         self.status = QtWidgets.QLabel("Περιμένω το /arm_calibration…")
         self.status.setWordWrap(True)

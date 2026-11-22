@@ -372,23 +372,25 @@ def test_recording_runs_only_with_the_system_and_is_logged(window, tmp_path, mon
 def test_tools_catalog_is_valid_and_pi_tools_go_through_ssh(tmp_path):
     from arm_gui.tools import PiTarget, command_for, load_catalog
     tools = {t.id: t for t in load_catalog()}
-    assert {"i2c_scan", "outputs_off", "controllers", "logbook_position"} <= set(tools)
-    assert tools["probe_channels"].moves and not tools["i2c_scan"].moves
+    assert {"driver_logs", "driver_restart", "controllers", "logbook_position"} <= set(tools)
+    assert not any("wrist_bench" in t.command for t in tools.values())    # only the driver talks to I2C
+    assert tools["driver_restart"].moves and not tools["driver_logs"].moves
     assert command_for(tools["controllers"], PiTarget(), tmp_path) == ("bash", ["-c", "ros2 control list_controllers"])
     with pytest.raises(ValueError):
-        command_for(tools["i2c_scan"], PiTarget(), tmp_path)  # no Pi configured
-    program, args = command_for(tools["i2c_scan"], PiTarget("pi.local", "fotis", "Master-s-Thesis"), tmp_path)
+        command_for(tools["driver_logs"], PiTarget(), tmp_path)  # no Pi configured
+    program, args = command_for(tools["driver_logs"], PiTarget("pi.local", "fotis", "Master-s-Thesis"), tmp_path)
     assert program == "ssh" and "BatchMode=yes" in args and "fotis@pi.local" in args
-    assert args[-1] == "cd ~/Master-s-Thesis && python3 -u software/tools/wrist_bench/wrist_bench.py scan"
-    assert command_for(tools["i2c_scan"], PiTarget("h", "u", "/opt/repo"), tmp_path)[1][-1].startswith("cd /opt/repo && ")
+    assert args[-1] == "cd ~/Master-s-Thesis && cd software/pi/docker && docker compose logs --no-color --tail 60"
+    assert command_for(tools["driver_logs"], PiTarget("h", "u", "/opt/repo"), tmp_path)[1][-1].startswith(
+        "cd /opt/repo && ")
 
 
 def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_path, monkeypatch):
     monkeypatch.setenv("ARM_DATA_DIR", str(tmp_path))
     panel, procs = window.tools, window._processes
-    panel._filter.setText("i2c")
-    panel.select("i2c_scan")
-    assert panel.selected().id == "i2c_scan"
+    panel._filter.setText("μηνύματα")
+    panel.select("driver_logs")
+    assert panel.selected().id == "driver_logs"
     conn = window.connection
     conn._user.setText("")
     conn._on_edited()
@@ -401,20 +403,20 @@ def test_tools_panel_runs_the_selected_tool_and_asks_before_moving(window, tmp_p
     assert window._settings.value("pi/host") == "pi.local"  # remembered for next time
     panel.run_selected()
     assert procs.started[-1][0] == "ssh" and "tool" in procs.alive and not panel._run.isEnabled()
-    procs.output.emit("tool", "mux7: 0x36 0x48")
-    assert "0x48" in panel._output.toPlainText()
+    procs.output.emit("tool", "arm-pi  | [INFO] ... 50 Hz")
+    assert "50 Hz" in panel._output.toPlainText()
     procs.stop("tool")
     assert panel._run.isEnabled()
 
     panel._filter.setText("")
-    panel.select("probe_channels")
+    panel.select("driver_restart")
     panel.confirm = lambda *_: False
     n = len(procs.started)
     panel.run_selected()
     assert len(procs.started) == n  # moving tool refused
     panel.confirm = lambda *_: True
     panel.run_selected()
-    assert procs.started[-1][-1].endswith("wrist_bench.py probe")
+    assert procs.started[-1][-1].endswith("docker compose restart")
 
 
 def test_connection_panel_reports_each_step(window, monkeypatch):
@@ -500,12 +502,15 @@ def test_connection_panel_measures_the_link(window, monkeypatch):
 
 def test_five_sections_in_the_side_bar(window):
     assert window.section == "run"
-    assert window.nav.count() == 5
+    assert window.nav.count() == 4
     window.show_section("cal")
     assert window.stack.currentWidget() is window.calibration
     window.show_section("adv")
     titles = [window.advanced.tabText(i) for i in range(window.advanced.count())]
-    assert titles == ["Παράμετροι", "ROS 2", "Εργαλεία", "Log", "Αισθητήρες (raw)"]
+    assert titles == ["Παράμετροι", "ROS 2", "Εργαλεία", "Log"]
+    tabs = window.calibration.tabs
+    assert [tabs.tabText(i) for i in range(tabs.count())][-1] == "Συσκευές"
+    assert not hasattr(window.system, "_conn_box")              # no placeholder for the ESP32 link
     window.save_layout("x")
     window.show_section("run")
     window.load_layout("x")

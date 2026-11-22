@@ -6,35 +6,29 @@
 # Τα εργαλεία του Pi πρέπει να τελειώνουν μόνα τους (π.χ. --duration): η διακοπή από το UI
 # κλείνει τη σύνδεση SSH, αλλά δεν εγγυάται ότι σταματά το πρόγραμμα στο Pi.
 tools:
-  - id: i2c_scan
-    group: Υλικό (Raspberry Pi)
-    name: Σάρωση I²C
+  # Σάρωση I²C, encoders και κίνηση: από τον Οδηγό της «Βαθμονόμησης» (ο driver του Pi είναι ο μόνος
+  # που μιλά στο I²C· τα παλιά εργαλεία του wrist_bench συγκρούονταν μαζί του).
+  - id: driver_logs
+    group: Raspberry Pi
+    name: Μηνύματα του driver
     where: pi
-    command: python3 -u software/tools/wrist_bench/wrist_bench.py scan
-    description: >-
-      Ποιες συσκευές απαντούν στο κύριο bus και σε κάθε κανάλι του TCA9548A.
-      Αναμένονται 0x40 (PCA9685), 0x36 (AS5600, ένας ανά κανάλι), 0x48 (ADS1115).
-  - id: encoders_5s
-    group: Υλικό (Raspberry Pi)
-    name: Encoders (5 s)
+    command: cd software/pi/docker && docker compose logs --no-color --tail 60
+    description: Τα τελευταία 60 μηνύματα του arm_pi_driver (container arm-pi).
+  - id: driver_status
+    group: Raspberry Pi
+    name: Κατάσταση του driver
     where: pi
-    command: python3 -u software/tools/wrist_bench/wrist_bench.py enc --duration 5
-    description: Γωνία και κατάσταση μαγνήτη κάθε AS5600 για 5 s, χωρίς κίνηση.
-  - id: probe_channels
-    group: Υλικό (Raspberry Pi)
-    name: Ποιο κανάλι κινεί ποιον encoder
+    command: cd software/pi/docker && docker compose ps
+    description: Αν τρέχει το container arm-pi και από πότε.
+  - id: driver_restart
+    group: Raspberry Pi
+    name: Επανεκκίνηση του driver
     where: pi
     moves: true
-    command: python3 -u software/tools/wrist_bench/wrist_bench.py probe
+    command: cd software/pi/docker && docker compose restart
     description: >-
-      Σύντομος παλμός σε κάθε κανάλι του PCA9685 (0–15) και ποιος encoder κινήθηκε.
-      Για την αντιστοίχιση servo → άρθρωση. Τα όρια ασφαλείας του πάγκου ισχύουν.
-  - id: outputs_off
-    group: Υλικό (Raspberry Pi)
-    name: Όλες οι έξοδοι off
-    where: pi
-    command: python3 -u software/tools/wrist_bench/wrist_bench.py stop
-    description: Σβήνει όλες τις εξόδους του PCA9685 (τα servo σταματούν).
+      Ξαναξεκινά το arm_pi_driver (π.χ. μετά από αλλαγή καναλιού). Τα servo σταματούν όσο ξεκινά,
+      μετά φρενάρουν μέχρι την επόμενη εντολή.
 
   - id: controllers
     group: ROS 2

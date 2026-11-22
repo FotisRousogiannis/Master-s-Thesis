@@ -2,10 +2,9 @@
 three windows (ADR-0016; sections instead of dockable panels: ADR-0016 supplement 2026-11-17).
 
     Χειρισμός          Σύστημα + Αρθρώσεις
-    Βαθμονόμηση        the calibration panel (ADR-0023)
-    Συσκευές           what is alive now
+    Βαθμονόμηση        the calibration panel (ADR-0023) and the devices that are alive
     Pi                 connection to the Pi
-    Για προχωρημένους  Παράμετροι, ROS 2, Εργαλεία, Log, Αισθητήρες (raw)
+    Για προχωρημένους  Παράμετροι, ROS 2, Εργαλεία, Log
 """
 
 import json
@@ -24,7 +23,6 @@ from .panels.joints_panel import JointsPanel
 from .panels.log_panel import LogPanel
 from .panels.messages import MessagesStrip
 from .panels.parameters_panel import CALIBRATION_NODE, ParametersPanel
-from .panels.sensors_panel import SensorsPanel
 from .panels.system_panel import SystemPanel
 from .panels.tools_panel import ToolsPanel
 from .processes import ProcessManager
@@ -115,7 +113,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.system = SystemPanel()
         self.joints = JointsPanel()
-        self.sensors = SensorsPanel()
         self.devices = DevicesPanel()
         self.parameters = ParametersPanel()
         self.calibration = CalibrationPanel()
@@ -139,7 +136,6 @@ class MainWindow(QtWidgets.QMainWindow):
     SECTIONS = (
         ("run", "Χειρισμός", "σύστημα, αρθρώσεις"),
         ("cal", "Βαθμονόμηση", "οδηγός, ρυθμίσεις"),
-        ("dev", "Συσκευές", "τι ζει τώρα"),
         ("pi", "Pi", "σύνδεση με το Pi"),
         ("adv", "Για προχωρημένους", "παράμετροι, ROS 2, log"),
     )
@@ -151,10 +147,10 @@ class MainWindow(QtWidgets.QMainWindow):
         run.setStretchFactor(1, 1)
         self.advanced = QtWidgets.QTabWidget()
         for widget, title in ((self.parameters, "Παράμετροι"), (self.graph, "ROS 2"), (self.tools, "Εργαλεία"),
-                              (self.log, "Log"), (self.sensors, "Αισθητήρες (raw)")):
+                              (self.log, "Log")):
             self.advanced.addTab(widget, title)
-        pages = {"run": run, "cal": self.calibration, "dev": self.devices, "pi": self.connection,
-                 "adv": self.advanced}
+        self.calibration.tabs.addTab(self.devices, "Συσκευές")       # what is alive: part of setting up
+        pages = {"run": run, "cal": self.calibration, "pi": self.connection, "adv": self.advanced}
 
         self.stack = QtWidgets.QStackedWidget()
         self.nav = SectionBar([(label, sub) for _key, label, sub in self.SECTIONS])
@@ -300,7 +296,6 @@ class MainWindow(QtWidgets.QMainWindow):
         b = self._bridge
         b.description_received.connect(self._on_description)
         b.joint_state.connect(self.joints.set_current)
-        b.joint_state.connect(self.sensors.set_joint_state)
         b.controllers_changed.connect(self.system.set_controllers)
         b.nodes_changed.connect(self.parameters.set_nodes)
         b.nodes_changed.connect(self._on_nodes)

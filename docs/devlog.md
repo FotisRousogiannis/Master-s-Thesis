@@ -458,3 +458,10 @@
   στο `/diagnostics` (παλμός ή σφάλμα PCA), και το Arm Studio περιμένει μόνο servo με κανάλι ενεργών αρθρώσεων.
 - Tests: arm_pi_driver 81, arm_gui 66, arm_calibration 43, wrist_bench 62 ✅. **Δεν δοκιμάστηκαν εδώ με ROS/υλικό:** η
   κλειδαριά με τον πραγματικό driver και τα `servo/` στις Συσκευές.
+- **`motion` των joint_3–6** από τους άξονες του URDF (ADR-0009, προσωρινό): 3 pitch, 4 roll, 5 pitch, 6 roll
+  (επιβεβαίωση Φώτη). Το joint_4 θέλει επιβεβαίωση στον μηχανισμό.
+- **Στάδιο D (ADR-0024, απόφαση Φώτη):** `hardware:=real` με `topic_based_ros2_control` στα `/base/joint_commands` /
+  `/base/joint_states` του Pi. Από τον κώδικα του plugin: δεν στέλνει εντολή όταν εντολή ≈ θέση (→ κατώφλι −1, αλλιώς
+  ο watchdog του Pi σταματά) και διαβάζει 0 πριν από το πρώτο μήνυμα (→ ο `arm_controller` ξεκινά μετά την πρώτη θέση
+  του Pi, αλλιώς απότομη κίνηση στο μηδέν). Arm Studio: «Πραγματικός βραχίονας (Pi)» ενεργό. Tests arm_bringup 6,
+  arm_gui 66 ✅. **Δεν δοκιμάστηκε με ROS/Pi.**

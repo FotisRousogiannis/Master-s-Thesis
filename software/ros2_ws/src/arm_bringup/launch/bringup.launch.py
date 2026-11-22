@@ -3,6 +3,7 @@
 Usage:
     ros2 launch arm_bringup bringup.launch.py                      # mock hardware + RViz
     ros2 launch arm_bringup bringup.launch.py hardware:=gazebo     # Gazebo Harmonic + RViz
+    ros2 launch arm_bringup bringup.launch.py hardware:=real       # the arm: arm_pi_driver on the Pi (ADR-0024)
     ros2 launch arm_bringup bringup.launch.py rviz:=false gui:=false   # no windows (Arm Studio opens them itself
                                                                        # with rviz.launch.py / gazebo_gui.launch.py)
 
@@ -13,9 +14,13 @@ from launch import LaunchDescription
 from launch.actions import (
     AppendEnvironmentVariable,
     DeclareLaunchArgument,
+    ExecuteProcess,
     IncludeLaunchDescription,
+    LogInfo,
     OpaqueFunction,
+    RegisterEventHandler,
 )
+from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
@@ -23,8 +28,33 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
-SUPPORTED_HARDWARE = ("mock", "gazebo")  # "real" follows with arm_hardware + micro-ROS Agent
+SUPPORTED_HARDWARE = ("mock", "gazebo", "real")
 CONTROLLERS = ("joint_state_broadcaster", "arm_controller")
+REAL_STATES_TOPIC = "/base/joint_states"  # same as arm.ros2_control.xacro
+
+
+def _spawner(name, sim):
+    return Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[name, "--controller-manager", "/controller_manager", "--controller-manager-timeout", "60"],
+        parameters=[{"use_sim_time": sim}],
+        output="screen",
+    )
+
+
+def _after_first_state(action):
+    """Start `action` only once the arm has reported its position (ADR-0024).
+
+    The trajectory controller holds the position it reads when it starts. Before the first
+    /base/joint_states the plugin reads 0 for every joint, so starting earlier would send the
+    real arm to zero: a sudden move. `ros2 topic echo --once` exits on the first message."""
+    wait = ExecuteProcess(cmd=["ros2", "topic", "echo", "--once", REAL_STATES_TOPIC], output="log")
+    return [
+        LogInfo(msg=f"arm_controller: περιμένει την πρώτη θέση από το {REAL_STATES_TOPIC} (Pi)…"),
+        wait,
+        RegisterEventHandler(OnProcessExit(target_action=wait, on_exit=[action])),
+    ]
 
 
 def _stack(context):
@@ -108,16 +138,11 @@ def _stack(context):
             )
         )
 
-    actions += [
-        Node(
-            package="controller_manager",
-            executable="spawner",
-            arguments=[name, "--controller-manager", "/controller_manager", "--controller-manager-timeout", "60"],
-            parameters=[{"use_sim_time": sim}],
-            output="screen",
-        )
-        for name in CONTROLLERS
-    ]
+    actions.append(_spawner("joint_state_broadcaster", sim))
+    if hardware == "real":
+        actions += _after_first_state(_spawner("arm_controller", sim))
+    else:
+        actions.append(_spawner("arm_controller", sim))
 
     actions.append(
         Node(
@@ -137,7 +162,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "hardware",
                 default_value="mock",
-                description="Hardware behind ros2_control: mock | gazebo (real: not implemented yet).",
+                description="Hardware behind ros2_control: mock | gazebo | real (the Pi, ADR-0024).",
             ),
             DeclareLaunchArgument("rviz", default_value="true", description="Open RViz."),
             DeclareLaunchArgument("gui", default_value="true", description="Open the Gazebo window (hardware:=gazebo)."),

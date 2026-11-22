@@ -129,7 +129,7 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   servo· αρπάγη με στάση στην επαφή· PID ή BangBang ανά άρθρωση). Ασφάλεια: watchdog 0.2 s, encoders, όρια, ξεχνά
   στόχους μετά από στάση. Βαθμονόμηση μόνο από το `calibration.yaml` (και ζωντανά). Topics `/base/joint_states`,
   `/base/joint_commands`, `/diagnostics`. Προσομοίωση στο Pi: 50 Hz. **Με υλικό: δεν έχει δοκιμαστεί.** Εκκρεμούν:
-  E-stop/OE, δοκιμή βάσης στο εργαστήριο, υπόλοιπες αρθρώσεις, όριο επαφής αρπάγης, στάδιο D (`hardware:=real`).
+  E-stop/OE, δοκιμή βάσης στο εργαστήριο, υπόλοιπες αρθρώσεις, όριο επαφής αρπάγης· στάδιο D (`hardware:=real`, ADR-0024) υλοποιημένο, προς δοκιμή.
 - **Σχέδιο βαθμονόμησης (ADR-0023, του Φώτη, αποδεκτό):** ΕΝΑ αρχείο (λίστες servo, encoders, αισθητήρων πίεσης +
   αρθρώσεις που τα αναφέρουν, με πρόσημα, μηδέν/φορά/όρια, enabled), ορατό στο UI σε τρεις σελίδες (Servo /
   Αισθητήρες / Αρθρώσεις). Διαδικασία: κανάλια servo από τον χρήστη → ανίχνευση I²C → κίνηση ανά άρθρωση
@@ -137,8 +137,9 @@ Repo `FotisRousogiannis/Robotic-Arm`, branch `claude/connected-repository-d8u6hw
   **Υλοποίηση 1–5 στο `draft`** (`arm.yaml`, driver, αναγνώριση στο Pi, `procedure.py`, πάνελ «Βαθμονόμηση»): δοκιμή
   σε προσομοίωση στο Pi ✅. Μένουν: 6 (πάγκος, μετά τον μαγνήτη του joint_1) και το 8β (αργό κλείσιμο με πίεση στο Pi).
   **Arm Studio (2026-11-22, `feature/studio-layout`):** 4 ενότητες, οδηγός όπως το teleop (διαδικασίες στο Pi), κλειδαριά
-  I²C. Εμπόδιο τώρα: **encoders του πάγκου** (joint_1 «δεν απαντά» στο κανάλι 3, joint_2 χωρίς μαγνήτη). Περιμένουν
-  τον Φώτη: `motion` των joint_3–6, απόφαση για το στάδιο D (πώς το `ros2_control` μιλά με το Pi).
+  I²C. Εμπόδιο τώρα: **encoders του πάγκου** (joint_1 «δεν απαντά» στο κανάλι 3, joint_2 χωρίς μαγνήτη). Στάδιο D
+  (ADR-0024): `hardware:=real` με `topic_based_ros2_control` → **προς δοκιμή** (ξαναχτίσιμο του Docker του PC, Pi με
+  τον driver, εκκίνηση «Πραγματικός βραχίονας» από το Arm Studio).
 - **Πάγκος τώρα (ADR-0021):** Raspberry Pi 4 (**Raspberry Pi OS, Debian 13**, NetworkManager· ROS 2 σε Docker) = **προσωρινός ελεγκτής** με ROS 2 μέχρι το PCB, με
   καλώδιο Ethernet (Pi 10.42.0.2, `armpi.local`· `docs/setup/raspberry_pi.md`). TCA9548A: PCA9685 σε ένα κανάλι,
   7 AS5600 στα άλλα, ADS1115 μαζί με τον AS5600 του gripper. Διαφορικά joint_1+2 και joint_5+6. Εκκρεμούν: `setup_network.sh` για

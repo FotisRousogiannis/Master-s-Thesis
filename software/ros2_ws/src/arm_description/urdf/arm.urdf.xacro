@@ -20,6 +20,13 @@
   <xacro:property name="joint_velocity" value="0.145"/>
   <xacro:property name="joint_effort"   value="60.0"/>
 
+  <!-- Simulation only (Gazebo): the servos turn through a 1:36 reduction and do not back-drive, so a joint
+       holds where it is without power. Modelled as joint friction; otherwise the arm falls over in the seconds
+       before the controllers start and cannot lift itself again. ESTIMATES, not measured (ADR-0026). -->
+  <xacro:property name="hw" value="$(arg hardware)"/>
+  <xacro:property name="joint_friction" value="${10.0 if hw == 'gazebo' else 0.0}"/>
+  <xacro:property name="joint_damping"  value="${1.0 if hw == 'gazebo' else 0.0}"/>
+
   <material name="arm_grey"><color rgba="0.6 0.6 0.6 1.0"/></material>
   <material name="arm_orange"><color rgba="0.9 0.45 0.1 1.0"/></material>
 

@@ -112,6 +112,7 @@ def arm_joint_xml(joint) -> str:
         f'    <axis xyz="{numbers(np.round(axis, 9))}"/>',
         f'    <limit lower="{clean(float(limit.get("lower"))):.9g}" upper="{clean(float(limit.get("upper"))):.9g}" '
         f'effort="{EFFORT}" velocity="{VELOCITY}"/>',
+        '    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>',
         "  </joint>"])
 
 

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Lighter meshes for RViz / MoveIt / Gazebo (docs/decisions/0026). NOT USED YET: first the full meshes are tried.
+"""Light meshes for collision checks (MoveIt, Gazebo), docs/decisions/0026.
 
     pip install trimesh fast-simplification rtree scipy networkx
-    python3 scripts/simplify_meshes.py <folder of Fusion's STL> [max faces per mesh, default 20000]
+    python3 scripts/simplify_meshes.py <folder of Fusion's STL> [max faces per mesh] [tolerance mm]
+
+The full meshes (from the export zip) are only drawn. With them for collisions, move_group needed 86 s to start on
+the laptop (2026-11-24); the light ones here, in meshes_collision/ of this package, are used instead.
 
 Fusion exports at full resolution (one link of 77 MB, 114 MB in all): too big for git, and slow for collision
 checks. A link's STL holds many bodies (servos, gears, screws: 372 in the gripper base), so it is reduced body by
-body: each body gets a share of the faces in proportion to its surface, at least MIN_FACES, and is reduced with
-quadric decimation (shape kept, flat areas lose triangles); modelled screw threads, which decimation cannot
-reduce, become their convex hull (a cylinder).
-Every body stays within TOLERANCE_MM of the original. The result goes to meshes/ of this package; the
+body (see reduce_body): its convex hull where that is close (≤ HULL_MM, always on the safe side), otherwise
+quadric decimation within TOLERANCE_MM, with a share of the faces in proportion to its surface.
+The result goes to meshes_collision/ of this package; the
 largest deviation from the original is printed (mm, the units of the STL), so a reduction that changes the shape
 is visible.
 """
@@ -21,9 +23,11 @@ import fast_simplification
 import numpy as np
 import trimesh
 
-TARGET = Path(__file__).resolve().parents[1] / "meshes"
+TARGET = Path(__file__).resolve().parents[1] / "meshes_collision"
 MIN_FACES = 60          # a screw keeps a recognisable shape
-TOLERANCE_MM = 1.0      # no body may move further than this from the original surface
+MAX_FACES = 8000        # per link
+TOLERANCE_MM = 2.0      # no body may move further than this from the original surface (collision margin)
+HULL_MM = 5.0           # a body whose convex hull bulges less than this becomes its hull
 
 
 def deviation_mm(original, reduced, samples=20000) -> float:
@@ -41,16 +45,19 @@ def decimate(body, budget: int):
 
 
 def reduce_body(body, budget: int):
-    """Decimation within TOLERANCE_MM: the face budget doubles until the body is close enough (thin plates and
-    rings collapse when reduced too far). A body that refuses to shrink (modelled screw threads stall at ~30 %
-    of their faces) becomes its convex hull, a cylinder for a screw: the error is the depth of the thread."""
+    """One body for collision checks. First its convex hull: it always contains the body, so the check stays safe
+    (MoveIt only keeps a little more distance), and it is cheap; screws, gears, shafts are almost convex. If the
+    hull bulges more than HULL_MM from the body (a bracket, a housing with pockets), quadric decimation instead,
+    with the face budget doubling until the body is within TOLERANCE_MM."""
+    try:
+        hull = body.convex_hull
+    except Exception:                       # noqa: B902 (a flat or tiny body: qhull has nothing to wrap)
+        return body
+    if deviation_mm(body, hull, 1000) <= HULL_MM:
+        return decimate(hull, budget) if len(hull.faces) > budget else hull
     while budget < len(body.faces):
         reduced = decimate(body, budget)
-        if len(reduced.faces) > 2 * budget:
-            hull = body.convex_hull
-            if deviation_mm(body, hull, 2000) <= TOLERANCE_MM:
-                return decimate(hull, budget) if len(hull.faces) > budget else hull
-        elif deviation_mm(body, reduced, 2000) <= TOLERANCE_MM:
+        if len(reduced.faces) <= 2 * budget and deviation_mm(body, reduced, 2000) <= TOLERANCE_MM:
             return reduced
         budget *= 2
     return body
@@ -75,7 +82,9 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
         raise SystemExit(__doc__)
-    max_faces = int(argv[1]) if len(argv) > 1 else 20000
+    global TOLERANCE_MM
+    max_faces = int(argv[1]) if len(argv) > 1 else MAX_FACES
+    TOLERANCE_MM = float(argv[2]) if len(argv) > 2 else TOLERANCE_MM
     TARGET.mkdir(exist_ok=True)
     for source in sorted(Path(argv[0]).glob("*.stl")):
         before, after, error = simplify(source, max_faces)

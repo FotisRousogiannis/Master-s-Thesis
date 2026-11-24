@@ -31,12 +31,43 @@
        have. Pointing it at "arm" gives «Could not identify parent group» (move_group, 2026-11-24). -->
   <virtual_joint name="fixed_base" type="fixed" parent_frame="world" child_link="world"/>
 
-  <!-- Only neighbours are skipped: they touch at every joint by construction. Every other pair can
-       really collide (e.g. the forearm folded back onto the base), so it stays checked. -->
+  <!-- Skipped pairs (docs/decisions/0025, 0026):
+       * Adjacent: neighbours along the arm, they touch at every joint by construction;
+       * Rigid: the gripper is fixed to link_6 for now (its joints come later), so its parts never move against
+         each other or the flange. Checked with the Fusion meshes at the zero pose (2026-11-24): these are the
+         only pairs in contact. Every other pair can really collide, so it stays checked. -->
   <disable_collisions link1="base_link" link2="link_1" reason="Adjacent"/>
   <disable_collisions link1="link_1" link2="link_2" reason="Adjacent"/>
   <disable_collisions link1="link_2" link2="link_3" reason="Adjacent"/>
   <disable_collisions link1="link_3" link2="link_4" reason="Adjacent"/>
   <disable_collisions link1="link_4" link2="link_5" reason="Adjacent"/>
   <disable_collisions link1="link_5" link2="link_6" reason="Adjacent"/>
+  <disable_collisions link1="link_6" link2="gripper_base" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_1" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_1_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_1_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_2" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="link_6" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_1" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_1_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_1_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_2" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="gripper_base" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_1" link2="finger_1_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="finger_1" link2="finger_1_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_1" link2="finger_2" reason="Rigid"/>
+  <disable_collisions link1="finger_1" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="finger_1" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_down" link2="finger_1_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_down" link2="finger_2" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_down" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_down" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_up" link2="finger_2" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_up" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="finger_1_shaft_up" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_2" link2="finger_2_shaft_down" reason="Rigid"/>
+  <disable_collisions link1="finger_2" link2="finger_2_shaft_up" reason="Rigid"/>
+  <disable_collisions link1="finger_2_shaft_down" link2="finger_2_shaft_up" reason="Rigid"/>
 </robot>

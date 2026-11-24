@@ -491,3 +491,9 @@
   χωρίς RT scheduling στο Docker, MESA/dri3 του RViz.
 - **MoveIt σε mock, κίνηση ✅:** RViz με MotionPlanning (χρειάζεται `compose.gpu.yaml`: χωρίς `/dev/dri` το RViz δεν
   άνοιγε), Plan & Execute προς τη θέση `ready` και με το marker → ο βραχίονας κινήθηκε στην προσομοίωση.
+- **Μοντέλο από το Fusion (ADR-0026):** URDF export του Fusion (κάθετος βραχίονας) → `from_fusion.py` →
+  `arm_model.xacro`. Βρέθηκαν: αρπάγη με κλειστούς βρόχους και λάθος joints (34–159 mm) → παγωμένη, θέση από τα
+  meshes· 53 kg συνολικά (λάθος υλικά;)· meshes 114 MB (ένας σύνδεσμος 1.5 εκ. τρίγωνα, 28 βίδες με σπείρωμα). Zip
+  στο repo, αποσυμπίεση από το CMake· πλήρης ανάλυση για αρχή, `simplify_meshes.py` έτοιμο (12 MB, ≤ 1 mm) αν
+  χρειαστεί. SRDF: συγκρούσεις ελεγμένες με FCL στα meshes (μηδέν, `ready`). `arm.yaml`: joint_2 έως +40°.
+  Tests: arm_description 10, arm_moveit_config 7, arm_gui 70 ✅.

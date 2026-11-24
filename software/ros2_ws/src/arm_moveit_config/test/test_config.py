@@ -28,11 +28,21 @@ def test_srdf_names_the_robot_and_links_of_the_urdf():
         assert {pair.get("link1"), pair.get("link2")} <= links
 
 
-def test_only_neighbouring_links_skip_collision_checks():
-    parent_of = {j.find("child").get("link"): j.find("parent").get("link") for j in URDF.findall("joint")}
+def test_only_neighbours_or_parts_fixed_together_skip_collision_checks():
+    joint_of = {j.find("child").get("link"): j for j in URDF.findall("joint")}
+    parent_of = {child: j.find("parent").get("link") for child, j in joint_of.items()}
+
+    def moving_ancestor(link):          # the nearest link above a movable joint (or itself)
+        while link in joint_of and joint_of[link].get("type") == "fixed" and parent_of[link] != "world":
+            link = parent_of[link]
+        return link
+
     for pair in SRDF.findall("disable_collisions"):
         a, b = pair.get("link1"), pair.get("link2")
-        assert pair.get("reason") == "Adjacent" and (parent_of.get(a) == b or parent_of.get(b) == a)
+        if pair.get("reason") == "Adjacent":
+            assert parent_of.get(a) == b or parent_of.get(b) == a, (a, b)
+        else:
+            assert pair.get("reason") == "Rigid" and moving_ancestor(a) == moving_ancestor(b), (a, b)
 
 
 def test_named_poses_are_inside_the_urdf_limits():

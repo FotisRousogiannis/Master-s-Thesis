@@ -232,6 +232,7 @@
     <origin xyz="0 0 0.01" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-3.141593" upper="3.141593" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="joint_2" type="revolute">
     <parent link="link_1"/>
@@ -239,6 +240,7 @@
     <origin xyz="0 -0.07563388 0.10888388" rpy="-1.57079633 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-1.570796" upper="0.698132" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="joint_3" type="revolute">
     <parent link="link_2"/>
@@ -246,6 +248,7 @@
     <origin xyz="0 -0.48000024 0.15126776" rpy="3.14159265 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-1.570796" upper="3.141593" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="joint_4" type="revolute">
     <parent link="link_3"/>
@@ -253,6 +256,7 @@
     <origin xyz="0 0.0575 0.07565144" rpy="1.57079633 0 0"/>
     <axis xyz="0 0 -1"/>
     <limit lower="-3.141593" upper="3.141593" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="joint_5" type="revolute">
     <parent link="link_4"/>
@@ -260,6 +264,7 @@
     <origin xyz="4e-08 -0.03446488 -0.27360869" rpy="-1.57079633 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-1.570796" upper="1.570796" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="joint_6" type="revolute">
     <parent link="link_5"/>
@@ -267,6 +272,7 @@
     <origin xyz="0 0.06299976 0.0345" rpy="-1.57079633 0 0"/>
     <axis xyz="0 0 -1"/>
     <limit lower="-3.141593" upper="3.141593" effort="${joint_effort}" velocity="${joint_velocity}"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
   </joint>
   <joint name="link_6_to_gripper" type="fixed">
     <parent link="link_6"/>

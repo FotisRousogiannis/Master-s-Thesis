@@ -124,3 +124,13 @@ def test_generated_model_is_up_to_date():
 
     source = XACRO_FILE.parents[4] / "cad_export" / "fusion_urdf" / "URDF.urdf"
     assert from_fusion.convert(source) == (XACRO_FILE.parent / "arm_model.xacro").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("hardware, friction", [("gazebo", 10.0), ("mock", 0.0), ("real", 0.0)])
+def test_joint_friction_only_in_simulation(hardware, friction):
+    """In Gazebo the joints hold like the non-back-drivable servos; elsewhere the model carries no friction."""
+    robot = ET.fromstring(xacro.process_file(str(XACRO_FILE), mappings={"hardware": hardware}).toxml())
+    for joint in robot.findall("joint"):
+        if joint.get("type") == "revolute":
+            assert float(joint.find("dynamics").get("friction")) == friction, joint.get("name")
+            assert float(joint.find("limit").get("effort")) > 3 * friction       # the motor still wins

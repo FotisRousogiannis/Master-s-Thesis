@@ -479,3 +479,9 @@
   `move_group` στο bringup (`moveit:=true`), RViz με MotionPlanning. Arm Studio: πλαίσιο «MoveIt» στον Χειρισμό (θέσεις
   του SRDF, σημείο εργαλείου x/y/z, ταχύτητα), STOP ακυρώνει και τον στόχο MoveIt. Tests: arm_moveit_config 7,
   arm_gui 70 ✅. **Δεν δοκιμάστηκε με ROS** (πρώτα `ros2 launch arm_bringup bringup.launch.py` σε mock).
+
+## 2026-11-24
+- **Δοκιμές στο PC, βήμα 1:** το `docker compose build` απέτυχε: `ros-jazzy-topic-based-ros2-control` δεν υπάρχει ως
+  πακέτο για Jazzy. Διόρθωση: χτίσιμο από τον κώδικα στο Dockerfile (tag 0.3.0, overlay
+  `/opt/topic_based_ros2_control`). Οι τοπικές αλλαγές του `arm.yaml` (νεκρές ζώνες servo από τον οδηγό, μάλλον με
+  προβληματικούς encoders: servo_2 510 µs αντί 190) μπήκαν σε `git stash` του Φώτη, όχι στο repo.

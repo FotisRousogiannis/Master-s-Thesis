@@ -101,6 +101,7 @@ progress "Docker: έλεγχος (αν άλλαξε, ξαναχτίζεται: �
 progress "ROS 2: χτίσιμο της εφαρμογής"
 "${COMPOSE[@]}" exec -T dev bash -c '
     source /opt/ros/jazzy/setup.bash &&
+    source /opt/topic_based_ros2_control/setup.bash &&
     cd "$WS" &&
     colcon build --symlink-install --packages-up-to arm_gui
 ' 2>&1 | follow "ROS 2"
@@ -115,6 +116,7 @@ if [ -n "$PROGRESS_FD" ]; then
 fi
 "${COMPOSE[@]}" exec -T dev bash -c '
     source /opt/ros/jazzy/setup.bash &&
+    source /opt/topic_based_ros2_control/setup.bash &&
     cd "$WS" &&
     source install/setup.bash &&
     exec ros2 run arm_gui arm_gui

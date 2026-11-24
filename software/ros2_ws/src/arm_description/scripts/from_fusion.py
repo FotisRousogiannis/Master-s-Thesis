@@ -10,7 +10,8 @@ as it is drawn: four-bar linkages, i.e. closed loops, which URDF (a tree) cannot
   * freezes the gripper at its exported pose: every part fixed to gripper_base, placed by its mesh (Fusion's
     joints of the loops are wrong, see gripper_poses); the gripper's own joints come later, with mimic,
   * replaces Fusion's placeholder effort/velocity (1e6) with the arm's real velocity limit,
-  * writes meshes as package://arm_description/meshes/<file>.
+  * draws the full meshes (package://arm_description/meshes/, extracted from the export zip by CMake) and checks
+    collisions with the light ones (package://arm_description/meshes_collision/, scripts/simplify_meshes.py).
 
 Run it again after every new export; never edit arm_model.xacro by hand.
 """
@@ -88,8 +89,9 @@ def link_xml(link) -> str:
             continue
         mesh = element.find("geometry/mesh")
         file = Path(mesh.get("filename")).name
+        folder = "meshes" if kind == "visual" else "meshes_collision"      # drawn in full, checked light
         out += [f"    <{kind}>", f"      {origin_xml(transform(element.find('origin')))}",
-                f'      <geometry><mesh filename="package://arm_description/meshes/{file}" '
+                f'      <geometry><mesh filename="package://arm_description/{folder}/{file}" '
                 f'scale="{mesh.get("scale", "1 1 1")}"/></geometry>']
         if kind == "visual":
             out.append(f'      <material name="{"arm_orange" if name.startswith("link_") else "arm_grey"}"/>')

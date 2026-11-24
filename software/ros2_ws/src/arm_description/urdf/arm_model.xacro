@@ -15,7 +15,7 @@
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry><mesh filename="package://arm_description/meshes/BASE-v7.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/BASE-v7.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_1">
@@ -31,7 +31,7 @@
     </visual>
     <collision>
       <origin xyz="0 0 -0.14" rpy="0 0 0"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-1-1.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-1-1.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_2">
@@ -47,7 +47,7 @@
     </visual>
     <collision>
       <origin xyz="0 0.11888388 0.07563388" rpy="1.57079633 0 0"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-2-1.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-2-1.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_3">
@@ -63,7 +63,7 @@
     </visual>
     <collision>
       <origin xyz="0 0.598884113 0.075687906" rpy="-1.57079633 0 3.14159265"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-3.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-3.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_4">
@@ -79,7 +79,7 @@
     </visual>
     <collision>
       <origin xyz="0 3.6466e-05 -0.541384113" rpy="0 0 -3.14159265"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-4.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-4.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_5">
@@ -95,7 +95,7 @@
     </visual>
     <collision>
       <origin xyz="-4e-08 0.267775423 0.034501346" rpy="-1.57079633 0 -3.14159265"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-5.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-5.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="link_6">
@@ -111,7 +111,7 @@
     </visual>
     <collision>
       <origin xyz="0.135844042 -0.266014646 -0.090971264" rpy="0 0 0"/>
-      <geometry><mesh filename="package://arm_description/meshes/LINK-6.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/LINK-6.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="gripper_base">
@@ -127,7 +127,7 @@
     </visual>
     <collision>
       <origin xyz="-0.296057806 -0.018839596 -0.088224153" rpy="-1.57079633 -0.603072738 -1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/GRIPPER-BASE.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/GRIPPER-BASE.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_1">
@@ -143,7 +143,7 @@
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-1.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-1.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_2">
@@ -159,7 +159,7 @@
     </visual>
     <collision>
       <origin xyz="-0.276080836 0.033376694 -0.217917303" rpy="-1.57079633 -0.603072738 -1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-2.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-2.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_1_shaft_down">
@@ -175,7 +175,7 @@
     </visual>
     <collision>
       <origin xyz="-0.260080836 -0.019978416 -0.153022163" rpy="-1.57079633 -0.603072738 -1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-1-SHAFT-DOWN.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-1-SHAFT-DOWN.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_1_shaft_up">
@@ -191,7 +191,7 @@
     </visual>
     <collision>
       <origin xyz="-0.287057806 0.028333526 0.263921163" rpy="1.57079633 0.603072738 1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-1-SHAFT-UP.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-1-SHAFT-UP.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_2_shaft_down">
@@ -207,7 +207,7 @@
     </visual>
     <collision>
       <origin xyz="-0.260080836 0.020021584 -0.153022483" rpy="-1.57079633 -0.603072738 -1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-2-SHAFT-DOWN.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-2-SHAFT-DOWN.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <link name="finger_2_shaft_up">
@@ -223,7 +223,7 @@
     </visual>
     <collision>
       <origin xyz="-0.260057806 0.015021584 -0.199026343" rpy="-1.57079633 -0.603072738 -1.57079633"/>
-      <geometry><mesh filename="package://arm_description/meshes/FINGER-2-SHAFT-UP.stl" scale="0.001 0.001 0.001"/></geometry>
+      <geometry><mesh filename="package://arm_description/meshes_collision/FINGER-2-SHAFT-UP.stl" scale="0.001 0.001 0.001"/></geometry>
     </collision>
   </link>
   <joint name="joint_1" type="revolute">

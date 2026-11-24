@@ -499,3 +499,7 @@
   Tests: arm_description 10, arm_moveit_config 7, arm_gui 70 ✅.
 - **Σφάλμα:** στο bringup, αν το RViz έπεφτε (π.χ. χωρίς `xhost +local:docker`), έκλεινε όλο το σύστημα: το
   `on_exit=Shutdown` του RViz του MoveIt ισχύει πλέον μόνο για το ξεχωριστό παράθυρο του Arm Studio.
+- **Meshes σε πλήρη ανάλυση, δοκιμή στο PC:** RViz 29–31 fps ✅· όμως `move_group` 86 s ως το «Ready» και συνεχώς
+  ~100 % CPU, RViz «NO PLANNING LIBRARY» / «Requesting initial scene failed» (ρώτησε πριν ξεκινήσει). → συγκρούσεις
+  με ελαφριά meshes (`meshes_collision/`, 9.6 MB: κυρτά περιβλήματα ≤ 5 mm ή μείωση ≤ 2 mm), εμφάνιση με τα πλήρη.
+  Έλεγχος FCL: καμία νέα επαφή στο μηδέν και στο `ready`.

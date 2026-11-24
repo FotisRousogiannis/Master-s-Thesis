@@ -100,14 +100,20 @@ def test_zero_pose_is_the_vertical_arm(robot):
 
 
 def test_meshes_are_in_the_fusion_zip(robot):
-    """Every mesh the model names is in the zip that CMake extracts (docs/decisions/0026)."""
+    """Drawn meshes come from the zip that CMake extracts, collision meshes are the light ones (ADR-0026)."""
     import zipfile
 
     zip_path = XACRO_FILE.parents[4] / "cad_export" / "fusion_urdf" / "URDF.zip"
     names = {Path(n).name for n in zipfile.ZipFile(zip_path).namelist() if n.endswith(".stl")}
-    used = {Path(m.get("filename")).name for m in robot.iter("mesh")}
-    assert used and used <= names
-    assert all(m.get("filename").startswith("package://arm_description/meshes/") for m in robot.iter("mesh"))
+    visual = {Path(m.get("filename")).name for m in robot.findall("link/visual/geometry/mesh")}
+    assert visual and visual <= names
+    assert all(m.get("filename").startswith("package://arm_description/meshes/")
+               for m in robot.findall("link/visual/geometry/mesh"))
+    # collisions: the light meshes in this package, one for every drawn mesh
+    light = {p.name for p in (XACRO_FILE.parents[1] / "meshes_collision").glob("*.stl")}
+    collision = robot.findall("link/collision/geometry/mesh")
+    assert {Path(m.get("filename")).name for m in collision} == visual <= light
+    assert all(m.get("filename").startswith("package://arm_description/meshes_collision/") for m in collision)
 
 
 def test_generated_model_is_up_to_date():

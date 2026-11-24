@@ -4,13 +4,13 @@ project(arm_description)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY urdf launch rviz
+  DIRECTORY urdf launch rviz meshes_collision
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Meshes (docs/decisions/0026): they stay in the Fusion export zip in the repo (the STL files are 114 MB, too big
-# for git one by one) and are extracted here at configure time, so a fresh clone builds without a manual step.
-# A new export (a new zip) re-runs the extraction.
+# Meshes (docs/decisions/0026): the full ones, only drawn, stay in the Fusion export zip in the repo (114 MB, too big
+# for git one by one) and are extracted here at configure time, so a fresh clone builds without a manual step; a
+# new export (a new zip) re-runs the extraction. Collisions use the light meshes_collision/ (scripts/simplify_meshes.py).
 set(FUSION_ZIP "${CMAKE_CURRENT_SOURCE_DIR}/../../../cad_export/fusion_urdf/URDF.zip")
 if(NOT EXISTS "${FUSION_ZIP}")
   message(FATAL_ERROR "Fusion export not found: ${FUSION_ZIP}")

@@ -503,3 +503,5 @@
   ~100 % CPU, RViz «NO PLANNING LIBRARY» / «Requesting initial scene failed» (ρώτησε πριν ξεκινήσει). → συγκρούσεις
   με ελαφριά meshes (`meshes_collision/`, 9.6 MB: κυρτά περιβλήματα ≤ 5 mm ή μείωση ≤ 2 mm), εμφάνιση με τα πλήρη.
   Έλεγχος FCL: καμία νέα επαφή στο μηδέν και στο `ready`.
+- **Με τα ελαφριά meshes συγκρούσεων ✅:** `move_group` έτοιμο σε λίγα δευτερόλεπτα, Plan & Execute → ο πραγματικός
+  (Fusion) βραχίονας κινήθηκε στο mock.

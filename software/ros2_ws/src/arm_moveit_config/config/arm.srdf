@@ -27,7 +27,8 @@
     <joint name="joint_6" value="0"/>
   </group_state>
 
-  <end_effector name="tool" parent_link="tool0" group="arm"/>
+  <!-- No <end_effector> yet: it must name a group of its own (the gripper), which the model does not
+       have. Pointing it at "arm" gives «Could not identify parent group» (move_group, 2026-11-24). -->
   <virtual_joint name="fixed_base" type="fixed" parent_frame="world" child_link="world"/>
 
   <!-- Only neighbours are skipped: they touch at every joint by construction. Every other pair can

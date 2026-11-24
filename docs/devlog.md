@@ -485,3 +485,7 @@
   πακέτο για Jazzy. Διόρθωση: χτίσιμο από τον κώδικα στο Dockerfile (tag 0.3.0, overlay
   `/opt/topic_based_ros2_control`). Οι τοπικές αλλαγές του `arm.yaml` (νεκρές ζώνες servo από τον οδηγό, μάλλον με
   προβληματικούς encoders: servo_2 510 µs αντί 190) μπήκαν σε `git stash` του Φώτη, όχι στο repo.
+- **MoveIt σε mock, πρώτη εκκίνηση ✅:** build 6 πακέτων, `topic_based_ros2_control` στο `/opt`, controllers ενεργοί,
+  `move_group`: «You can start planning now!». Διορθώθηκε: `<end_effector>` στο SRDF χωρίς δική του ομάδα (προειδοποίηση
+  «Could not identify parent group»). Αναμενόμενα, χωρίς επίπτωση: octomap χωρίς αισθητήρα 3D (μέχρι την όραση),
+  χωρίς RT scheduling στο Docker, MESA/dri3 του RViz.

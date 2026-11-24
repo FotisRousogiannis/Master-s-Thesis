@@ -489,3 +489,5 @@
   `move_group`: «You can start planning now!». Διορθώθηκε: `<end_effector>` στο SRDF χωρίς δική του ομάδα (προειδοποίηση
   «Could not identify parent group»). Αναμενόμενα, χωρίς επίπτωση: octomap χωρίς αισθητήρα 3D (μέχρι την όραση),
   χωρίς RT scheduling στο Docker, MESA/dri3 του RViz.
+- **MoveIt σε mock, κίνηση ✅:** RViz με MotionPlanning (χρειάζεται `compose.gpu.yaml`: χωρίς `/dev/dri` το RViz δεν
+  άνοιγε), Plan & Execute προς τη θέση `ready` και με το marker → ο βραχίονας κινήθηκε στην προσομοίωση.

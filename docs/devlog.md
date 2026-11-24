@@ -497,3 +497,5 @@
   στο repo, αποσυμπίεση από το CMake· πλήρης ανάλυση για αρχή, `simplify_meshes.py` έτοιμο (12 MB, ≤ 1 mm) αν
   χρειαστεί. SRDF: συγκρούσεις ελεγμένες με FCL στα meshes (μηδέν, `ready`). `arm.yaml`: joint_2 έως +40°.
   Tests: arm_description 10, arm_moveit_config 7, arm_gui 70 ✅.
+- **Σφάλμα:** στο bringup, αν το RViz έπεφτε (π.χ. χωρίς `xhost +local:docker`), έκλεινε όλο το σύστημα: το
+  `on_exit=Shutdown` του RViz του MoveIt ισχύει πλέον μόνο για το ξεχωριστό παράθυρο του Arm Studio.

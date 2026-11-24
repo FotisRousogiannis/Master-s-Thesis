@@ -39,6 +39,7 @@
 | [0023](0023-calibration-plan.md) | Σχέδιο βαθμονόμησης: ένα αρχείο, λίστα servo, αρθρώσεις, διαδικασία στο Arm Studio | Προτεινόμενη | 2026-11-17 |
 | [0024](0024-real-hardware-topic-based-ros2-control.md) | `hardware:=real`: ros2_control ↔ Pi με topic_based_ros2_control | Αποδεκτή | 2026-11-22 |
 | [0025](0025-moveit2-configuration.md) | MoveIt 2: `arm_moveit_config`, εκτέλεση μέσω `arm_controller`, στόχοι από το Arm Studio | Αποδεκτή | 2026-11-22 |
+| [0026](0026-arm-model-from-fusion.md) | Μοντέλο του βραχίονα από το URDF export του Fusion (μετατροπέας, meshes από zip) | Αποδεκτή | 2026-11-24 |
 
 ## Πρότυπο
 

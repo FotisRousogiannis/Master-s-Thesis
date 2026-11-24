@@ -31,7 +31,12 @@ def test_kinematic_tree_is_a_single_chain_to_tool0(robot):
         chain.append(link)
         link = parent_of[link]
     assert link == "world"
-    assert len(chain) == len(links) - 1
+    assert chain[::-1] == ["base_link", *[f"link_{i}" for i in range(1, 7)], "tool0"]
+    # off the chain only the gripper, fixed to the flange for now (docs/decisions/0026)
+    for other in links - set(chain) - {"world"}:
+        while other in parent_of and other != "gripper_base":
+            other = parent_of[other]
+        assert other == "gripper_base"
 
 
 def test_joint_limits_are_valid(robot):
@@ -74,3 +79,42 @@ def test_ros2_control_covers_every_arm_joint(hardware):
         assert len(plugins) == 1 and plugins[0].find("parameters").text == "/c.yaml"
     else:
         assert plugins == []
+
+
+def test_zero_pose_is_the_vertical_arm(robot):
+    """The Fusion export is the vertical arm: at zero every joint lies on the vertical through the base."""
+    import numpy as np
+
+    sys_path = str(XACRO_FILE.parents[1] / "scripts")
+    import sys
+    sys.path.insert(0, sys_path)
+    import from_fusion
+
+    joints = {j.get("name"): j for j in robot.findall("joint")}
+    pose, heights = np.eye(4), []
+    for name in ["world_to_base", *ARM_JOINTS]:
+        pose = pose @ from_fusion.transform(joints[name].find("origin"))
+        heights.append(pose[2, 3])
+        assert abs(pose[0, 3]) < 1e-3 and abs(pose[1, 3]) < 0.08, name   # on the axis (shoulder offset 76 mm)
+    assert heights == sorted(heights) and heights[-1] > 0.9
+
+
+def test_meshes_are_in_the_fusion_zip(robot):
+    """Every mesh the model names is in the zip that CMake extracts (docs/decisions/0026)."""
+    import zipfile
+
+    zip_path = XACRO_FILE.parents[4] / "cad_export" / "fusion_urdf" / "URDF.zip"
+    names = {Path(n).name for n in zipfile.ZipFile(zip_path).namelist() if n.endswith(".stl")}
+    used = {Path(m.get("filename")).name for m in robot.iter("mesh")}
+    assert used and used <= names
+    assert all(m.get("filename").startswith("package://arm_description/meshes/") for m in robot.iter("mesh"))
+
+
+def test_generated_model_is_up_to_date():
+    """arm_model.xacro is what from_fusion.py makes of the exported URDF: never edited by hand."""
+    import sys
+    sys.path.insert(0, str(XACRO_FILE.parents[1] / "scripts"))
+    import from_fusion
+
+    source = XACRO_FILE.parents[4] / "cad_export" / "fusion_urdf" / "URDF.urdf"
+    assert from_fusion.convert(source) == (XACRO_FILE.parent / "arm_model.xacro").read_text(encoding="utf-8")

@@ -53,7 +53,7 @@ joints:
     encoder: enc_2
     zero_deg: 112.676
     invert: true
-    limits_deg: [-90.0, 90.0]
+    limits_deg: [-90.0, 40.0]   # το Fusion (ADR-0026): μηχανικό όριο +40°
     deadband: [0.07, 0.07]
     law: {type: pid, kp: 0.02, ki: 0.0, kd: 0.0}
   joint_3:

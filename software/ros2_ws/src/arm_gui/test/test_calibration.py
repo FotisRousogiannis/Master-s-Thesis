@@ -265,7 +265,7 @@ def test_live_table_and_zero_from_the_panel(panel, window):
     assert rows == {"joint_1": "+10.0", "joint_2": "-0.0"} or rows["joint_1"] == "+10.0"
     panel.go_step(2)
     panel.zero_joint.setCurrentText("joint_2")
-    assert (panel.lower.value(), panel.upper.value()) == (-90.0, 90.0)     # joint_2's limits
+    assert (panel.lower.value(), panel.upper.value()) == (-90.0, 40.0)     # joint_2's limits
     panel.zero_joint.setCurrentText("joint_1")
     assert (panel.lower.value(), panel.upper.value()) == (-30.0, 50.0)
     panel.zero_angle.setValue(0.0)

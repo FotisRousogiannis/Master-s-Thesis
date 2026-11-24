@@ -38,7 +38,8 @@ def _nodes(context):
     sim_time = {"use_sim_time": LaunchConfiguration("use_sim_time").perform(context).lower() == "true"}
     config = moveit_config(hardware)
     nodes = []
-    if LaunchConfiguration("move_group").perform(context).lower() == "true":
+    start_move_group = LaunchConfiguration("move_group").perform(context).lower() == "true"
+    if start_move_group:
         nodes.append(
             Node(
                 package="moveit_ros_move_group",
@@ -62,7 +63,9 @@ def _nodes(context):
                     config.joint_limits,
                     sim_time,
                 ],
-                on_exit=Shutdown(),  # closing the window ends the launch, so Arm Studio sees it
+                # Alone (Arm Studio's window): closing it ends this launch, so Arm Studio sees it. Next to
+                # move_group (bringup): RViz closing or failing must not stop the arm's stack.
+                on_exit=None if start_move_group else Shutdown(),
             )
         )
     return nodes

@@ -32,6 +32,7 @@ from pathlib import Path
 import control as ctl
 import wrist_bench as wb
 
+LATCH_MAX_TRAVEL_DEG = 30.0   # [12] moves until a key: never further than this from where it started
 ARM_FILE = Path(__file__).resolve().parents[2] / "ros2_ws" / "src" / "arm_calibration" / "config" / "arm.yaml"
 
 MEASUREMENTS = Path(__file__).resolve().parents[3] / "docs" / "measurements" / "base"
@@ -104,11 +105,22 @@ class TeleopController(wb.JogController):
 
     MOTIONS = {"w": (1, 0), "s": (-1, 0), "d": (0, 1), "a": (0, -1)}
 
-    def __init__(self, magnitude=0.4, step=0.1, first_hold_s=0.6, repeat_hold_s=0.25):
+    def __init__(self, magnitude=0.4, step=0.1, first_hold_s=0.6, repeat_hold_s=0.25, latch=False):
         super().__init__(max_offset_us=1, first_hold_s=first_hold_s, repeat_hold_s=repeat_hold_s)
         self.magnitude, self.step = magnitude, step
+        # latch: one press of W / S runs until another key (for terminals without key repeat, e.g. this SSH:
+        # joint_3 run 2026-11-26, every move ended after exactly 0.59 s although the key was held)
+        self.latch = latch
+
+    def active(self, now):
+        if self.latch:
+            return self.direction or None
+        return super().active(now)
 
     def on_key(self, key, now):
+        if self.latch and self.direction and self.GREEK_KEYS.get(key, key).lower() not in ("q",):
+            self.direction, self.last_press = 0, None              # running: any key stops
+            return
         if key in "+=":
             self.magnitude = round(min(1.0, self.magnitude + self.step), 3)
         elif key in "-_":
@@ -309,8 +321,10 @@ class Teleop:
         import termios
         import tty
 
-        bench, ctrl = self.bench, TeleopController()
+        bench, ctrl = self.bench, TeleopController(latch=bool(self.one_joint))
         limit = bench.safety.get("jog_max_travel_deg", 90)
+        if self.one_joint:
+            limit = min(limit, LATCH_MAX_TRAVEL_DEG)       # runs on its own: a closer travel limit
         if use_encoders:
             for ch in self.encoder_channels:
                 try:
@@ -341,7 +355,8 @@ class Teleop:
             else:
                 self.out(f"  σημείωση: mux{ch} μαγνήτης {status} - φαίνεται, αλλά δεν χρησιμοποιείται για όριο")
         keys = (f"{self.one_joint}: A=ch{self.a} B=ch{self.b}\n"
-                "  κράτα W / S : θετικά / αρνητικά     (A / D κλειστά)\n" if self.one_joint else
+                "  πάτα W / S μία φορά: τρέχει θετικά / αρνητικά · οποιοδήποτε πλήκτρο: στάση   (A / D κλειστά)\n"
+                if self.one_joint else
                 f"Διαφορικό A=ch{self.a} B=ch{self.b} (B {'ανεστραμμένο' if self.invert_b else 'κανονικό'})\n"
                 "  κράτα W / S : pitch (μοτέρ μαζί)     κράτα A / D : roll (μοτέρ αντίθετα)\n")
         self.out(keys

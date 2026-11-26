@@ -232,3 +232,19 @@ def test_one_joint_ignores_a_and_d(config, monkeypatch):
     moving = [w for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0 + 8, wb.PCA_LED0 + 12)
               and w[3] != [0, 0, 0, 0x10]]
     assert moving == []
+
+
+def test_latch_runs_until_any_key_without_key_repeat():
+    """[12]: no key repeat over SSH (joint_3 run: every move ended at 0.59 s). One press runs until a key."""
+    c = t.TeleopController(latch=True)
+    c.on_key("w", 0.0)
+    assert c.command(5.0) == (0.4, 0.0)                 # still running 5 s later, no repeats
+    c.on_key("x", 5.1)
+    assert c.command(5.2) == (0.0, 0.0)                 # any key stops
+    c.on_key("ς", 6.0)                                  # Greek layout W
+    assert c.command(6.1) == (0.4, 0.0)
+    c.on_key(";", 6.2)                                  # Greek layout Q: quits (the loop then stops)
+    assert c.quit
+    held = t.TeleopController()                         # the base's hold-to-run is unchanged
+    held.on_key("w", 0.0)
+    assert held.command(0.7) == (0.0, 0.0)

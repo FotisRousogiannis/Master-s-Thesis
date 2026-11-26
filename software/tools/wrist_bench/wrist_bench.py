@@ -105,6 +105,34 @@ class AS5600:
         return angle, raw, magnet_status(status), agc
 
 
+ADS1115_ADDR = 0x48
+ADS_CONVERSION, ADS_CONFIG = 0x00, 0x01
+ZD10_MIN_V = 0.2          # below this the ZD10 divider gives ~0 V: sensor missing or a cable off (wiring.md)
+
+
+class ADS1115:
+    """ADS1115 behind one mux channel: single-shot, input vs GND, ±4.096 V, 860 SPS (as arm_pi_driver)."""
+
+    def __init__(self, bus, mux, mux_channel, address=ADS1115_ADDR):
+        self.bus, self.mux, self.mux_channel, self.address = bus, mux, mux_channel, address
+
+    def read_volts(self, analog_input):
+        """Voltage of A0..A3; OSError if the chip does not answer or the conversion never ends."""
+        self.mux.select(self.mux_channel)
+        word = 0x8000 | (0b100 + analog_input) << 12 | 0b001 << 9 | 0x0100 | 0b111 << 5 | 0x0003
+        self.bus.write_i2c_block_data(self.address, ADS_CONFIG, [word >> 8, word & 0xFF])
+        time.sleep(1.0 / 860)
+        for _ in range(5):
+            if self.bus.read_i2c_block_data(self.address, ADS_CONFIG, 2)[0] & 0x80:   # conversion done
+                break
+            time.sleep(0.0005)
+        else:
+            raise OSError("ADS1115: conversion did not finish")
+        hi, lo = self.bus.read_i2c_block_data(self.address, ADS_CONVERSION, 2)
+        raw = (hi << 8) | lo
+        return (raw - (1 << 16) if raw & 0x8000 else raw) * 4.096 / 32768
+
+
 def magnet_status(status):
     if not status & AS5600_MD:
         return "NO_MAGNET"

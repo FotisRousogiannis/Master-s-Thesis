@@ -168,6 +168,35 @@ class Teleop:
         self.bench.mux.select(None)
         return result
 
+    def read_pressure(self, channels=None, samples=10, period=0.3):
+        """[11] ZD10 through the ADS1115: the voltage of A0..A3 on every channel with an ADS1115 (0x48).
+
+        Press a finger on each sensor while it runs: its voltage must rise (≈0.9 V at rest, up to ~2.5 V at full
+        pressure with the 6.8 kΩ divider, docs/hardware/wiring.md); below 0.2 V nothing is connected there."""
+        found = self.found if self.found is not None else self.bench.scan()
+        channels = channels if channels is not None else [int(k[3:]) for k, devs in found.items()
+                                                          if k.startswith("mux") and wb.ADS1115_ADDR in devs]
+        if not channels:
+            self.out("Δεν βρέθηκε ADS1115 (0x48) σε κανένα κανάλι.")
+            return {}
+        result = {}
+        for i in range(samples):
+            for ch in channels:
+                adc, values = wb.ADS1115(self.bench.bus, self.bench.mux, ch), []
+                for analog_input in range(4):
+                    try:
+                        v = adc.read_volts(analog_input)
+                        values.append(f"A{analog_input} {v:5.2f} V{'' if v >= wb.ZD10_MIN_V else ' (κενό)'}")
+                        result[(ch, analog_input)] = v
+                    except OSError:
+                        values.append(f"A{analog_input}  δεν απαντά")
+                        result[(ch, analog_input)] = None
+                self.out(f"  mux{ch}: " + "   ".join(values))
+            if i < samples - 1:
+                time.sleep(period)
+        self.bench.mux.select(None)
+        return result
+
     def choose(self, ask=input):
         """Ask for the channels; Enter keeps the current value."""
         def field(prompt, current, allowed, single=True):
@@ -683,7 +712,8 @@ class Teleop:
                      "  [7] Μετακίνηση σε γωνία (PID)\n  [8] Ρυθμίσεις PID\n"
                      "  [9] Νεκρή ζώνη ανά άξονα (αυτόματη μέτρηση)\n"
                      f"  [10] Νεκρή ζώνη ανά μοτέρ, PWM γύρω από τα 1600 µs   νεκρό σημείο A/B: "
-                     f"{self.neutral.get('a') or '1600?'} / {self.neutral.get('b') or '1600?'} µs\n  [q] Έξοδος")
+                     f"{self.neutral.get('a') or '1600?'} / {self.neutral.get('b') or '1600?'} µs\n"
+                     "  [11] Αισθητήρες πίεσης ZD10 (τάσεις ADS1115, 10 αναγνώσεις)\n  [q] Έξοδος")
             choice = ask("> ").strip().lower()
             if choice == "1":
                 self.scan()
@@ -708,6 +738,8 @@ class Teleop:
                 self.measure_deadband(ask)
             elif choice == "10":
                 self.measure_motor_deadband(ask, csv_path=measurement_path(ask(CSV_PROMPT)))
+            elif choice == "11":
+                self.read_pressure()
             elif choice in ("q", ";"):
                 return
 

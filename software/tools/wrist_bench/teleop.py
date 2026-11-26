@@ -32,6 +32,8 @@ from pathlib import Path
 import control as ctl
 import wrist_bench as wb
 
+ARM_FILE = Path(__file__).resolve().parents[2] / "ros2_ws" / "src" / "arm_calibration" / "config" / "arm.yaml"
+
 MEASUREMENTS = Path(__file__).resolve().parents[3] / "docs" / "measurements" / "base"
 PCA_CHANNELS = range(16)
 MUX_CHANNELS = range(8)
@@ -167,6 +169,41 @@ class Teleop:
                 time.sleep(period)
         self.bench.mux.select(None)
         return result
+
+    def use_joint(self, name, path=None):
+        """[12] Take a joint's servos, signs, neutrals, deadbands and encoder from arm.yaml (ADR-0023), so that
+        W / S in [4] move THAT joint the positive / negative way of the file, whatever its servos are (mirrored
+        pair, differential half). Returns False (with a message) if the file cannot drive it from here."""
+        try:
+            import yaml
+        except ImportError:
+            self.out("✖ χρειάζεται το PyYAML: sudo apt install python3-yaml")
+            return False
+        data = yaml.safe_load(Path(path or ARM_FILE).read_text(encoding="utf-8"))
+        joint = data["joints"].get(name)
+        if joint is None:
+            self.out(f"✖ δεν υπάρχει άρθρωση {name!r}: {', '.join(data['joints'])}")
+            return False
+        servos = joint["servos"]
+        if len(servos) != 2:
+            self.out(f"✖ {name}: {len(servos)} servo· εδώ μόνο αρθρώσεις με δύο (κατοπτρικά ή διαφορικό)")
+            return False
+        (first, s1), (second, s2) = sorted(servos.items(), key=lambda kv: -kv[1])      # the +1 servo is A
+        channels = [data["servos"][n]["channel"] for n in (first, second)]
+        encoder = data["encoders"].get(joint.get("encoder"), {}).get("channel")
+        if None in channels or encoder is None:
+            self.out(f"✖ {name}: χωρίς κανάλι servo ή encoder στο arm.yaml ({first}, {second}, {joint.get('encoder')})")
+            return False
+        self.a, self.b, self.invert_b = channels[0], channels[1], s1 != s2
+        self.encoder_channels = [encoder]
+        self.neutral = {k: data["servos"][n].get("neutral_us") for k, n in (("a", first), ("b", second))}
+        edges = {k: data["servos"][n].get("deadband_us") for k, n in (("a", first), ("b", second))}
+        self.motor_edges = edges if all(edges.values()) else {}
+        self.axes = {}                                   # the base's calibration does not apply here
+        sign = "" if s1 > 0 else "  (και τα δύο servo με −1: το W πάει ΑΡΝΗΤΙΚΑ)"
+        self.out(f"{name}: A={first} ch{channels[0]} ({s1:+d}), B={second} ch{channels[1]} ({s2:+d}), "
+                 f"encoder mux{encoder}\n  στο [4]: W = θετικά, S = αρνητικά (κατά το arm.yaml){sign}")
+        return True
 
     def read_pressure(self, channels=None, samples=10, period=0.3):
         """[11] ZD10 through the ADS1115: the voltage of A0..A3 on every channel with an ADS1115 (0x48).
@@ -713,7 +750,8 @@ class Teleop:
                      "  [9] Νεκρή ζώνη ανά άξονα (αυτόματη μέτρηση)\n"
                      f"  [10] Νεκρή ζώνη ανά μοτέρ, PWM γύρω από τα 1600 µs   νεκρό σημείο A/B: "
                      f"{self.neutral.get('a') or '1600?'} / {self.neutral.get('b') or '1600?'} µs\n"
-                     "  [11] Αισθητήρες πίεσης ZD10 (τάσεις ADS1115, 10 αναγνώσεις)\n  [q] Έξοδος")
+                     "  [11] Αισθητήρες πίεσης ZD10 (τάσεις ADS1115, 10 αναγνώσεις)\n"
+                     "  [12] Άρθρωση από το arm.yaml (π.χ. joint_3) και κίνηση με W / S\n  [q] Έξοδος")
             choice = ask("> ").strip().lower()
             if choice == "1":
                 self.scan()
@@ -740,6 +778,9 @@ class Teleop:
                 self.measure_motor_deadband(ask, csv_path=measurement_path(ask(CSV_PROMPT)))
             elif choice == "11":
                 self.read_pressure()
+            elif choice == "12":
+                if self.use_joint(ask("Άρθρωση [joint_3]: ").strip() or "joint_3"):
+                    self.drive(csv_path=measurement_path(ask(CSV_PROMPT)), ask=ask)
             elif choice in ("q", ";"):
                 return
 

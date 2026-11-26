@@ -107,7 +107,7 @@ def test_parameters_are_flat_and_typed(data):
     assert params["joints.joint_1.zero_deg"] == 267.891
     assert params["joints.joint_1.servos.servo_2"] == -1
     assert params["servos.servo_1.deadband_us"] == [1420, 1840]
-    assert params["encoders.enc_3.channel"] == -1                  # null channel: -1
+    assert params["encoders.enc_4.channel"] == -1                  # null channel: -1
     assert "joints.joint_3.encoder" in params and "force_sensors.finger_1.max_v" not in params
     assert isinstance(params["joints.gripper.limits_deg"][0], float)
 
@@ -116,10 +116,10 @@ def test_set_value_from_ros(data):
     from array import array
     a.set_value(data, "joints.joint_1.limits_deg", array("d", [-20, 40]))
     assert data["joints"]["joint_1"]["limits_deg"] == [-20.0, 40.0]
-    a.set_value(data, "encoders.enc_3.channel", 4)                 # a null gets a value
-    assert data["encoders"]["enc_3"]["channel"] == 4
-    a.set_value(data, "encoders.enc_3.channel", -1)                # and back to null
-    assert data["encoders"]["enc_3"]["channel"] is None
+    a.set_value(data, "encoders.enc_4.channel", 5)                 # a null gets a value
+    assert data["encoders"]["enc_4"]["channel"] == 5
+    a.set_value(data, "encoders.enc_4.channel", -1)                # and back to null
+    assert data["encoders"]["enc_4"]["channel"] is None
     a.set_value(data, "joints.joint_3.servos.servo_10", 1)         # a servo added to a joint
     assert data["joints"]["joint_3"]["servos"]["servo_10"] == 1
     with pytest.raises(KeyError):

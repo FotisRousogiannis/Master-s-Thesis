@@ -34,7 +34,7 @@ SCAN = {"0": {"devices": ["PCA9685"], "encoder": None},
 def test_nest_gives_back_the_file(bench):
     data = arm_config.load()
     assert bench.data["joints"]["joint_1"] == data["joints"]["joint_1"]
-    assert bench.data["encoders"]["enc_3"] == {"channel": None}          # -1 → null
+    assert bench.data["encoders"]["enc_4"] == {"channel": None}          # -1 → null
     assert arm_config.validate(bench.data) == []
 
 

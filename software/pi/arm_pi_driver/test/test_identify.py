@@ -135,7 +135,7 @@ def test_session_scan_read_and_jog_by_servo_name(session):
 
 def test_session_refuses_servos_without_a_channel(session):
     _, s = session
-    reply = s.handle({'id': 1, 'op': 'jog', 'servos': {'servo_3': 0.4}}, 0.0)
+    reply = s.handle({'id': 1, 'op': 'jog', 'servos': {'servo_5': 0.4}}, 0.0)
     assert not reply['ok'] and 'κανάλι' in reply['error']
     assert not s.handle({'op': 'jog', 'servos': {'nothing': 0.4}}, 0.0)['ok']
     assert not s.handle({'op': 'dance'}, 0.0)['ok']

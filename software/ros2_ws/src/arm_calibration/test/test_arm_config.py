@@ -68,10 +68,10 @@ def test_differential_with_equal_signs_is_refused(data):
 
 
 def test_enabled_joint_needs_its_wiring(data):
-    def enable_joint_3(d):
-        d["joints"]["joint_3"]["enabled"] = True
-    msg = errors_after(data, enable_joint_3)
-    assert "servo_3 δεν έχει κανάλι" in msg and "δεν έχει encoder με κανάλι" in msg
+    def enable_joint_4(d):                     # joint_4: no servo channels, no encoder channel yet
+        d["joints"]["joint_4"]["enabled"] = True
+    msg = errors_after(data, enable_joint_4)
+    assert "servo_5 δεν έχει κανάλι" in msg and "δεν έχει encoder με κανάλι" in msg
 
 
 def test_differential_is_enabled_as_a_whole(data):

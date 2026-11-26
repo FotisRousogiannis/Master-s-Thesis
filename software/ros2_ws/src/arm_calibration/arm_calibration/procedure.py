@@ -271,7 +271,9 @@ class ServoDeadbandSweep(Sweep):
     def __init__(self, data: dict, servo: str, step_us: int = 10):
         pca = data["controller"]["pca"]
         self.servo, self.neutral = servo, data["servos"][servo]["neutral_us"]
-        self.up_span, self.down_span = pca["pulse_max_us"] - self.neutral, self.neutral - pca["pulse_min_us"]
+        # the Pi's plain_pulse: the same span both ways (the largest that fits both ends and the safety limit)
+        span = min(pca["max_offset_us"], pca["pulse_max_us"] - self.neutral, self.neutral - pca["pulse_min_us"])
+        self.up_span = self.down_span = span
         super().__init__(list(range(step_us, pca["max_offset_us"] // 2 + 1, step_us)))
 
     def servos(self, offset_us: int) -> dict:

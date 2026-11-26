@@ -13,7 +13,7 @@ roll = A/D) and its direction with a short automatic move, then the zero at a kn
 [7] moves both axes to target angles with one PID per axis; [8] PID settings. The calibration
 is saved to base_calibration.json (commit it: it is the bench's record).
 
-Kept from the old tool: speed as a fraction (-1..1) mapped to the pulse like its speed_to_pulse,
+Kept from the old tool: speed as a fraction (-1..1) mapped to the pulse (now the same span both ways),
 start magnitude 0.4, +/- step 0.1, W/S pitch (motors together), A/D roll (motors opposed), motor B
 mirrored by default. Changed: the first key press is honoured for 0.6 s (the terminal starts its
 auto-repeat after ~0.5 s; the old 0.25 s made every press start-stop-start), pulses stay within the
@@ -40,10 +40,12 @@ MUX_CHANNELS = range(8)
 
 
 def speed_to_pulse(speed, neutral_us, min_us, max_us, max_offset_us):
-    """Old tool's mapping (-1..1 -> min..neutral..max), then the bench safety limit."""
+    """-1..1 → neutral ± span, the SAME span both ways: the largest offset that fits both sides of the neutral
+    and the bench safety limit. (The old tool scaled each side to its own end, 900 µs up but 1100 µs down from
+    1600 µs: two motors on one joint turning opposite ways got different speeds and fought, joint_3 2026-11-26.)"""
     speed = max(-1.0, min(1.0, speed))
-    pulse = neutral_us + speed * ((max_us - neutral_us) if speed >= 0 else (neutral_us - min_us))
-    return max(neutral_us - max_offset_us, min(neutral_us + max_offset_us, pulse))
+    span = min(max_offset_us, max_us - neutral_us, neutral_us - min_us)
+    return neutral_us + speed * span
 
 
 def compensation_span(motors, min_us, max_us, max_offset_us):

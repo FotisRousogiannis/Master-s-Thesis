@@ -153,3 +153,38 @@ def test_menu_asks_about_encoders_for_manual_drive(config, monkeypatch):
     answers = iter(["4", "n", "", "4", "", "", "q"])
     tele.menu(ask=lambda prompt: next(answers))
     assert calls == [False, True]
+
+
+class AdcBus(FakeBus):
+    """PCA9685 on mux 0, ADS1115 on mux 2: A0 pressed (2.0 V), A1 at rest (0.94 V), A2/A3 empty (0 V)."""
+
+    VOLTS = [2.0, 0.94, 0.0, 0.0]
+
+    def __init__(self):
+        super().__init__(devices_root=(), devices_per_channel={0: {0x40}, 2: {0x48}})
+        self.input = 0
+
+    def write_i2c_block_data(self, addr, reg, data):
+        if addr == 0x48 and reg == wb.ADS_CONFIG:
+            self.input = ((data[0] << 8 | data[1]) >> 12 & 0b111) - 0b100
+        super().write_i2c_block_data(addr, reg, data)
+
+    def read_i2c_block_data(self, addr, reg, n):
+        if reg == wb.ADS_CONFIG:
+            return [0x80, 0]                                     # conversion done
+        raw = round(self.VOLTS[self.input] * 32768 / 4.096)
+        return [raw >> 8, raw & 0xFF]
+
+
+def test_pressure_sensors_show_their_voltages(config):
+    lines = []
+    tele = t.Teleop(wb.Bench(config, AdcBus()), out=lines.append)
+    result = tele.read_pressure(samples=1)
+    assert result[(2, 0)] == pytest.approx(2.0, abs=0.001) and result[(2, 1)] == pytest.approx(0.94, abs=0.001)
+    assert "A2  0.00 V (κενό)" in lines[-1] and "A0  2.00 V" in lines[-1]
+
+
+def test_pressure_without_an_ads1115_says_so(config):
+    lines = []
+    tele = t.Teleop(wb.Bench(config, base_bus()), out=lines.append)
+    assert tele.read_pressure() == {} and "Δεν βρέθηκε ADS1115" in lines[-1]

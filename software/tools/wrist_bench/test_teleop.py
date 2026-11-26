@@ -204,6 +204,7 @@ def test_a_joint_of_the_arm_file_drives_with_w_and_s(config):
         path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
         assert tele.use_joint("joint_3", path)
         assert (tele.a, tele.b, tele.invert_b, tele.encoder_channels) == (2, 3, True, [3])
+        assert tele.calibration_path.name == "joint_3_calibration.json"      # not the base's file
         pulses = tele.pulses(0.4, 0.0)                     # W
         assert pulses[2] > 1600 > pulses[3]                # mirrored: opposite pulses
         assert not tele.use_joint("gripper", path) and "μόνο αρθρώσεις με δύο" in lines[-1]

@@ -202,6 +202,8 @@ class Teleop:
         edges = {k: data["servos"][n].get("deadband_us") for k, n in (("a", first), ("b", second))}
         self.motor_edges = edges if all(edges.values()) else {}
         self.axes = {}                                   # the base's calibration does not apply here
+        # measurements ([9], [10]) of this joint go to its own file, never over the base's (2026-11-26)
+        self.calibration_path = self.calibration_path.with_name(f"{name}_calibration.json")
         sign = "" if s1 > 0 else "  (και τα δύο servo με −1: το W πάει ΑΡΝΗΤΙΚΑ)"
         self.out(f"{name}: A={first} ch{channels[0]} ({s1:+d}), B={second} ch{channels[1]} ({s2:+d}), "
                  f"encoder mux{encoder}\n  στο [4]: W = θετικά, S = αρνητικά (κατά το arm.yaml){sign}")

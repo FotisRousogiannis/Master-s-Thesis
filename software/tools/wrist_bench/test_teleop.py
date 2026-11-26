@@ -103,7 +103,6 @@ def test_menu_runs_the_chosen_actions(config):
     assert any("Σάρωση I²C" in l for l in lines) and "Όλες οι έξοδοι off." in lines
 
 
-
 def test_recordings_go_into_the_measurements_folder(tmp_path):
     folder = tmp_path / "docs" / "measurements" / "base"
     assert t.measurement_path("", folder) is None
@@ -116,7 +115,6 @@ def test_recordings_go_into_the_measurements_folder(tmp_path):
     again = t.measurement_path("run5", folder, now=lambda: (2026, 11, 14, 12, 30, 5, 0, 0, 0))
     assert again == str(folder / "run5_20261114_123005.csv")                          # never overwrite
     assert t.MEASUREMENTS.parts[-3:] == ("docs", "measurements", "base")
-
 
 
 def test_manual_drive_without_encoders(config, monkeypatch):
@@ -188,3 +186,24 @@ def test_pressure_without_an_ads1115_says_so(config):
     lines = []
     tele = t.Teleop(wb.Bench(config, base_bus()), out=lines.append)
     assert tele.read_pressure() == {} and "Δεν βρέθηκε ADS1115" in lines[-1]
+
+
+def test_a_joint_of_the_arm_file_drives_with_w_and_s(config):
+    """joint_3: mirrored servos (+1 / -1) on PCA 2 / 3 → A=2, B=3 inverted, so W moves both the way of the file."""
+    lines = []
+    tele = t.Teleop(wb.Bench(config, base_bus()), out=lines.append)
+    assert t.ARM_FILE.exists()
+    import yaml
+    data = yaml.safe_load(t.ARM_FILE.read_text(encoding="utf-8"))
+    data["encoders"]["enc_3"]["channel"] = 3
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "arm.yaml"
+        path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+        assert tele.use_joint("joint_3", path)
+        assert (tele.a, tele.b, tele.invert_b, tele.encoder_channels) == (2, 3, True, [3])
+        pulses = tele.pulses(0.4, 0.0)                     # W
+        assert pulses[2] > 1600 > pulses[3]                # mirrored: opposite pulses
+        assert not tele.use_joint("gripper", path) and "μόνο αρθρώσεις με δύο" in lines[-1]
+        assert not tele.use_joint("joint_4", path) and "χωρίς κανάλι" in lines[-1]
+        assert not tele.use_joint("joint_9", path) and "δεν υπάρχει" in lines[-1]

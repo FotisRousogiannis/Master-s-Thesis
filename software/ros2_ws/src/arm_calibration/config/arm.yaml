@@ -25,7 +25,7 @@ servos:
 encoders:                     # AS5600 στον άξονα κάθε άρθρωσης, 1:1· channel = κανάλι του TCA9548A
   enc_1: {channel: 2}
   enc_2: {channel: 1}
-  enc_3: {channel: null}
+  enc_3: {channel: 3}          # joint_3, teleop [2]: OK, AGC 64 (2026-11-26)
   enc_4: {channel: null}
   enc_5: {channel: null}
   enc_6: {channel: null}

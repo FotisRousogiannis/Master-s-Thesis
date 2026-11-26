@@ -181,19 +181,49 @@ class PiDriverNode(Node):
             f'ανενεργές: {", ".join(disabled) or "καμία"} · {path}')
 
     def wait_for_i2c(self) -> int:
-        """Η κλειδαριά του I²C· όσο την κρατά το teleop.py ή το wrist_bench.py, περιμένει."""
+        """Η κλειδαριά του I²C· όσο την κρατά το teleop.py ή το wrist_bench.py, περιμένει.
+
+        Στο μεταξύ ο κόμβος δεν είναι σιωπηλός: απαντά σε κάθε αίτημα του Arm Studio ότι το I²C
+        είναι πιασμένο, και το δείχνει στο /diagnostics (αλλιώς το Arm Studio δεν παίρνει καμία
+        απάντηση και δεν φαίνεται γιατί, πάγκος 2026-11-26).
+        """
         from arm_pi_driver.hardware.i2c_lock import hold, I2CBusy
         path = os.environ.get('ARM_I2C_LOCK', '/root/master-s-thesis/.local/i2c.lock')
-        said = False
-        while True:
+        busy = 'το I²C το χρησιμοποιεί άλλο πρόγραμμα (teleop.py ή wrist_bench.py;): κλείσ\' το'
+        replies = self.create_publisher(String, '~/identify/reply', 10)
+        diagnostics = self.create_publisher(DiagnosticArray, '/diagnostics', 10)
+
+        def refuse(msg):
             try:
-                return hold(path)
-            except I2CBusy:
-                if not said:
-                    self.get_logger().error('το I²C το χρησιμοποιεί άλλο πρόγραμμα (teleop.py ή '
-                                            'wrist_bench.py;)· περιμένω να κλείσει')
-                    said = True
-                time.sleep(1.0)
+                request = json.loads(msg.data)
+            except ValueError:
+                request = {}
+            request = request if isinstance(request, dict) else {}
+            reply = {'id': request.get('id'), 'op': request.get('op'), 'ok': False, 'error': busy}
+            replies.publish(String(data=json.dumps(reply, ensure_ascii=False)))
+
+        requests = self.create_subscription(String, '~/identify/request', refuse, 10)
+        said = False
+        try:
+            while True:
+                try:
+                    return hold(path)
+                except I2CBusy:
+                    if not said:
+                        self.get_logger().error(busy + '· περιμένω')
+                        said = True
+                status = DiagnosticStatus(name='pi_driver/i2c', level=DiagnosticStatus.ERROR,
+                                          message=busy, hardware_id='TCA9548A')
+                array = DiagnosticArray(status=[status])
+                array.header.stamp = self.get_clock().now().to_msg()
+                diagnostics.publish(array)
+                rclpy.spin_once(self, timeout_sec=1.0)
+        finally:
+            self.destroy_subscription(requests)
+            self.destroy_publisher(replies)
+            self.destroy_publisher(diagnostics)
+            if said:
+                self.get_logger().info('το I²C ελευθερώθηκε: ξεκινώ')
 
     def on_identify(self, msg: String) -> None:
         """Ένα αίτημα αναγνώρισης (JSON)· η πρώτη φορά σταματά τον κανονικό έλεγχο."""

@@ -287,3 +287,21 @@ def test_motion_is_set_from_the_joints_page(panel, window):
     panel.joints.item(2, 13).setText("roll")
     panel.apply_edits()
     assert window._bridge.atomic_sets[-1][1] == {"joints.joint_3.motion": "roll"}
+
+
+def test_a_silent_pi_is_said_once_and_cleared_by_a_reply():
+    """Driver stopped (e.g. for teleop.py): requests go nowhere. After PI_SILENT_S it is said, once."""
+    from arm_gui import calibration as c
+
+    now = [0.0]
+    bench = Bench(clock=lambda: now[0])
+    bench.scan()
+    now[0] = c.PI_SILENT_S - 0.5
+    assert not bench.silent
+    now[0] = c.PI_SILENT_S + 0.5
+    assert bench.silent and bench.silent
+    assert sum("δεν απαντά" in text for _, text in bench.log) == 1
+    bench.handle({"id": None, "op": "live", "ok": True, "result": {}})
+    assert not bench.silent and bench.waiting_since is None
+    bench.handle({"id": 9, "op": "scan", "ok": False, "error": "το I²C το χρησιμοποιεί άλλο πρόγραμμα"})
+    assert bench.log[-1] == ("error", "το I²C το χρησιμοποιεί άλλο πρόγραμμα")

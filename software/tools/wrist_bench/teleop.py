@@ -130,6 +130,7 @@ class Teleop:
         self.a, self.b, self.invert_b = a, b, invert_b
         self.encoder_channels = list(encoders)
         self.found = None  # last scan
+        self.one_joint = None  # [12]: the joint being driven; then only W / S (one motion)
         self.calibration_path = Path(calibration if calibration is not None else ctl.DEFAULT_CALIBRATION)
         self.axes, self.pid = ctl.load_calibration(self.calibration_path)
         saved = json.loads(self.calibration_path.read_text()).get("motors", {}) if self.calibration_path.exists() else {}
@@ -202,6 +203,7 @@ class Teleop:
         edges = {k: data["servos"][n].get("deadband_us") for k, n in (("a", first), ("b", second))}
         self.motor_edges = edges if all(edges.values()) else {}
         self.axes = {}                                   # the base's calibration does not apply here
+        self.one_joint = name
         # measurements ([9], [10]) of this joint go to its own file, never over the base's (2026-11-26)
         self.calibration_path = self.calibration_path.with_name(f"{name}_calibration.json")
         sign = "" if s1 > 0 else "  (και τα δύο servo με −1: το W πάει ΑΡΝΗΤΙΚΑ)"
@@ -338,9 +340,12 @@ class Teleop:
                 limited.append(ch)
             else:
                 self.out(f"  σημείωση: mux{ch} μαγνήτης {status} - φαίνεται, αλλά δεν χρησιμοποιείται για όριο")
-        self.out(f"Διαφορικό A=ch{self.a} B=ch{self.b} (B {'ανεστραμμένο' if self.invert_b else 'κανονικό'})\n"
-                 "  κράτα W / S : pitch (μοτέρ μαζί)     κράτα A / D : roll (μοτέρ αντίθετα)\n"
-                 "  + / - : ταχύτητα     SPACE : στάση     Q : πίσω στο μενού\n"
+        keys = (f"{self.one_joint}: A=ch{self.a} B=ch{self.b}\n"
+                "  κράτα W / S : θετικά / αρνητικά     (A / D κλειστά)\n" if self.one_joint else
+                f"Διαφορικό A=ch{self.a} B=ch{self.b} (B {'ανεστραμμένο' if self.invert_b else 'κανονικό'})\n"
+                "  κράτα W / S : pitch (μοτέρ μαζί)     κράτα A / D : roll (μοτέρ αντίθετα)\n")
+        self.out(keys
+                 + "  + / - : ταχύτητα     SPACE : στάση     Q : πίσω στο μενού\n"
                  + (f"  σταματά αν {', '.join(f'mux{c}' for c in limited)} κινηθεί πάνω από {limit}°\n" if limited
                     else "  ΧΩΡΙΣ ΟΡΙΟ ΔΙΑΔΡΟΜΗΣ: η κίνηση σταματά μόνο όταν αφήνεις το πλήκτρο\n"))
         f = open(csv_path, "w", newline="") if csv_path else None
@@ -362,6 +367,10 @@ class Teleop:
                     for key in data.decode("utf-8", errors="ignore"):
                         ctrl.on_key(key, now)
                 pitch, roll = ctrl.command(now)
+                if self.one_joint:
+                    # One joint has one motion. A / D would turn its two servos against each other: on
+                    # joint_3's mirrored pair that twists the shaft (bench, 2026-11-26).
+                    roll = 0.0
                 pulses = self.pulses(pitch, roll)
                 if pulses != applied:
                     for ch, pulse in pulses.items():

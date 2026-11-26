@@ -210,3 +210,25 @@ def test_a_joint_of_the_arm_file_drives_with_w_and_s(config):
         assert not tele.use_joint("gripper", path) and "μόνο αρθρώσεις με δύο" in lines[-1]
         assert not tele.use_joint("joint_4", path) and "χωρίς κανάλι" in lines[-1]
         assert not tele.use_joint("joint_9", path) and "δεν υπάρχει" in lines[-1]
+
+
+def test_one_joint_ignores_a_and_d(config, monkeypatch):
+    """[12]: A / D would turn joint_3's mirrored servos against each other (bench, 2026-11-26): nothing moves."""
+    import tempfile
+
+    import yaml
+    data = yaml.safe_load(t.ARM_FILE.read_text(encoding="utf-8"))
+    data["servos"]["servo_3"]["channel"], data["servos"]["servo_4"]["channel"] = 2, 3
+    data["encoders"]["enc_3"]["channel"] = 3
+    bus = FakeBus(devices_root=(), devices_per_channel={0: {0x40}, 3: {0x36}}, raw_angles={3: 1000})
+    tele = t.Teleop(wb.Bench(config, bus), out=lambda *_: None)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "arm.yaml"
+        path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+        tele.calibration_path = Path(tmp) / "base_calibration.json"
+        assert tele.use_joint("joint_3", path)
+    _fake_terminal(monkeypatch, "ddaaq")
+    tele.drive(ask=lambda prompt: "")
+    moving = [w for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0 + 8, wb.PCA_LED0 + 12)
+              and w[3] != [0, 0, 0, 0x10]]
+    assert moving == []

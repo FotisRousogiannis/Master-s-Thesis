@@ -553,6 +553,8 @@ class CalibrationPanel(QtWidgets.QWidget):
         request = self.bench.ping()
         if request is not None:
             self.identify_requested.emit(request)
+        if self.bench.waiting_since is not None:
+            self._refresh()                              # shows «δεν απαντά» if it stays silent
 
     def on_identify_reply(self, reply: dict):
         for request in self.bench.handle(reply):
@@ -592,9 +594,11 @@ class CalibrationPanel(QtWidgets.QWidget):
 
     def _refresh(self):
         running = self.bench.running
-        self.mode.setText(("Pi: αναγνώριση" + (f" · {running}…" if running else "")) if self.bench.active
+        silent = self.bench.silent
+        self.mode.setText("Pi: δεν απαντά" if silent else
+                          ("Pi: αναγνώριση" + (f" · {running}…" if running else "")) if self.bench.active
                           else "Pi: κανονικός έλεγχος")
-        self.mode.setProperty("state", "warn" if self.bench.active else "off")
+        self.mode.setProperty("state", "error" if silent else "warn" if self.bench.active else "off")
         theme.repolish(self.mode)
         self.save_button.setEnabled(bool(self.bench.changes) and not running)
         self.save_button.setText(f"Σωστό · αποθήκευση ({len(self.bench.changes)})" if self.bench.changes

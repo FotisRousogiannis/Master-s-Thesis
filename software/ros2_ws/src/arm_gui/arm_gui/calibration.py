@@ -12,6 +12,7 @@ arm.yaml.
 """
 
 import re
+import time
 
 from arm_calibration import arm_config
 
@@ -69,10 +70,16 @@ def zero_for(raw_deg: float, invert: bool, angle_deg: float) -> float:
 PRESSURE = "Πίεση αρπάγης"
 
 
+PI_SILENT_S = 4.0        # a request unanswered this long: the Pi's driver is not running (or not reachable)
+
+
 class Bench:
     """What the Pi said, and what a finished procedure would save."""
 
-    def __init__(self):
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.waiting_since = None        # time of the oldest request with no reply since
+        self._silence_said = False
         self.data = None
         self.active = False              # the Pi is (we asked it to be) in identification mode
         self.live = {}                   # {channel: {'raw_deg', 'status'}} from the Pi, 5 Hz
@@ -115,7 +122,19 @@ class Bench:
         self._next_id += 1
         if request["op"] != "exit":
             self.active = True
+            if self.waiting_since is None:
+                self.waiting_since = self.clock()
         return request
+
+    @property
+    def silent(self) -> bool:
+        """True while the Pi has not answered for PI_SILENT_S; the first time it also goes to the log."""
+        silent = self.waiting_since is not None and self.clock() - self.waiting_since > PI_SILENT_S
+        if silent and not self._silence_said:
+            self._silence_said = True
+            self.log.append(("error", "Ο driver του Pi δεν απαντά. Τρέχει; Στο Pi: cd software/pi/docker && "
+                                      "docker compose start (το teleop.py πρέπει να είναι κλειστό)"))
+        return silent
 
     def scan(self) -> dict:
         return self._request({"op": "scan"})
@@ -185,6 +204,7 @@ class Bench:
     # ---------------------------------------------------------------- replies
     def handle(self, reply: dict) -> list:
         """One reply of the Pi → follow-up requests (the next routine of a procedure)."""
+        self.waiting_since, self._silence_said = None, False          # it answers
         op = reply.get("op")
         if op == "live":
             self.live = {int(ch): r for ch, r in reply["result"].items()}

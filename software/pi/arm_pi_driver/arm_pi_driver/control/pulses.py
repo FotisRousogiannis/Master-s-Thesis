@@ -31,7 +31,8 @@ def compensated_pulse(speed: float, neutral_us: float, edges, span_us: float) ->
 
 def plain_pulse(speed: float, neutral_us: float, min_us: float, max_us: float,
                 max_offset_us: float) -> float:
-    """Χωρίς αντιστάθμιση: −1..1 → min..νεκρό..max, μέσα στο όριο ασφαλείας."""
+    """Χωρίς αντιστάθμιση: −1..1 → νεκρό ± ίδιο εύρος προς τις δύο μεριές (το μικρότερο που
+    χωρά σε min, max και στο όριο ασφαλείας). Με διαφορετικό εύρος ανά μεριά, δύο μοτέρ μιας
+    άρθρωσης που γυρίζουν αντίθετα έπαιρναν διαφορετική ταχύτητα (joint_3, 2026-11-26)."""
     speed = clamp(speed, -1.0, 1.0)
-    pulse = neutral_us + speed * ((max_us - neutral_us) if speed >= 0 else (neutral_us - min_us))
-    return clamp(pulse, neutral_us - max_offset_us, neutral_us + max_offset_us)
+    return neutral_us + speed * min(max_offset_us, max_us - neutral_us, neutral_us - min_us)

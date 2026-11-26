@@ -378,5 +378,6 @@ def test_compensation_removes_coupling_at_small_commands(config, tmp_path):
     pitch_off, roll_off = roll_drift(0.0)
     pitch_on, roll_on = roll_drift(1.0)
     assert abs(roll_off) > 1.0                 # without: only motor B moves -> roll moves too
-    assert abs(roll_on) < 0.15 * abs(roll_off)  # with: both motors move -> (almost) pure pitch
+    assert abs(roll_on) < 0.3 * abs(roll_off)   # with: both motors move -> (almost) pure pitch
+    # (0.15 with the old one-sided mapping; the same span both ways already made "without" less bad)
     assert abs(pitch_on) > 1.0

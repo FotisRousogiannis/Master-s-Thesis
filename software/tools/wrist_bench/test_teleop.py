@@ -28,11 +28,13 @@ def base_bus(cls=FakeBus):
 
 
 def test_speed_mapping_is_the_old_tools_within_the_bench_limit():
-    # old servo_test.speed_to_pulse with centre 1600, 500..2500: 0.4 -> 1960 / 1160
+    # the same span both ways: 1600 µs, 500..2500, limit 900 → ±900 µs (the old tool gave 1960 / 1160 at 0.4)
     assert t.speed_to_pulse(0.4, 1600, 500, 2500, 900) == pytest.approx(1960)
-    assert t.speed_to_pulse(-0.4, 1600, 500, 2500, 900) == pytest.approx(1160)
-    assert t.speed_to_pulse(-1.0, 1600, 500, 2500, 900) == 700     # old: 500, bench limit: 1600 - 900
+    assert t.speed_to_pulse(-0.4, 1600, 500, 2500, 900) == pytest.approx(1240)
+    assert t.speed_to_pulse(-1.0, 1600, 500, 2500, 900) == 700
     assert t.speed_to_pulse(2.0, 1600, 500, 2500, 900) == 2500
+    # a neutral off the centre: the shorter side sets the span for both (1900: only 600 µs up to 2500)
+    assert t.speed_to_pulse(1.0, 1900, 500, 2500, 900) - 1900 == 1900 - t.speed_to_pulse(-1.0, 1900, 500, 2500, 900)
 
 
 def test_controller_keys_and_first_press_covers_the_autorepeat_delay():
@@ -52,7 +54,7 @@ def test_controller_keys_and_first_press_covers_the_autorepeat_delay():
 
 def test_differential_pulses_with_mirrored_b(config):
     tele = t.Teleop(wb.Bench(config, base_bus()), a=0, b=1, invert_b=True)
-    assert tele.pulses(0.4, 0.0) == {0: pytest.approx(1960), 1: pytest.approx(1160)}   # pitch: opposite pulses
+    assert tele.pulses(0.4, 0.0) == {0: pytest.approx(1960), 1: pytest.approx(1240)}   # pitch: opposite pulses
     assert tele.pulses(0.0, 0.4) == {0: pytest.approx(1960), 1: pytest.approx(1960)}   # roll: same pulses
     assert tele.pulses(0.0, 0.0) == {0: None, 1: None}                                 # stop = outputs off
     # equal pitch and roll: only A runs; B gets neutral so it brakes instead of turning freely
@@ -87,7 +89,7 @@ def test_drive_moves_both_motors_through_the_mux_records_and_ends_off(config, mo
     tele.drive(csv_path=str(tmp_path / "run.csv"))
     pca = tele.bench.pca
     pulses = {w[2]: w[3] for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0, wb.PCA_LED0 + 4)}
-    a, b = pca.us_to_ticks(1960), pca.us_to_ticks(1160)
+    a, b = pca.us_to_ticks(1960), pca.us_to_ticks(1240)
     assert pulses[wb.PCA_LED0] == [0, 0, a & 0xFF, a >> 8] and pulses[wb.PCA_LED0 + 4] == [0, 0, b & 0xFF, b >> 8]
     assert [w for w in bus.writes if w[0] == "block"][-1][2] == wb.PCA_ALL_OFF
     assert any("mux2 μαγνήτης NO_MAGNET" in l for l in lines)

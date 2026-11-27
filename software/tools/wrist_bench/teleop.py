@@ -297,6 +297,11 @@ class Teleop:
         sa = max(-1.0, min(1.0, pitch + roll))
         sb = max(-1.0, min(1.0, pitch - roll)) * (-1 if self.invert_b else 1)
         if sa == 0 and sb == 0:
+            if self.one_joint:
+                # [12] stops with the neutral pulse (brake), like the Pi's driver. Without a pulse a digital servo
+                # keeps doing its last command until its own timeout: joint_3's servos, converted to continuous
+                # rotation, ran on after the stop (bench, 2026-11-27).
+                return {self.a: n_a, self.b: n_b}
             return {self.a: None, self.b: None}          # both stopped: outputs off
         # A motor at 0 while the other runs gets the neutral pulse, so its own controller brakes it.
         # Without a pulse it is free, and the running motor just turns it backwards through the

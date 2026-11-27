@@ -207,6 +207,7 @@ def test_a_joint_of_the_arm_file_drives_with_w_and_s(config):
         assert tele.calibration_path.name == "joint_3_calibration.json"      # not the base's file
         pulses = tele.pulses(0.4, 0.0)                     # W
         assert pulses[2] > 1600 > pulses[3]                # mirrored: opposite pulses
+        assert tele.pulses(0.0, 0.0) == {2: 1600, 3: 1600}  # stop = neutral (brake), not «no pulse»
         assert not tele.use_joint("gripper", path) and "μόνο αρθρώσεις με δύο" in lines[-1]
         assert not tele.use_joint("joint_4", path) and "χωρίς κανάλι" in lines[-1]
         assert not tele.use_joint("joint_9", path) and "δεν υπάρχει" in lines[-1]
@@ -229,9 +230,10 @@ def test_one_joint_ignores_a_and_d(config, monkeypatch):
         assert tele.use_joint("joint_3", path)
     _fake_terminal(monkeypatch, "ddaaq")
     tele.drive(ask=lambda prompt: "")
+    brake = tele.bench.pca.us_to_ticks(1600)
     moving = [w for w in bus.writes if w[0] == "block" and w[2] in (wb.PCA_LED0 + 8, wb.PCA_LED0 + 12)
-              and w[3] != [0, 0, 0, 0x10]]
-    assert moving == []
+              and w[3] not in ([0, 0, 0, 0x10], [0, 0, brake & 0xFF, brake >> 8])]
+    assert moving == []                                 # only «off» or the neutral (brake): nothing turns
 
 
 def test_latch_runs_until_any_key_without_key_repeat():
